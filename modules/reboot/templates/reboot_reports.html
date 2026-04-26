@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">中控重启测试报告历史</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ prefix }}/" class="btn btn-sm btn-outline-secondary">返回控制台</a>
+        </div>
+    </div>
+
+    <div class="card w-100">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="reports-table">
+                    <thead>
+                        <tr>
+                            <th>任务ID</th>
+                            <th>开始时间</th>
+                            <th>持续时间 (秒)</th>
+                            <th>设备IP</th>
+                            <th>重启次数</th>
+                            <th>成功次数</th>
+                            <th>失败统计 (ADB启用/连接/进程/开/关)</th>
+                            <th>备注</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data will be loaded via API -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const PREFIX = '{{ prefix }}';
+
+    async function loadReports() {
+        try {
+            const res = await fetch(`${PREFIX}/api/reports/list`);
+            const json = await res.json();
+            if (json.ok || json.success) {
+                renderTable(json.data);
+            } else {
+                alert('加载报告失败: ' + json.message);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('加载报告出错');
+        }
+    }
+
+    function renderTable(data) {
+        const tbody = document.querySelector('#reports-table tbody');
+        tbody.innerHTML = '';
+        
+        // Data is flat list of device reports. Maybe we want to group by task_id?
+        // But user asked for "history search".
+        // The current save_report structure saves one entry per device per task.
+        // Or one entry per task?
+        // Let's check api_stop again. It saves one entry per device.
+        // So we will see multiple rows for the same task_id.
+        // Grouping by Task ID is better.
+        
+        const grouped = {};
+        data.forEach(item => {
+            if (!grouped[item.task_id]) {
+                grouped[item.task_id] = {
+                    task_id: item.task_id,
+                    timestamp: item.timestamp,
+                    duration: item.duration_sec,
+                    devices: []
+                };
+            }
+            grouped[item.task_id].devices.push(item);
+        });
+
+        // Convert to array and sort by timestamp desc
+        const list = Object.values(grouped).sort((a, b) => b.timestamp - a.timestamp);
+
+        list.forEach(task => {
+            const tr = document.createElement('tr');
+            const date = new Date(task.timestamp * 1000).toLocaleString();
+            
+            let deviceHtml = '';
+            task.devices.forEach(d => {
+                deviceHtml += `<div><strong>${d.device_ip}</strong> (${d.adb_port}): ${d.execution_success_count}/${d.reboot_count} 成功</div>`;
+            });
+            
+            let failHtml = '';
+            task.devices.forEach(d => {
+                 const fails = [
+                    d.fail_adb_enable,
+                    d.fail_adb_connect,
+                    d.fail_process_check,
+                    d.fail_power_on,
+                    d.fail_power_off
+                 ].join('/');
+                 failHtml += `<div>${d.device_ip}: ${fails}</div>`;
+            });
+
+            tr.innerHTML = `
+                <td><a href="${PREFIX}/reports/detail/${task.task_id}">${task.task_id}</a></td>
+                <td>${date}</td>
+                <td>${task.duration}</td>
+                <td>${deviceHtml}</td>
+                <td>${task.devices.reduce((acc, cur) => acc + cur.reboot_count, 0)} (总计)</td>
+                <td>${task.devices.reduce((acc, cur) => acc + cur.execution_success_count, 0)} (总计)</td>
+                <td><small>${failHtml}</small></td>
+                <td>${task.devices[0].note || ''}</td>
+                <td>
+                    <a href="${PREFIX}/reports/detail/${task.task_id}" class="btn btn-sm btn-primary">详情</a>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadReports);
+</script>
+{% endblock %}

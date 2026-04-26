@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .grid { display: flex; flex-direction: column; gap: 16px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 20px; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); }
+    .logs { height: 150px; overflow: auto; background: #f9f9f9; padding: 8px; font-family: monospace; border: 1px solid #eee; }
+    label { display: block; margin-top: 8px; }
+    input, select, textarea { width: 100%; padding: 6px; border: 1px solid #ced4da; border-radius: 4px; }
+    input[type="checkbox"], input[type="radio"] { width: auto; }
+    button { padding: 8px 12px; margin-right: 8px; background-color: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background-color: #0b5ed7; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #eee; padding: 6px; font-size: 14px; text-align: left; }
+    th { background: #fafafa; }
+    .row-actions button { margin-right: 4px; padding: 4px 8px; font-size: 12px; background-color: #dc3545; }
+    .hidden { display:none; }
+    h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">中控重启测试控制台</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ prefix }}/reports" class="btn btn-sm btn-outline-info me-3">查看历史报告</a>
+            <div class="me-2">
+                任务状态：<strong id="running" class="badge bg-secondary">-</strong>
+                任务ID：<code id="task_id">-</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务控制卡片 -->
+    <div class="card w-100">
+        <h3>任务配置</h3>
+        <div class="row">
+            <div class="col-md-3">
+                <label>循环时长（分钟）<input id="duration" type="number" value="60" /></label>
+            </div>
+            <div class="col-md-3">
+                <label>失败阈值（连续失败停止）<input id="failure_threshold" type="number" value="5" /></label>
+            </div>
+            <div class="col-md-3">
+                <label>通电后等待（秒）<input id="wait_on" type="number" value="70" /></label>
+            </div>
+            <div class="col-md-3">
+                <label>断电等待（秒）<input id="off_wait" type="number" value="10" /></label>
+            </div>
+        </div>
+
+        <div class="row mt-3">
+            <div class="col-md-8">
+                <div class="card h-100" style="padding:8px; margin-bottom: 0;">
+                    <strong>重试策略</strong>
+                    <div class="d-flex flex-wrap gap-3">
+                        <label class="mb-0">ADB启用<input id="retry_adb_enable" type="number" value="5" style="width:60px; display:inline-block; margin-left:4px;" /></label>
+                        <label class="mb-0">ADB连接<input id="retry_adb_connect" type="number" value="5" style="width:60px; display:inline-block; margin-left:4px;" /></label>
+                        <label class="mb-0">进程检测<input id="retry_process_check" type="number" value="3" style="width:60px; display:inline-block; margin-left:4px;" /></label>
+                        <label class="mb-0">串口通电<input id="retry_serial_on" type="number" value="3" style="width:60px; display:inline-block; margin-left:4px;" /></label>
+                        <label class="mb-0">串口断电<input id="retry_serial_off" type="number" value="3" style="width:60px; display:inline-block; margin-left:4px;" /></label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100" style="padding:8px; margin-bottom: 0;">
+                    <strong>高级选项</strong>
+                    <div class="d-flex flex-column">
+                        <label class="mt-1"><input type="checkbox" id="enable_adb" checked /> 启用ADB与进程验证</label>
+                        <label class="mt-1"><input type="checkbox" id="verify_poweroff" checked /> 仅在进程验证成功后执行断电</label>
+                        <label class="mt-1"><input type="checkbox" id="screenshot_before_reboot" /> 断电前截屏（机顶盒端，可选）</label>
+                        <label class="mt-1 d-flex align-items-center gap-2">
+                            <input type="checkbox" id="screenshot_after_on" />
+                            <span>通电后截屏（可选）</span>
+                            <span class="text-muted small">延迟</span>
+                            <input type="number" id="screenshot_after_on_delay_sec" value="45" min="0" style="width:80px;" />
+                            <span class="text-muted small">秒</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <label style="margin-top:10px; font-weight: bold;">
+            <input type="checkbox" id="use_devices" /> 使用自定义设备配置
+        </label>
+        <div style="margin:6px 0;">
+            <label style="display: inline-block; margin-right: 15px;"><input type="radio" name="dev_mode" id="use_json" onchange="toggleDevicesMode()"> JSON 输入</label>
+            <label style="display: inline-block;"><input type="radio" name="dev_mode" id="use_table" checked onchange="toggleDevicesMode()"> 表格填写</label>
+        </div>
+
+        <!-- 串口默认配置 -->
+        <div class="card" style="padding:8px; margin:8px 0; background-color: #f8f9fa;">
+            <strong>串口默认配置（用于批量填充）</strong>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                <label>串口(COM)<input id="def_com_port" value="COM13" /></label>
+                <label>波特率<input id="def_baud" type="number" value="9600" /></label>
+                <label>地址码(HEX)<input id="def_addr_hex" value="01" /></label>
+            </div>
+            <div style="margin-top:8px;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applySerialDefaultsToTable()">应用到所有行</button>
+            </div>
+        </div>
+
+        <!-- 快速配置 -->
+        <div class="card" style="padding:8px; margin:8px 0; background-color: #e9ecef;">
+            <strong>快速生成设备列表（通过 IP）</strong>
+            <div style="margin-top:6px;">
+                <label>IP列表（逗号/空格分隔）
+                    <textarea id="ip_list_input" rows="2" placeholder="例如：192.168.16.121 192.168.16.123"></textarea>
+                </label>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                <label>默认ADB端口<input id="ip_list_adb_port" type="number" value="8787" /></label>
+                <label>起始通道<input id="ip_list_start_channel" type="number" value="1" /></label>
+                <div style="align-self:end;">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="populateTableFromIpList()">生成表格</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="json_box" class="hidden">
+            <label>设备列表（JSON 数组）
+                <textarea id="devices_json" rows="6" placeholder='[{"ip":"192.168.16.120","adb_port":8787,"channel":1,"com_port":"COM13","baud":9600,"addr_hex":"01","package":"com.thunder.ktv"}]'></textarea>
+            </label>
+        </div>
+
+        <div id="table_box">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>IP</th><th>ADB端口</th><th>通道</th><th>串口</th><th>波特率</th><th>地址码</th><th>包名</th><th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devices_tbody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top:8px;">
+                <button type="button" class="btn btn-sm btn-success" onclick="addRow()">+ 新增行</button>
+                <button type="button" class="btn btn-sm btn-info" onclick="fillSampleTable()">填入示例</button>
+            </div>
+        </div>
+
+        <div style="margin-top:20px; border-top: 1px solid #ddd; padding-top: 15px;">
+            <button onclick="startTask()" class="btn btn-primary">启动任务</button>
+            <button onclick="stopTask()" class="btn btn-danger">停止任务</button>
+        </div>
+    </div>
+
+    <!-- 实时日志卡片 -->
+    <div class="card w-100">
+        <h3>实时日志</h3>
+        <div id="logs" class="logs"></div>
+    </div>
+
+    <!-- 设备统计卡片 -->
+    <div class="card w-100">
+        <h3>设备执行统计</h3>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>设备</th><th>当前状态</th><th>重启次数</th><th>执行成功</th><th>ADB启用失败</th><th>ADB连接失败</th>
+                        <th>进程检测失败</th><th>通电失败</th><th>断电失败</th>
+                    </tr>
+                </thead>
+                <tbody id="dev_tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let prefix = '/reboot';
+    let isConfigRestored = false;
+
+    function restoreUI(snapshot) {
+      if (!snapshot) return;
+      
+      // 1. 恢复基本配置
+      if (snapshot.duration_minutes) document.getElementById('duration').value = snapshot.duration_minutes;
+      
+      const defs = snapshot.defaults || {};
+      if (defs.failure_threshold) document.getElementById('failure_threshold').value = defs.failure_threshold;
+      if (defs.wait_after_on) document.getElementById('wait_on').value = defs.wait_after_on;
+      if (defs.power_off_wait) document.getElementById('off_wait').value = defs.power_off_wait;
+      if (defs.enable_adb !== undefined) document.getElementById('enable_adb').checked = defs.enable_adb;
+      if (defs.verify_poweroff !== undefined) document.getElementById('verify_poweroff').checked = defs.verify_poweroff;
+      if (defs.screenshot_before_reboot !== undefined) document.getElementById('screenshot_before_reboot').checked = defs.screenshot_before_reboot;
+      if (defs.screenshot_after_on !== undefined) document.getElementById('screenshot_after_on').checked = defs.screenshot_after_on;
+      if (defs.screenshot_after_on_delay_sec) document.getElementById('screenshot_after_on_delay_sec').value = defs.screenshot_after_on_delay_sec;
+
+      const retries = defs.retries || {};
+      if (retries.adb_enable) document.getElementById('retry_adb_enable').value = retries.adb_enable;
+      if (retries.adb_connect) document.getElementById('retry_adb_connect').value = retries.adb_connect;
+      if (retries.process_check) document.getElementById('retry_process_check').value = retries.process_check;
+      if (retries.serial_on) document.getElementById('retry_serial_on').value = retries.serial_on;
+      if (retries.serial_off) document.getElementById('retry_serial_off').value = retries.serial_off;
+
+      // 2. 恢复设备列表表格
+      const devices = snapshot.devices || [];
+      if (devices.length > 0) {
+        document.getElementById('use_devices').checked = true;
+        document.getElementById('use_table').checked = true;
+        toggleDevicesMode();
+        
+        const tbody = document.getElementById('devices_tbody');
+        tbody.innerHTML = '';
+        devices.forEach(d => addRow(d));
+      }
+
+      // 3. 锁定输入控件（可选，提示用户正在运行中）
+      toggleInputs(true);
+      
+      console.log('UI state restored from running task snapshot');
+    }
+
+    function toggleInputs(disabled) {
+      const inputs = document.querySelectorAll('#duration, #failure_threshold, #wait_on, #off_wait, #enable_adb, #verify_poweroff, input[id^="retry_"], #devices_tbody input, #devices_tbody button, #ip_list_input, #ip_list_adb_port, #ip_list_start_channel, #def_com_port, #def_baud, #def_addr_hex');
+      inputs.forEach(el => el.disabled = disabled);
+      // 按钮
+      const btns = document.querySelectorAll('button[onclick="addRow()"], button[onclick="fillSampleTable()"], button[onclick="startTask()"], button[onclick="populateTableFromIpList()"], button[onclick="applySerialDefaultsToTable()"]');
+      btns.forEach(btn => btn.disabled = disabled);
+    }
+    
+    function fillSample() {
+      const sample = [
+        {"ip":"192.168.16.120","adb_port":8787,"channel":1,"com_port":"COM13","baud":9600,"addr_hex":"01","package":"com.thunder.ktv"},
+        {"ip":"192.168.16.121","adb_port":8787,"channel":2,"com_port":"COM13","baud":9600,"addr_hex":"01","package":"com.thunder.ktv"}
+      ];
+      document.getElementById('devices_json').value = JSON.stringify(sample, null, 2);
+    }
+    
+    function parseDevicesInput() {
+      const use = document.getElementById('use_devices').checked;
+      if (!use) return null;
+      const useTable = document.getElementById('use_table').checked;
+      if (useTable) {
+        const arr = buildDevicesFromTable();
+        if (arr === 'error') return 'error';
+        return arr;
+      } else {
+        const raw = (document.getElementById('devices_json').value || '').trim();
+        if (!raw) { alert('请填写设备列表 JSON'); return 'error'; }
+        try {
+          const arr = JSON.parse(raw);
+          if (!Array.isArray(arr) || arr.length === 0) { alert('设备列表必须是非空数组'); return 'error'; }
+          return arr;
+        } catch (e) {
+          alert('设备列表 JSON 解析失败：' + e.message);
+          return 'error';
+        }
+      }
+    }
+
+    function toggleDevicesMode() {
+      const useTable = document.getElementById('use_table').checked;
+      document.getElementById('json_box').classList.toggle('hidden', useTable);
+      document.getElementById('table_box').classList.toggle('hidden', !useTable);
+    }
+
+    function addRow(preset) {
+      const tbody = document.getElementById('devices_tbody');
+      const tr = document.createElement('tr');
+      const def = preset || { ip:'', adb_port:8787, channel:'', com_port:'COM13', baud:9600, addr_hex:'01', package:'com.thunder.ktv' };
+      tr.innerHTML = `
+        <td><input type="text" class="ip form-control form-control-sm" placeholder="192.168.16.x" value="${def.ip}"></td>
+        <td><input type="number" class="adb_port form-control form-control-sm" value="${def.adb_port}"></td>
+        <td><input type="number" class="channel form-control form-control-sm" placeholder="1-8" value="${def.channel}"></td>
+        <td><input type="text" class="com_port form-control form-control-sm" value="${def.com_port}"></td>
+        <td><input type="number" class="baud form-control form-control-sm" value="${def.baud}"></td>
+        <td><input type="text" class="addr_hex form-control form-control-sm" value="${def.addr_hex}"></td>
+        <td><input type="text" class="pkg form-control form-control-sm" value="${def.package}"></td>
+        <td class="row-actions"><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">删除</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function fillSampleTable() {
+      const tbody = document.getElementById('devices_tbody');
+      tbody.innerHTML = '';
+      addRow({ip:'192.168.16.120', adb_port:8787, channel:1, com_port:'COM13', baud:9600, addr_hex:'01', package:'com.thunder.ktv'});
+      addRow({ip:'192.168.16.121', adb_port:8787, channel:2, com_port:'COM13', baud:9600, addr_hex:'01', package:'com.thunder.ktv'});
+    }
+
+    function applySerialDefaultsToTable(){
+      const com = document.getElementById('def_com_port').value || 'COM13';
+      const baud = parseInt(document.getElementById('def_baud').value||'9600');
+      const addr = document.getElementById('def_addr_hex').value || '01';
+      const rows = Array.from(document.querySelectorAll('#devices_tbody tr'));
+      rows.forEach(r=>{
+        const comEl = r.querySelector('.com_port'); if (comEl) comEl.value = com;
+        const baudEl = r.querySelector('.baud'); if (baudEl) baudEl.value = baud;
+        const addrEl = r.querySelector('.addr_hex'); if (addrEl) addrEl.value = addr;
+      });
+    }
+
+    function populateTableFromIpList(){
+      const raw = (document.getElementById('ip_list_input').value||'').trim();
+      if (!raw){ alert('请填写IP列表'); return; }
+      const parts = raw.split(/[\s,]+/).filter(Boolean);
+      if (parts.length === 0){ alert('IP列表为空'); return; }
+      if (parts.length > 8){ alert('最多支持8路，请减少IP数量'); return; }
+      const startCh = parseInt(document.getElementById('ip_list_start_channel').value||'1');
+      const adbPort = parseInt(document.getElementById('ip_list_adb_port').value||'8787');
+      const com = document.getElementById('def_com_port').value || 'COM13';
+      const baud = parseInt(document.getElementById('def_baud').value||'9600');
+      const addr = document.getElementById('def_addr_hex').value || '01';
+      
+      document.getElementById('use_devices').checked = true;
+      document.getElementById('use_table').checked = true;
+      toggleDevicesMode();
+      
+      const tbody = document.getElementById('devices_tbody');
+      tbody.innerHTML = '';
+      let ch = startCh;
+      for (const ip of parts){
+        if (ch < 1 || ch > 8){ alert('通道超过范围 1-8，请调整起始通道'); return; }
+        addRow({ip, adb_port: adbPort, channel: ch, com_port: com, baud: baud, addr_hex: addr, package: 'com.thunder.ktv'});
+        ch += 1;
+      }
+    }
+
+    function buildDevicesFromTable() {
+      const rows = Array.from(document.querySelectorAll('#devices_tbody tr'));
+      if (rows.length === 0) { alert('请在表格中添加至少一行设备'); return 'error'; }
+      const devices = [];
+      const channels = new Set();
+      for (const r of rows) {
+        const ip = r.querySelector('.ip').value.trim();
+        const adb_port = parseInt(r.querySelector('.adb_port').value || '8787');
+        const channel = parseInt(r.querySelector('.channel').value || '');
+        const com_port = r.querySelector('.com_port').value.trim();
+        const baud = parseInt(r.querySelector('.baud').value || '9600');
+        const addr_hex = r.querySelector('.addr_hex').value.trim();
+        const pkg = r.querySelector('.pkg').value.trim();
+        if (!ip || !channel || !com_port || !addr_hex || !pkg) { alert('表格存在必填项为空'); return 'error'; }
+        if (channel < 1 || channel > 8) { alert('通道必须在 1-8 范围'); return 'error'; }
+        if (channels.has(channel)) { alert('通道重复，请确保唯一'); return 'error'; }
+        channels.add(channel);
+        devices.push({ ip, adb_port, channel, com_port, baud, addr_hex, package: pkg });
+      }
+      return devices;
+    }
+
+    async function startTask() {
+      // 确认对话框
+      const confirmed = await ConfirmDialog.show(
+        '确定要启动重启测试任务吗？此操作将开始循环重启设备。',
+        '确认启动任务'
+      );
+      if (!confirmed) return;
+
+      const duration = parseInt(document.getElementById('duration').value || '60');
+      const waitOn = parseInt(document.getElementById('wait_on').value || '70');
+      const offWait = parseInt(document.getElementById('off_wait').value || '10');
+      const failureThreshold = parseInt(document.getElementById('failure_threshold').value || '5');
+      const enableAdb = document.getElementById('enable_adb').checked;
+      const verifyPoweroff = document.getElementById('verify_poweroff').checked;
+      const retries = {
+        adb_enable: parseInt(document.getElementById('retry_adb_enable').value || '5'),
+        adb_connect: parseInt(document.getElementById('retry_adb_connect').value || '5'),
+        process_check: parseInt(document.getElementById('retry_process_check').value || '3'),
+        serial_on: parseInt(document.getElementById('retry_serial_on').value || '3'),
+        serial_off: parseInt(document.getElementById('retry_serial_off').value || '3')
+      };
+      const screenshotBeforeReboot = document.getElementById('screenshot_before_reboot').checked;
+      const screenshotAfterOn = document.getElementById('screenshot_after_on').checked;
+      const screenshotAfterOnDelaySec = parseInt(document.getElementById('screenshot_after_on_delay_sec').value || '45', 10) || 45;
+      const payload = {
+        duration_minutes: duration,
+        defaults: {
+          wait_after_on: waitOn,
+          power_off_wait: offWait,
+          failure_threshold: failureThreshold,
+          enable_adb: enableAdb,
+          verify_poweroff: verifyPoweroff,
+          screenshot_before_reboot: screenshotBeforeReboot,
+          screenshot_after_on: screenshotAfterOn,
+          screenshot_after_on_delay_sec: screenshotAfterOnDelaySec,
+          retries
+        }
+      };
+      const devices = parseDevicesInput();
+      if (devices === 'error') return;
+      if (devices) payload.devices = devices;
+
+      try {
+        const result = await ApiClient.post(prefix + '/api/start', payload, {
+          showLoading: true,
+          loadingMessage: '正在启动任务...'
+        });
+        if (result.ok || result.success) {
+          const taskId = result.data?.task_id || result.task_id;
+          const deviceCount = result.data?.device_count;
+          const message = result.message || `任务启动成功${deviceCount ? `，共 ${deviceCount} 个设备` : ''}，任务ID: ${taskId}`;
+          toast.success(message);
+          refreshStatus();
+        }
+      } catch (error) {
+        // 错误已自动处理
+        refreshStatus();
+      }
+    }
+
+    async function stopTask() {
+      // 确认对话框
+      const confirmed = await ConfirmDialog.show(
+        '确定要停止当前任务吗？',
+        '确认停止任务'
+      );
+      if (!confirmed) return;
+
+      try {
+        const result = await ApiClient.post(prefix + '/api/stop', {}, {
+          showLoading: true,
+          loadingMessage: '正在停止任务...'
+        });
+        if (result.ok || result.success) {
+          toast.success(result.message || '任务已停止');
+          refreshStatus();
+        }
+      } catch (error) {
+        // 错误已自动处理
+        refreshStatus();
+      }
+    }
+
+    async function refreshStatus() {
+      try {
+        // 设置较短的超时时间，避免轮询阻塞
+        const data = await ApiClient.get(prefix + '/api/status', {
+          showLoading: false,
+          timeout: 5000
+        });
+        
+        const statusData = data.data || data;
+        console.log('[DEBUG] Status Data:', statusData);
+        const runEl = document.getElementById('running');
+        if (runEl) {
+            runEl.textContent = statusData.running ? '运行中' : '已停止';
+            runEl.className = statusData.running ? 'badge bg-success' : 'badge bg-secondary';
+        }
+        
+        const taskIdEl = document.getElementById('task_id');
+        if (taskIdEl) taskIdEl.textContent = statusData.task_id || '-';
+
+        // 1. 先更新统计表格 (保证数据可见性)
+        const tbody = document.getElementById('dev_tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            Object.entries(statusData.devices || {}).forEach(([k,v])=>{
+              const s = v.stats || {};
+              const tr = document.createElement('tr');
+              tr.innerHTML = `<td>${k}</td><td>${s.current_status||'-'}</td><td>${s.reboot_count||0}</td><td>${s.execution_success_count||0}</td>`+
+                `<td>${s.fail_adb_enable||0}</td><td>${s.fail_adb_connect||0}</td><td>${s.fail_process_check||0}</td>`+
+                `<td>${s.fail_power_on||0}</td><td>${s.fail_power_off||0}</td>`;
+              tbody.appendChild(tr);
+            });
+        }
+
+        // 2. 更新日志 (保证数据可见性)
+        const logsDiv = document.getElementById('logs');
+        if (logsDiv) {
+            const shouldScroll = logsDiv.scrollTop + logsDiv.clientHeight >= logsDiv.scrollHeight - 20;
+            const newContent = (statusData.logs||[]).map(x=>{
+              const dt = new Date((x.ts||0)*1000).toLocaleString();
+              const safeMsg = (x.msg || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+              return `<div>[${dt}] ${safeMsg} ${x.ctx?JSON.stringify(x.ctx):''}</div>`
+            }).join('');
+            
+            if (logsDiv.innerHTML !== newContent) {
+                logsDiv.innerHTML = newContent;
+                if (shouldScroll) {
+                    logsDiv.scrollTop = logsDiv.scrollHeight;
+                }
+            }
+        }
+
+        // 3. 最后尝试恢复配置 UI (放在最后防止阻塞)
+        if (statusData.running) {
+            try {
+                // 检查表格是否为空（作为是否需要恢复的辅助判断）
+                const tableEmpty = document.getElementById('devices_tbody').children.length === 0;
+                
+                if ((!isConfigRestored || tableEmpty) && statusData.config_snapshot) {
+                    console.log('[DEBUG] Restoring UI from snapshot...', statusData.config_snapshot);
+                    restoreUI(statusData.config_snapshot);
+                    isConfigRestored = true;
+                }
+            } catch (uiErr) {
+                console.error('[ERROR] Restore UI failed:', uiErr);
+            }
+        } else {
+            if (isConfigRestored) {
+                toggleInputs(false); // 任务结束后解锁
+                isConfigRestored = false;
+            }
+        }
+      } catch (e) {
+        console.warn('Refresh status failed:', e);
+        // 静默处理，避免频繁错误提示
+      }
+    }
+
+    // 使用 StatusUpdater 管理状态更新
+    const statusUpdater = StatusUpdater.create(refreshStatus, 2000);
+    
+    // 监听页面可见性变化，当用户切回页面时立即刷新
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log('[DEBUG] Page visible, forcing refreshStatus');
+            refreshStatus();
+        }
+    });
+
+    window.onload = function(){ 
+      try {
+          // 强制清除可能残留的遮罩层
+          LoadingManager.hide();
+          refreshStatus(); 
+          toggleDevicesMode();
+          statusUpdater.start();
+      } catch (e) {
+          console.error('Page init error:', e);
+          toast.error('页面初始化失败: ' + e.message);
+      }
+    };
+</script>
+{% endblock %}

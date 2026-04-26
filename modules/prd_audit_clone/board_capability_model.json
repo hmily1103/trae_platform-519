@@ -1,0 +1,36 @@
+{
+  "boards": [
+    {
+      "board": "RK3399",
+      "limits": {
+        "max_resolution": "1080p",
+        "memory": "512MB"
+      },
+      "feature_rules": [
+        {
+          "feature": "4K播放",
+          "keywords": ["4k", "超高清", "2160p"],
+          "supported": false,
+          "risk": "4K能力受限，可能出现卡顿或黑屏",
+          "severity": "P1"
+        }
+      ]
+    },
+    {
+      "board": "Amlogic_S905",
+      "limits": {
+        "max_resolution": "4K",
+        "memory": "1GB"
+      },
+      "feature_rules": [
+        {
+          "feature": "多路并发投屏",
+          "keywords": ["多设备投屏", "并发投屏", "抢占投屏"],
+          "supported": false,
+          "risk": "并发投屏能力不足，存在抢占冲突风险",
+          "severity": "P1"
+        }
+      ]
+    }
+  ]
+}

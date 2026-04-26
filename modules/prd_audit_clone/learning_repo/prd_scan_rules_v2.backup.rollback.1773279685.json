@@ -1,0 +1,67 @@
+{
+  "version": "2.0",
+  "description": "applied（AUTO_APPLIED, selected=all）",
+  "categories": [],
+  "rules": [
+    {
+      "rule_id": "AUTO_APPLY_001",
+      "category": "FLOW",
+      "rule_name": "异常流程缺失",
+      "severity": "P0",
+      "weight": 10,
+      "description": "只描述成功路径，缺少失败处理。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=1，主要模块=业务流程",
+      "llm_check_prompt": "检查是否存在：异常流程缺失。",
+      "risk_reason": "异常未定义。",
+      "suggestion": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "example_fix": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 1,
+        "top_module": "业务流程"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_002",
+      "category": "STATE_MACHINE",
+      "rule_name": "系统未定义全局状态",
+      "severity": "P0",
+      "weight": 10,
+      "description": "系统存在多个功能模块，但未定义统一状态集合（states 为空或均为【PRD未说明】）。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=1，主要模块=状态机",
+      "llm_check_prompt": "检查是否存在：系统未定义全局状态。",
+      "risk_reason": "没有全局状态集合，模块切换与恢复规则无法统一，开发容易产生逻辑冲突与不可预期行为。",
+      "suggestion": "补充系统状态机定义（状态集合+进入/退出条件+恢复规则），并给出关键状态转换关系。",
+      "example_fix": "补充系统状态机定义（状态集合+进入/退出条件+恢复规则），并给出关键状态转换关系。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 1,
+        "top_module": "状态机"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_003",
+      "category": "FLOW",
+      "rule_name": "流程仅描述成功路径",
+      "severity": "P1",
+      "weight": 7,
+      "description": "流程里只有成功描述，缺少失败/异常处理（exceptions/edge_cases 为空或覆盖不足）。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=1，主要模块=业务流程",
+      "llm_check_prompt": "检查是否存在：流程仅描述成功路径。",
+      "risk_reason": "上线后遇到弱网/超时/失败会卡死或白屏，现场体验差且难排查。",
+      "suggestion": "补充失败闭环：错误提示、重试/回滚/降级策略，以及状态恢复规则。",
+      "example_fix": "补充失败闭环：错误提示、重试/回滚/降级策略，以及状态恢复规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 1,
+        "top_module": "业务流程"
+      }
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+2026-02-12 16:33:21,581 INFO DEBUG: config.py loaded. Name: modules.reboot.core.config, RUNTIME id: 1557589259136
+2026-02-12 16:33:22 - trae_platform - INFO - UIAutomation module loaded successfully
+2026-02-12 16:33:22 - trae_platform - INFO - RemoteControl module loaded successfully
+2026-02-12 16:33:22 - trae_platform - INFO - Unified module loaded successfully
+2026-02-12 16:33:22 - trae_platform - INFO - RuntimeCenter module loaded successfully
+2026-02-12 16:33:22 - trae_platform - INFO - CombinedTest module loaded successfully
+2026-02-12 16:33:22 - trae_platform - INFO - ServerStress module loaded successfully
+2026-02-12 16:33:23 - trae_platform - INFO - SongOrder module loaded successfully
+2026-02-12 16:33:23 - trae_platform - INFO - ApiStress module loaded successfully
+2026-02-12 16:33:23 - trae_platform - INFO - ModuleLoader: modules registered
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5000
+Press CTRL+C to quit
+127.0.0.1 - - [12/Feb/2026 16:34:08] "GET /ui_automation/recorder HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:34:08] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:34:08] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:34:09] "GET /ui_automation/api/recording/list HTTP/1.1" 200 -
+2026-02-12 16:34:10 - ui_automation_module - INFO - 获取到 2 个设备: ['192.168.16.131:8787', '192.168.16.105:8787']
+127.0.0.1 - - [12/Feb/2026 16:34:10] "GET /ui_automation/api/devices HTTP/1.1" 200 -
+2026-02-12 16:34:12 - device_controller - INFO - Connected to device via uiautomator2: 192.168.16.105:8787
+2026-02-12 16:34:12 - device_controller - INFO - Started UI monitor for device 192.168.16.105:8787
+127.0.0.1 - - [12/Feb/2026 16:34:12] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770885252191 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:34:16] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770885256400 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:22] "GET /ui_automation/recorder HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:22] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:22] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:25] "GET /ui_automation/api/recording/list HTTP/1.1" 200 -
+2026-02-12 16:35:25 - ui_automation_module - INFO - 获取到 2 个设备: ['192.168.16.131:8787', '192.168.16.105:8787']
+127.0.0.1 - - [12/Feb/2026 16:35:25] "GET /ui_automation/api/devices HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:27] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:27] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:27] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:27] "GET /api/announcements HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:27] "GET /unified/api/reports?limit=5 HTTP/1.1" 200 -
+2026-02-12 16:35:27,921 INFO [DEBUG] api_status called. Running: False, TaskID: None, Devices: 0, RUNTIME_ID: 1557589259136
+127.0.0.1 - - [12/Feb/2026 16:35:27] "GET /api/modules/status HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:28] "GET /api/dashboard/stats HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:29] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:29] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:29] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:29] "GET /unified/api/reports?limit=5 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:29] "GET /api/announcements HTTP/1.1" 200 -
+2026-02-12 16:35:29,567 INFO [DEBUG] api_status called. Running: False, TaskID: None, Devices: 0, RUNTIME_ID: 1557589259136
+127.0.0.1 - - [12/Feb/2026 16:35:29] "GET /api/modules/status HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:29] "GET /api/dashboard/stats HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:33] "GET /ui_automation/ HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:33] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:33] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:34] "GET /ui_automation/api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:37] "GET /ui_automation/ HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:37] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:37] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:38] "GET /ui_automation/api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:40] "GET /ui_automation/recorder HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:35:40] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:40] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:35:41] "GET /ui_automation/api/recording/list HTTP/1.1" 200 -
+2026-02-12 16:35:42 - ui_automation_module - INFO - 获取到 2 个设备: ['192.168.16.131:8787', '192.168.16.105:8787']
+127.0.0.1 - - [12/Feb/2026 16:35:42] "GET /ui_automation/api/devices HTTP/1.1" 200 -
+2026-02-12 16:37:49 - ui_automation_module - INFO - ADB启用成功: 192.168.16.105:2007
+127.0.0.1 - - [12/Feb/2026 16:37:50] "POST /ui_automation/api/connect HTTP/1.1" 200 -
+2026-02-12 16:37:50 - ui_automation_module - INFO - 获取到 2 个设备: ['192.168.16.131:8787', '192.168.16.105:8787']
+127.0.0.1 - - [12/Feb/2026 16:37:50] "GET /ui_automation/api/devices HTTP/1.1" 200 -
+[W 260212 16:54:28 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[D 260212 16:54:28 __init__:317] [pid:26436] [192.168.16.105:8787] device 192.168.16.105:8787 is online
+2026-02-12 16:54:28 - device_controller - WARNING - Background dump failed (U2): closed
+[W 260212 16:54:28 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:54:28 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:54:29 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:54:30 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:54:31 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:54:32 - device_controller - WARNING - U2获取UI树失败，回退到ADB: USB device 192.168.16.105:8787 is offline
+2026-02-12 16:54:35 - device_controller - WARNING - 获取UI树失败 (尝试 1/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:54:36 - device_controller - WARNING - 获取UI树失败 (尝试 2/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:54:37 - device_controller - ERROR - 获取UI树失败: uiautomator dump 命令执行失败
+[W 260212 16:54:39 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:54:39 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:54:40 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:54:41 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:54:42 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:54:43 - device_controller - WARNING - Background dump failed (U2): USB device 192.168.16.105:8787 is offline
+[W 260212 16:54:43 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:54:43 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:54:44 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:54:45 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:54:46 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:54:47 - device_controller - WARNING - U2获取UI树失败，回退到ADB: USB device 192.168.16.105:8787 is offline
+2026-02-12 16:54:47 - device_controller - WARNING - 获取UI树失败 (尝试 1/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:54:48 - device_controller - WARNING - 获取UI树失败 (尝试 2/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:54:49 - device_controller - ERROR - 获取UI树失败: uiautomator dump 命令执行失败
+[W 260212 16:54:51 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:54:51 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:54:52 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:54:53 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:54:54 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:54:55 - device_controller - WARNING - Background dump failed (U2): USB device 192.168.16.105:8787 is offline
+[W 260212 16:54:55 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:54:55 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:54:56 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:54:57 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:54:58 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:54:59 - device_controller - WARNING - U2获取UI树失败，回退到ADB: USB device 192.168.16.105:8787 is offline
+2026-02-12 16:54:59 - device_controller - WARNING - 获取UI树失败 (尝试 1/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:55:01 - device_controller - WARNING - 获取UI树失败 (尝试 2/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:55:02 - device_controller - ERROR - 获取UI树失败: uiautomator dump 命令执行失败
+[W 260212 16:55:03 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:55:03 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:55:04 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:55:05 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:55:06 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:55:07 - device_controller - WARNING - Background dump failed (U2): USB device 192.168.16.105:8787 is offline
+[W 260212 16:55:07 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:55:07 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:55:08 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:55:09 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:55:10 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:55:11 - device_controller - WARNING - U2获取UI树失败，回退到ADB: USB device 192.168.16.105:8787 is offline
+2026-02-12 16:55:14 - device_controller - WARNING - 获取UI树失败 (尝试 1/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:55:16 - device_controller - WARNING - 获取UI树失败 (尝试 2/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:55:17 - device_controller - ERROR - 获取UI树失败: uiautomator dump 命令执行失败
+[W 260212 16:55:18 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:55:18 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:55:19 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+127.0.0.1 - - [12/Feb/2026 16:55:19] "GET /ui_automation/recorder HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 16:55:19] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 16:55:19] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+[I 260212 16:55:20 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+127.0.0.1 - - [12/Feb/2026 16:55:21] "GET /ui_automation/api/recording/list HTTP/1.1" 200 -
+2026-02-12 16:55:21 - ui_automation_module - INFO - 获取到 1 个设备: ['192.168.16.131:8787']
+127.0.0.1 - - [12/Feb/2026 16:55:21] "GET /ui_automation/api/devices HTTP/1.1" 200 -
+[D 260212 16:55:21 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:55:22 - device_controller - WARNING - Background dump failed (U2): USB device 192.168.16.105:8787 is offline
+[W 260212 16:55:22 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:55:22 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:55:23 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:55:24 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:55:25 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:55:26 - device_controller - WARNING - U2获取UI树失败，回退到ADB: USB device 192.168.16.105:8787 is offline
+2026-02-12 16:55:27 - device_controller - WARNING - 获取UI树失败 (尝试 1/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:55:28 - device_controller - WARNING - 获取UI树失败 (尝试 2/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:55:29 - device_controller - ERROR - 获取UI树失败: uiautomator dump 命令执行失败
+[W 260212 16:55:31 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:55:31 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:55:32 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:55:33 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:55:34 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:55:35 - device_controller - WARNING - Background dump failed (U2): USB device 192.168.16.105:8787 is offline
+[W 260212 16:55:35 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:55:35 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:55:36 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:55:37 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:55:38 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+2026-02-12 16:55:39 - device_controller - WARNING - U2获取UI树失败，回退到ADB: USB device 192.168.16.105:8787 is offline
+2026-02-12 16:55:39 - device_controller - WARNING - 获取UI树失败 (尝试 1/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:55:40 - device_controller - WARNING - 获取UI树失败 (尝试 2/2): adb.exe: device '192.168.16.105:8787' not found
+2026-02-12 16:55:41 - device_controller - ERROR - 获取UI树失败: uiautomator dump 命令执行失败
+[W 260212 16:55:43 __init__:218] [pid:26436] atx-agent has something wrong, auto recovering
+[I 260212 16:55:43 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(3.0s)
+[D 260212 16:55:44 __init__:363] [pid:26436] [192.168.16.105:8787] adb reconnect error: adb read timeout
+[I 260212 16:55:45 __init__:357] [pid:26436] [192.168.16.105:8787] device reconnecting, time left(1.0s)
+[D 260212 16:55:45 __init__:317] [pid:26436] [192.168.16.105:8787] device 192.168.16.105:8787 is online
+[I 260212 16:55:47 init:156] uiautomator2 version: 2.16.23
+[D 260212 16:55:47 init:167] Shell: ('/data/local/tmp/atx-agent', 'server', '--stop')
+[D 260212 16:55:48 init:295] Real version: [0, 10, 0], Expect version: [0, 10, 0]
+[D 260212 16:55:48 init:167] Shell: ('/data/local/tmp/atx-agent', 'server', '--nouia', '-d', '--addr', '127.0.0.1:7912')
+[I 260212 16:55:48 init:350] Check atx-agent version
+[D 260212 16:55:48 init:359] Forward: local:tcp:63584 -> remote:tcp:7912
+[D 260212 16:55:49 init:359] Forward: local:tcp:63584 -> remote:tcp:7912
+[D 260212 16:55:49 init:359] Forward: local:tcp:63584 -> remote:tcp:7912
+[D 260212 16:55:50 init:362] atx-agent version 0.10.0
+[D 260212 16:55:50 init:366] device wlan ip: route ip+net: no such network interface
+[D 260212 16:55:51 __init__:661] [pid:26436] [192.168.16.105:8787] kill process(ps): uiautomator
+[D 260212 16:55:53 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 40.0s
+[D 260212 16:55:54 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 39.0s
+[D 260212 16:55:55 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 37.9s
+[D 260212 16:55:56 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 36.9s
+[D 260212 16:55:57 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 35.8s
+[D 260212 16:55:58 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 34.7s
+[D 260212 16:55:59 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 33.7s
+[D 260212 16:56:00 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 32.6s
+[D 260212 16:56:02 __init__:696] [pid:26436] [192.168.16.105:8787] show float window
+[D 260212 16:56:03 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 30.2s
+[D 260212 16:56:04 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 29.2s
+[D 260212 16:56:05 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 28.1s
+[D 260212 16:56:06 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 27.1s
+[D 260212 16:56:07 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 26.1s
+[D 260212 16:56:08 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 25.0s
+[D 260212 16:56:09 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 24.0s
+[D 260212 16:56:10 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 22.9s
+[D 260212 16:56:11 __init__:682] [pid:26436] [192.168.16.105:8787] uiautomator-v2 is starting ... left: 21.9s
+[I 260212 16:56:11 __init__:643] [pid:26436] [192.168.16.105:8787] uiautomator back to normal
+2026-02-12 16:59:46 - ui_automation_module - INFO - ADB启用成功: 192.168.16.105:2007
+127.0.0.1 - - [12/Feb/2026 16:59:46] "POST /ui_automation/api/connect HTTP/1.1" 200 -
+2026-02-12 16:59:46 - ui_automation_module - INFO - 获取到 2 个设备: ['192.168.16.131:8787', '192.168.16.105:8787']
+127.0.0.1 - - [12/Feb/2026 16:59:46] "GET /ui_automation/api/devices HTTP/1.1" 200 -

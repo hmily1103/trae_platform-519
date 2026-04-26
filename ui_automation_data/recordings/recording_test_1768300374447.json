@@ -1,0 +1,29 @@
+{
+  "id": "recording_test_1768300374447",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-01-13T18:32:54.667293",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "input",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "0,0",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": "abc",
+      "coordinates": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_test_1768300374447\\step_1.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_test_1768300374447\\step_1.xml",
+      "timestamp": 1768300384.714705,
+      "wait_after": 1000,
+      "description": "input at 0,0"
+    }
+  ],
+  "description": "validate_required test"
+}

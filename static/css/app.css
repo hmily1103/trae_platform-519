@@ -1,0 +1,275 @@
+/* Trae Platform modern theme (additive).
+   Keep Bootstrap, override via CSS variables + utility classes. */
+
+:root{
+  --tp-bg: #f3f4f6;
+  --tp-surface: #ffffff;
+  --tp-surface-2: #f9fafb;
+  --tp-border: rgba(15,23,42,.08);
+  --tp-text: #0f172a;
+  --tp-muted: #6b7280;
+  --tp-accent: #2563eb;
+  --tp-accent-2:#16a34a;
+  --tp-warn:#d97706;
+  --tp-danger:#dc2626;
+  --tp-radius: 14px;
+  --tp-shadow: 0 18px 45px rgba(15,23,42,.12);
+  --tp-shadow-sm: 0 8px 24px rgba(15,23,42,.10);
+}
+
+html, body { height: 100%; }
+body{
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* 更柔和的中性浅灰背景，去掉强烈高光渐变 */
+  background: #f5f5f7;
+  color: var(--tp-text);
+}
+
+/* Typography defaults (Bootstrap has many black defaults) */
+h1,h2,h3,h4,h5,h6,
+.h1,.h2,.h3,.h4,.h5,.h6{
+  color: var(--tp-text);
+}
+p, label, small, span, li, dt, dd{
+  color: inherit;
+}
+
+a{ color: rgba(91,140,255,.92); }
+a:hover{ color: rgba(124,58,237,.92); }
+.btn-link{ color: rgba(91,140,255,.92); }
+.btn-link:hover{ color: rgba(124,58,237,.92); }
+
+/* Layout */
+.sidebar{
+  background: linear-gradient(180deg, #ffffff, #f9fafb);
+  color: var(--tp-text);
+  backdrop-filter: blur(8px);
+  border-right: 1px solid var(--tp-border);
+  box-shadow: var(--tp-shadow-sm);
+}
+.sidebar .brand{
+  letter-spacing: .2px;
+}
+.sidebar a{
+  color: var(--tp-muted);
+  border-radius: 10px;
+  margin: 2px 10px;
+}
+.sidebar a:hover{
+  background: #e5e7eb;
+  color: var(--tp-text);
+}
+.sidebar a.active{
+  background: rgba(37,99,235,.08);
+  color: var(--tp-text);
+  box-shadow: inset 0 0 0 1px rgba(37,99,235,.16);
+}
+.sidebar .text-white-50{
+  color: var(--tp-muted) !important;
+}
+
+.main-content{
+  color: var(--tp-text);
+}
+
+/* Top bar */
+.tp-topbar{
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  margin: -20px -20px 18px -20px;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(249,250,251,.96));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(148,163,184,.25);
+}
+.tp-topbar .tp-title{
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+.tp-topbar .tp-subtitle{
+  color: var(--tp-muted);
+  font-size: .9rem;
+}
+
+/* Cards */
+.card{
+  border: 1px solid var(--tp-border) !important;
+  border-radius: var(--tp-radius) !important;
+  background: var(--tp-surface) !important;
+  backdrop-filter: blur(4px);
+  box-shadow: var(--tp-shadow-sm);
+  color: var(--tp-text);
+}
+.card .card-header{
+  background: transparent !important;
+  border-bottom: 1px solid var(--tp-border) !important;
+}
+
+/* Tables / forms */
+.table{
+  color: var(--tp-text);
+}
+.table thead{
+  color: var(--tp-muted);
+}
+.table-hover tbody tr:hover{
+  background: rgba(0,0,0,.04);
+}
+.form-control, .form-select{
+  background: #fff;
+  border: 1px solid var(--tp-border);
+  color: var(--tp-text);
+  border-radius: 12px;
+}
+.form-control:focus, .form-select:focus{
+  border-color: rgba(91,140,255,.55);
+  box-shadow: 0 0 0 .25rem rgba(91,140,255,.18);
+}
+.form-control::placeholder{
+  color: var(--tp-muted);
+}
+
+.form-label{ color: var(--tp-text); }
+.form-text{ color: var(--tp-muted) !important; }
+
+/* Common Bootstrap "dark text" utilities on dark background */
+.text-dark{ color: var(--tp-text) !important; }
+.text-black, .text-body{ color: var(--tp-text) !important; }
+.text-secondary{ color: #6b7280 !important; }
+.text-info{ color: #0ea5e9 !important; }
+.text-warning{ color: #d97706 !important; }
+.text-danger{ color: #dc2626 !important; }
+.text-success{ color: #16a34a !important; }
+
+/* List group */
+.list-group-item{
+  background: var(--tp-surface);
+  border-color: var(--tp-border);
+  color: var(--tp-text);
+}
+.list-group-item-action:hover{
+  background: var(--tp-surface-2);
+}
+
+/* Nav tabs */
+.nav-tabs{
+  border-bottom-color: var(--tp-border);
+}
+.nav-tabs .nav-link{
+  color: var(--tp-muted);
+  border-color: transparent;
+}
+.nav-tabs .nav-link:hover{
+  border-color: transparent;
+  color: var(--tp-text);
+  background: rgba(0,0,0,.04);
+}
+.nav-tabs .nav-link.active{
+  color: var(--tp-text);
+  background: var(--tp-surface);
+  border-color: var(--tp-border);
+}
+
+/* Accordion */
+.accordion-item{
+  background: var(--tp-surface);
+  border-color: var(--tp-border);
+}
+.accordion-button{
+  background: var(--tp-surface-2);
+  color: var(--tp-text);
+}
+.accordion-button:not(.collapsed){
+  background: var(--tp-surface);
+  color: var(--tp-text);
+}
+.accordion-button:focus{
+  box-shadow: 0 0 0 .25rem rgba(91,140,255,.18);
+}
+
+/* Modal - 浅色主题 */
+.modal-content{
+  background: var(--tp-surface);
+  color: var(--tp-text);
+  border: 1px solid var(--tp-border);
+  box-shadow: var(--tp-shadow);
+}
+.modal-header, .modal-footer{
+  border-color: var(--tp-border);
+  background: var(--tp-surface-2);
+}
+
+/* Alerts */
+.alert{
+  background: var(--tp-surface-2);
+  border-color: var(--tp-border);
+  color: var(--tp-text);
+}
+.alert-info{ box-shadow: inset 0 0 0 1px rgba(125,211,252,.18); }
+.alert-warning{ box-shadow: inset 0 0 0 1px rgba(245,158,11,.18); }
+.alert-danger{ box-shadow: inset 0 0 0 1px rgba(248,113,113,.18); }
+.alert-success{ box-shadow: inset 0 0 0 1px rgba(34,197,94,.18); }
+
+/* Buttons */
+.btn{
+  border-radius: 12px;
+}
+.btn-primary{
+  background: linear-gradient(135deg, #5b8cff, #7c3aed);
+  border: none;
+}
+.btn-success{
+  background: linear-gradient(135deg, #22c55e, #10b981);
+  border: none;
+}
+.btn-danger{
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  border: none;
+}
+.btn-outline-secondary, .btn-outline-dark, .btn-outline-primary, .btn-outline-success{
+  border-color: var(--tp-border);
+  color: var(--tp-text);
+}
+.btn-outline-secondary:hover, .btn-outline-dark:hover, .btn-outline-primary:hover, .btn-outline-success:hover{
+  background: rgba(0,0,0,.06);
+  border-color: var(--tp-border);
+  color: var(--tp-text);
+}
+
+/* Badges */
+.badge{
+  border-radius: 999px;
+}
+
+/* Utilities */
+.tp-kpi{
+  padding: 14px 14px;
+  display:flex;
+  gap: 12px;
+  align-items: center;
+}
+.tp-kpi .tp-kpi-icon{
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(37,99,235,.08);
+  border: 1px solid rgba(37,99,235,.16);
+}
+.tp-kpi .tp-kpi-value{
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.tp-kpi .tp-kpi-label{
+  color: var(--tp-muted);
+  font-size: .9rem;
+}
+
+/* 浅色主题下 bg-light / bg-white */
+.bg-light, .bg-white { background: var(--tp-surface-2) !important; color: var(--tp-text) !important; }
+.text-muted { color: var(--tp-muted) !important; }
+

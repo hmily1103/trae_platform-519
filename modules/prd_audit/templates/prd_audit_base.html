@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-0">
+            <ul class="nav nav-pills p-2 gap-2">
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path == '/prd_audit/' else '' }}" href="/prd_audit/">
+                        <i class="fas fa-search me-2"></i>PRD审计
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit/knowledge') else '' }}" href="/prd_audit/knowledge">
+                        <i class="fas fa-database me-2"></i>PRD知识库
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit/rules') else '' }}" href="/prd_audit/rules">
+                        <i class="fas fa-shield-alt me-2"></i>PRD规则库
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit/bug_patterns') else '' }}" href="/prd_audit/bug_patterns">
+                        <i class="fas fa-bug me-2"></i>Bug模式库
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit/platform_center') else '' }}" href="/prd_audit/platform_center">
+                        <i class="fas fa-cubes me-2"></i>资产中心
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    {% block module_content %}{% endblock %}
+</div>
+{% endblock %}

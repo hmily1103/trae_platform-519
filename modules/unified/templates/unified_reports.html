@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}报告中心 - Trae Platform{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h2 class="mb-0"><i class="fas fa-file-lines me-2"></i>报告中心</h2>
+      <div class="text-muted">统一查看所有模块的运行报告（可筛选、可跳转详情）</div>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary" onclick="ReportsUI.refresh()"><i class="fas fa-rotate me-1"></i>刷新</button>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">模块</label>
+          <select class="form-select" id="r_module">
+            <option value="">全部</option>
+            <option value="unified">unified</option>
+            <option value="monkey">monkey</option>
+            <option value="ui_automation">ui_automation</option>
+            <option value="performance_monitor">performance_monitor</option>
+            <option value="log_monitor">log_monitor</option>
+            <option value="server_stress">server_stress</option>
+            <option value="reboot">reboot</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">类型</label>
+          <select class="form-select" id="r_kind">
+            <option value="">全部</option>
+            <option value="orchestration">orchestration</option>
+            <option value="monkey">monkey</option>
+            <option value="suite">suite</option>
+            <option value="performance">performance</option>
+            <option value="log">log</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="r_status">
+            <option value="">全部</option>
+            <option value="running">running</option>
+            <option value="finished">finished</option>
+            <option value="failed">failed</option>
+            <option value="stopped">stopped</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="r_kw" placeholder="id / device_id">
+        </div>
+        <div class="col-md-1">
+          <label class="form-label">数量</label>
+          <input class="form-control" id="r_limit" type="number" value="100" min="1" max="500">
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary" onclick="ReportsUI.refresh()"><i class="fas fa-filter me-1"></i>筛选</button>
+          <button class="btn btn-outline-secondary" onclick="ReportsUI.clear()"><i class="fas fa-eraser me-1"></i>重置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="fw-semibold"><i class="fas fa-list me-2"></i>报告列表</div>
+      <div class="text-muted small" id="r_count">-</div>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>模块</th>
+              <th>类型</th>
+              <th>状态</th>
+              <th>设备</th>
+              <th>引用</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="r_tbody">
+            <tr><td colspan="7" class="text-muted">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ReportsUI = (() => {
+  function badge(status){
+    const s = String(status || '').toLowerCase();
+    if (['finished','success','completed'].includes(s)) return 'bg-success';
+    if (['running'].includes(s)) return 'bg-primary';
+    if (['failed','error','timeout'].includes(s)) return 'bg-danger';
+    return 'bg-secondary';
+  }
+
+  function fmtTime(ts){
+    if (!ts) return '-';
+    // unified index stores seconds since epoch
+    const ms = ts > 10_000_000_000 ? ts : ts * 1000;
+    return new Date(ms).toLocaleString();
+  }
+
+  function clear(){
+    document.getElementById('r_module').value = '';
+    document.getElementById('r_kind').value = '';
+    document.getElementById('r_status').value = '';
+    document.getElementById('r_kw').value = '';
+    document.getElementById('r_limit').value = 100;
+    refresh();
+  }
+
+  async function refresh(){
+    const tbody = document.getElementById('r_tbody');
+    const countEl = document.getElementById('r_count');
+    tbody.innerHTML = '<tr><td colspan="7" class="text-muted">加载中...</td></tr>';
+
+    const module = document.getElementById('r_module').value;
+    const kind = document.getElementById('r_kind').value;
+    const status = document.getElementById('r_status').value;
+    const kw = (document.getElementById('r_kw').value || '').trim();
+    const limit = parseInt(document.getElementById('r_limit').value || 100, 10);
+
+    const params = new URLSearchParams();
+    if (module) params.set('module', module);
+    if (kind) params.set('kind', kind);
+    if (status) params.set('status', status);
+    if (kw) params.set('keyword', kw);
+    params.set('limit', String(limit));
+
+    try{
+      const res = await ApiClient.get(`/unified/api/reports?${params}`, { showLoading: false, showError: false });
+      const reports = res.data?.reports || [];
+      countEl.textContent = `${reports.length} 条`;
+
+      if (!reports.length){
+        tbody.innerHTML = '<tr><td colspan="7" class="text-muted">暂无报告</td></tr>';
+        return;
+      }
+
+      const modNames = {unified:'一键任务',monkey:'Monkey 测试',performance_monitor:'性能监控',log_monitor:'日志监控',ui_automation_suite:'UI 套件',server_stress:'ARM 压测',ui_automation:'UI 自动化',reboot:'中控重启',player_stress:'播放器压测'};
+      const kindNames = {orchestration:'编排任务',monkey:'Monkey 测试',suite:'UI 套件',performance:'性能监控',log:'日志监控',stress:'压测',reboot:'重启测试'};
+      const statusNames = {finished:'已完成',running:'运行中',failed:'失败',stopped:'已停止'};
+      tbody.innerHTML = reports.map(r => `
+        <tr>
+          <td>${fmtTime(r.updated_at)}</td>
+          <td>${modNames[r.module] || r.module || '-'}</td>
+          <td>${kindNames[r.kind] || r.kind || '-'}</td>
+          <td><span class="badge ${badge(r.status)}">${statusNames[r.status] || r.status || '-'}</span></td>
+          <td class="text-muted small">${r.device_id || '-'}</td>
+          <td class="text-muted small">${r.legacy_id || '-'}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="/unified/report/${encodeURIComponent(r.unified_id)}">详情</a>
+          </td>
+        </tr>
+      `).join('');
+    }catch{
+      tbody.innerHTML = '<tr><td colspan="7" class="text-muted">加载失败</td></tr>';
+    }
+  }
+
+  return { refresh, clear };
+})();
+
+document.addEventListener('DOMContentLoaded', () => ReportsUI.refresh());
+</script>
+{% endblock %}
+

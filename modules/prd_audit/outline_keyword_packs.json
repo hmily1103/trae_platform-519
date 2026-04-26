@@ -1,0 +1,52 @@
+{
+  "default_pack": "generic",
+  "system_type_pack": {
+    "general": "generic",
+    "state_machine": "generic",
+    "business_flow": "generic",
+    "scheduling_system": "scheduling"
+  },
+  "plugin_pack_map": {
+    "generic_universal": "generic",
+    "lite_gate": "generic",
+    "scheduling_strict": "scheduling"
+  },
+  "packs": {
+    "generic": {
+      "line_business_hints": ["业务", "流程", "规则", "状态", "异常", "接口", "模块", "场景"],
+      "detect_system_type": {
+        "priority": ["优先级", "打断", "恢复", "抢占", ">"],
+        "display": ["展示", "播放", "屏幕", "画面", "模式"],
+        "state": ["状态", "流转", "状态机", "进入", "退出"],
+        "business_flow": ["订单", "支付", "下单", "审批", "工单", "履约", "回滚"]
+      },
+      "core_brief": {
+        "roles": ["角色", "参与方", "分工", "职责", "合作方", "责任方", "用户", "商户", "平台", "运营", "研发", "测试"],
+        "payment": ["付费", "计费", "结算", "对账", "购买", "扣费", "账单", "成本"],
+        "flow": ["主流程", "核心流程", "流程", "步骤", "创建", "提交", "审批", "执行", "进入", "退出", "完成"],
+        "integration": ["接口", "API", "回调", "鉴权", "校验", "同步", "token", "webhook"],
+        "exceptions": ["异常", "失败", "超时", "重试", "恢复", "告警", "兜底", "回退"],
+        "implementation": ["实施", "计划", "排期", "上线", "试点", "推广", "培训", "维护"],
+        "risks": ["风险", "隐患", "影响", "阻塞", "不可用", "应对"],
+        "confirms": ["待确认", "需确认", "待定", "未确认", "未说明"],
+        "positioning": ["定位", "目标", "方案", "用于", "场景", "项目"]
+      },
+      "scheduling_extract": {
+        "mode_terms": ["模式", "横屏", "竖屏", "画中画", "壁画"],
+        "scene_terms": ["场景", "欢迎", "欢送", "指定模式", "大屏端"],
+        "constraint_terms": ["有且只能", "仅", "不可", "禁止", "必须"],
+        "actor_terms": ["投屏", "游戏", "广告", "直播", "播放", "弹窗", "来电", "语音"]
+      }
+    },
+    "scheduling": {
+      "line_business_hints": ["投屏", "游戏", "广告", "优先级", "打断", "恢复", "模式", "场景", "屏幕", "画中画"],
+      "detect_system_type": {
+        "priority": ["优先级", "打断", "恢复", "抢占", "中断", ">"],
+        "display": ["投屏", "广告", "展示", "画面", "屏幕", "模式"]
+      },
+      "core_brief": {
+        "flow": ["进入", "退出", "切换", "打断", "恢复", "播放", "暂停", "继续", "释放"]
+      }
+    }
+  }
+}

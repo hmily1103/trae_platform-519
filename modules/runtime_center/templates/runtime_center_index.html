@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-microchip text-primary"></i> 运行中心 (Runtime Center)</h2>
+        <div class="d-flex gap-2">
+            <a class="btn btn-primary" href="/unified/"><i class="fas fa-layer-group me-1"></i> 一键任务</a>
+            <a class="btn btn-outline-secondary" href="/unified/reports"><i class="fas fa-file-lines me-1"></i> 报告中心</a>
+            <button class="btn btn-outline-primary" onclick="createTestRuntime()">
+                <i class="fas fa-plus"></i> 创建测试运行时
+            </button>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header py-2"><i class="fas fa-mobile-alt me-1"></i> 设备占用</div>
+                <div class="card-body p-2 small" id="deviceLocks">
+                    <span class="text-muted">加载中…</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> 任务列表 (含历史，支持持久化)</h5>
+                    <div class="d-flex gap-2">
+                        <select class="form-select form-select-sm" id="filterModule" onchange="loadRuntimes()" style="width:auto">
+                            <option value="">全部模块</option>
+                            <option value="monkey">monkey</option>
+                            <option value="reboot">reboot</option>
+                            <option value="server_stress">server_stress</option>
+                            <option value="performance_monitor">performance_monitor</option>
+                            <option value="log_monitor">log_monitor</option>
+                        </select>
+                        <select class="form-select form-select-sm" id="filterStatus" onchange="loadRuntimes()" style="width:auto">
+                            <option value="">全部状态</option>
+                            <option value="running">running</option>
+                            <option value="completed">completed</option>
+                            <option value="failed">failed</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>状态</th>
+                                    <th>Runtime ID</th>
+                                    <th>任务名称</th>
+                                    <th>模块</th>
+                                    <th>创建时间</th>
+                                    <th>耗时</th>
+                                </tr>
+                            </thead>
+                            <tbody id="runtimeTableBody">
+                                <!-- Data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function loadRuntimes() {
+        const mod = document.getElementById('filterModule')?.value || '';
+        const st = document.getElementById('filterStatus')?.value || '';
+        let url = '/runtime_center/api/list?limit=100';
+        if (mod) url += '&module=' + encodeURIComponent(mod);
+        if (st) url += '&status=' + encodeURIComponent(st);
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('runtimeTableBody');
+                tbody.innerHTML = '';
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">暂无活跃运行的任务</td></tr>';
+                    return;
+                }
+
+                data.forEach(item => {
+                    const createdDate = new Date(item.created_at * 1000).toLocaleString();
+                    let duration = '-';
+                    if (item.started_at) {
+                        const end = item.ended_at || Date.now() / 1000;
+                        duration = ((end - item.started_at)).toFixed(1) + 's';
+                    }
+
+                    let badgeClass = 'bg-secondary';
+                    if (item.status === 'running') badgeClass = 'bg-primary';
+                    if (item.status === 'completed') badgeClass = 'bg-success';
+                    if (item.status === 'failed') badgeClass = 'bg-danger';
+
+                    const row = `
+                        <tr>
+                            <td><span class="badge ${badgeClass}">${item.status}</span></td>
+                            <td><code class="text-muted small">${item.runtime_id.substring(0, 8)}...</code></td>
+                            <td class="fw-bold">${item.name}</td>
+                            <td><span class="badge bg-light text-dark border">${item.module}</span></td>
+                            <td class="small text-muted">${createdDate}</td>
+                            <td>${duration}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            });
+    }
+
+    function createTestRuntime() {
+        fetch('/runtime_center/api/create_test_runtime', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: 'Demo Task ' + Math.floor(Math.random()*100), module: 'demo'})
+        }).then(() => loadRuntimes());
+    }
+
+    function loadDeviceLocks() {
+        fetch('/runtime_center/api/devices').then(r=>r.json()).then(d=>{
+            const el = document.getElementById('deviceLocks');
+            const locks = d.locks || [];
+            if (!locks.length) { el.innerHTML = '<span class="text-muted">无在线设备</span>'; return; }
+            el.innerHTML = locks.map(l=>'<span class="badge me-1 '+(l.locked?'bg-warning':'bg-success')+'">'+l.device_id+(l.locked?' → '+l.runtime_id?.substring(0,8):'')+'</span>').join('');
+        }).catch(()=>{});
+    }
+    loadRuntimes();
+    loadDeviceLocks();
+    setInterval(loadRuntimes, 3000);
+    setInterval(loadDeviceLocks, 5000);
+</script>
+{% endblock %}

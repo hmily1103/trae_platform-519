@@ -1,0 +1,82 @@
+{
+  "version": "1.1",
+  "description": "PRD 漏洞知识图谱（扩展版）：基于终极规则库的核心因果关系网络，用于从命中规则ID推导根因与风险传播链。relation: CAUSE/AMPLIFY/DEPEND。",
+  "edges": [
+    // --- 典型崩溃链：状态机 → 流程 → 并发 → 异常 → 测试 ---
+    { "from": "STATE_001", "to": "STATE_006", "relation": "CAUSE", "weight": 0.7 },
+    { "from": "STATE_001", "to": "FLOW_011", "relation": "CAUSE", "weight": 0.9 },
+    { "from": "STATE_006", "to": "CONC_002", "relation": "CAUSE", "weight": 0.8 },
+    { "from": "FLOW_019", "to": "EXC_001", "relation": "CAUSE", "weight": 0.7 },
+    { "from": "FLOW_003", "to": "EXC_004", "relation": "CAUSE", "weight": 0.8 },
+    { "from": "CONC_002", "to": "EXC_001", "relation": "AMPLIFY", "weight": 0.8 },
+    { "from": "EXC_001", "to": "TEST_004", "relation": "CAUSE", "weight": 0.7 },
+    { "from": "EXC_004", "to": "TEST_004", "relation": "CAUSE", "weight": 0.6 },
+
+    // --- 状态机 → 流程 ---
+    { "from": "STATE_001", "to": "FLOW_003", "relation": "CAUSE", "weight": 0.8 },
+    { "from": "STATE_001", "to": "FLOW_019", "relation": "CAUSE", "weight": 0.7 },
+    { "from": "STATE_008", "to": "FLOW_011", "relation": "CAUSE", "weight": 0.8 }, // 状态优先级未定义 → 流程冲突
+    { "from": "STATE_016", "to": "FLOW_016", "relation": "CAUSE", "weight": 0.7 }, // 状态触发条件模糊 → 流程触发模糊
+
+    // --- 状态机 → 并发 ---
+    { "from": "STATE_008", "to": "CONC_003", "relation": "CAUSE", "weight": 0.85 }, // 状态优先级未定义 → 并发裁决缺失
+    { "from": "STATE_009", "to": "CONC_012", "relation": "CAUSE", "weight": 0.8 },  // 状态冲突未处理 → 竞态条件
+
+    // --- 流程 → 异常 ---
+    { "from": "FLOW_003", "to": "EXC_001", "relation": "CAUSE", "weight": 0.8 },  // 只有成功流程 → 系统错误处理缺失
+    { "from": "FLOW_003", "to": "EXC_004", "relation": "CAUSE", "weight": 0.8 },  // 只有成功流程 → 超时策略缺失
+    { "from": "FLOW_004", "to": "EXC_001", "relation": "CAUSE", "weight": 0.75 }, // 异常流程缺失 → 系统错误处理缺失
+    { "from": "FLOW_019", "to": "EXC_006", "relation": "CAUSE", "weight": 0.7 },  // 中断恢复缺失 → 用户失败提示缺失
+
+    // --- 流程 → 并发 ---
+    { "from": "FLOW_014", "to": "CONC_002", "relation": "CAUSE", "weight": 0.7 }, // 流程图与描述不一致 → 并发冲突规则缺失
+    { "from": "FLOW_020", "to": "CONC_010", "relation": "AMPLIFY", "weight": 0.7 }, // 极端场景未覆盖 → 并发性能风险加剧
+
+    // --- 权限 → 安全/技术 ---
+    { "from": "PERM_001", "to": "PERM_002", "relation": "CAUSE", "weight": 0.85 }, // 未定义角色 → 角色权限未定义
+    { "from": "PERM_002", "to": "TECH_011", "relation": "CAUSE", "weight": 0.9 },  // 角色权限未定义 → 安全策略缺失
+    { "from": "PERM_008", "to": "TECH_011", "relation": "AMPLIFY", "weight": 0.8 }, // 越权风险未评估 → 安全风险放大
+    { "from": "PERM_014", "to": "TECH_012", "relation": "CAUSE", "weight": 0.8 }, // 权限日志未定义 → 日志策略缺失
+    { "from": "PERM_015", "to": "TECH_011", "relation": "CAUSE", "weight": 0.8 }, // 权限撤销缺失 → 安全策略缺失
+
+    // --- 并发 → 数据 ---
+    { "from": "CONC_002", "to": "DATA_004", "relation": "CAUSE", "weight": 0.8 },  // 并发冲突规则缺失 → 数据一致性风险
+    { "from": "CONC_012", "to": "DATA_004", "relation": "CAUSE", "weight": 0.85 }, // 竞态条件未考虑 → 数据一致性风险
+    { "from": "CONC_011", "to": "DATA_011", "relation": "CAUSE", "weight": 0.75 }, // 重复操作未处理 → 数据校验/幂等缺失
+
+    // --- 数据 → 异常 ---
+    { "from": "DATA_004", "to": "EXC_011", "relation": "CAUSE", "weight": 0.85 }, // 数据一致性缺失 → 数据异常
+    { "from": "DATA_011", "to": "EXC_011", "relation": "CAUSE", "weight": 0.7 },  // 数据校验规则缺失 → 数据异常
+    { "from": "DATA_006", "to": "EXC_018", "relation": "CAUSE", "weight": 0.7 },  // 删除策略未定义 → 配置/数据错误未处理
+
+    // --- 异常 → 测试 ---
+    { "from": "EXC_001", "to": "TEST_004", "relation": "CAUSE", "weight": 0.8 },  // 系统错误处理缺失 → 异常测试缺失
+    { "from": "EXC_004", "to": "TEST_004", "relation": "CAUSE", "weight": 0.75 }, // 超时策略缺失 → 异常测试缺失
+    { "from": "EXC_012", "to": "TEST_003", "relation": "CAUSE", "weight": 0.8 },  // 边界值未考虑 → 边界测试缺失
+    { "from": "EXC_015", "to": "TEST_004", "relation": "AMPLIFY", "weight": 0.7 }, // 异常流程未验证 → 异常测试缺失问题放大
+
+    // --- 测试 → 线上风险（抽象到系统风险 bucket，由 infer_kg 聚合） ---
+    { "from": "TEST_001", "to": "TEST_015", "relation": "CAUSE", "weight": 0.7 }, // 验收标准未定义 → 上线成功标准缺失
+    { "from": "TEST_002", "to": "TEST_008", "relation": "CAUSE", "weight": 0.7 }, // 缺少测试场景 → 回归测试策略缺失
+    { "from": "TEST_004", "to": "TEST_019", "relation": "AMPLIFY", "weight": 0.7 }, // 异常测试缺失 → 稳定性风险放大
+
+    // --- 权限/数据 → 测试 ---
+    { "from": "PERM_001", "to": "TEST_007", "relation": "DEPEND", "weight": 0.6 }, // 需安全测试依赖角色定义
+    { "from": "DATA_001", "to": "TEST_002", "relation": "DEPEND", "weight": 0.6 }  // 测试场景设计依赖核心数据模型
+  ]
+}
+{
+  "version": "1.0",
+  "description": "PRD 漏洞知识图谱（最小可用版）：用于从命中规则ID推导根因与风险传播链。relation: CAUSE/AMPLIFY/DEPEND。",
+  "edges": [
+    { "from": "STATE_001", "to": "STATE_006", "relation": "CAUSE", "weight": 0.7 },
+    { "from": "STATE_001", "to": "FLOW_011", "relation": "CAUSE", "weight": 0.9 },
+    { "from": "STATE_006", "to": "CONC_002", "relation": "CAUSE", "weight": 0.8 },
+    { "from": "FLOW_019", "to": "EXC_001", "relation": "CAUSE", "weight": 0.7 },
+    { "from": "FLOW_003", "to": "EXC_004", "relation": "CAUSE", "weight": 0.8 },
+    { "from": "CONC_002", "to": "EXC_001", "relation": "AMPLIFY", "weight": 0.8 },
+    { "from": "EXC_001", "to": "TEST_004", "relation": "CAUSE", "weight": 0.7 },
+    { "from": "EXC_004", "to": "TEST_004", "relation": "CAUSE", "weight": 0.6 }
+  ]
+}
+

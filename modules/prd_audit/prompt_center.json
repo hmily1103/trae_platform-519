@@ -1,0 +1,25 @@
+{
+  "default_profile": "prd_audit_default",
+  "profiles": [
+    {
+      "profile_id": "prd_audit_default",
+      "name": "默认审计提示词集",
+      "version": "v1.0.0",
+      "stages": {
+        "stage1": "结构解析：抽取模块、流程、规则、状态、异常与依赖。",
+        "stage2": "规则抽取：按触发-条件-动作结构化，避免语义打平。",
+        "stage3": "风险分析：输出冲突、闭环、并发与恢复风险分级。",
+        "stage4": "解释生成：给出路径还原、根因、后果和修复建议。",
+        "stage5": "策略生成：输出架构改造、任务拆解与测试关注点。"
+      },
+      "ab_variants": [
+        {"variant_id": "A", "weight": 70, "notes": "强调结构化与确定性"},
+        {"variant_id": "B", "weight": 30, "notes": "强调解释性与决策建议"}
+      ],
+      "evaluation": {
+        "metrics": ["coverage", "consistency", "defect_precision", "readability"],
+        "target": {"coverage": 0.9, "consistency": 0.9, "defect_precision": 0.85, "readability": 0.9}
+      }
+    }
+  ]
+}

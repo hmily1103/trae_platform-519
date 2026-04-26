@@ -1,0 +1,75 @@
+{
+  "id": "recording_1769507087062",
+  "device_id": "192.168.16.114:8787",
+  "package_name": "",
+  "created_at": "2026-01-27T17:44:47.062577",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": {
+        "strategy": "resource_id",
+        "value": "com.thunder.ktv:id/singer_rv",
+        "fallbacks": [
+          {
+            "strategy": "coordinates",
+            "value": "360,434"
+          }
+        ],
+        "bounds": {
+          "left": 70,
+          "top": 175,
+          "right": 650,
+          "bottom": 694,
+          "center_x": 360,
+          "center_y": 434
+        }
+      },
+      "value": null,
+      "coordinates": {
+        "x": 448,
+        "y": 356
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1769507087062\\step_1.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1769507087062\\step_1.xml",
+      "timestamp": 1769507102.159883,
+      "wait_after": 1000,
+      "description": "点击 (448, 356)"
+    },
+    {
+      "step_num": 2,
+      "action_type": "click",
+      "selector": {
+        "strategy": "resource_id",
+        "value": "com.thunder.ktv:id/singer_rv",
+        "fallbacks": [
+          {
+            "strategy": "coordinates",
+            "value": "360,434"
+          }
+        ],
+        "bounds": {
+          "left": 70,
+          "top": 175,
+          "right": 650,
+          "bottom": 694,
+          "center_x": 360,
+          "center_y": 434
+        }
+      },
+      "value": null,
+      "coordinates": {
+        "x": 308,
+        "y": 220
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1769507087062\\step_2.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1769507087062\\step_2.xml",
+      "timestamp": 1769507116.0383985,
+      "wait_after": 1000,
+      "description": "点击 (308, 220)"
+    }
+  ],
+  "description": "",
+  "project_id": "",
+  "name": ""
+}

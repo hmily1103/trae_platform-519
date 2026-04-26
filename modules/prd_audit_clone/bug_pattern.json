@@ -1,0 +1,130 @@
+{
+  "items": [
+    {
+      "pattern_id": "P001",
+      "keywords": ["黑屏", "无画面", "无视频"],
+      "category": "媒体异常",
+      "design_gap": ["异常处理缺失", "资源释放缺失"],
+      "rule": "媒体流程必须定义失败兜底策略",
+      "weight": 0.9,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P002",
+      "keywords": ["卡死", "无响应", "假死"],
+      "category": "稳定性",
+      "design_gap": ["超时机制缺失", "状态回收缺失"],
+      "rule": "关键交互必须定义超时与恢复策略",
+      "weight": 0.88,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P003",
+      "keywords": ["崩溃", "闪退", "重启"],
+      "category": "稳定性",
+      "design_gap": ["异常隔离缺失"],
+      "rule": "核心模块必须定义异常隔离与重试边界",
+      "weight": 0.95,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P004",
+      "keywords": ["不同步", "状态错乱", "状态不一致"],
+      "category": "状态管理",
+      "design_gap": ["状态机缺失"],
+      "rule": "多状态系统必须定义状态机与转移条件",
+      "weight": 0.92,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P005",
+      "keywords": ["越权", "权限", "未授权"],
+      "category": "权限安全",
+      "design_gap": ["权限规则缺失"],
+      "rule": "高风险操作必须定义角色鉴权和越权拦截",
+      "weight": 0.9,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P006",
+      "keywords": ["并发", "抢占", "竞态"],
+      "category": "并发冲突",
+      "design_gap": ["并发裁决缺失"],
+      "rule": "并发场景必须定义裁决优先级与幂等策略",
+      "weight": 0.86,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P007",
+      "keywords": ["恢复失败", "无法恢复", "回退失败"],
+      "category": "恢复机制",
+      "design_gap": ["回退策略缺失"],
+      "rule": "中断流程必须定义恢复或回退策略",
+      "weight": 0.87,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P008",
+      "keywords": ["主板", "芯片", "平台差异"],
+      "category": "平台兼容",
+      "design_gap": ["平台差异约束缺失"],
+      "rule": "涉及硬件能力的功能必须定义平台差异策略",
+      "weight": 0.82,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P009",
+      "keywords": ["二维码不消失", "重叠展示"],
+      "category": "界面状态互斥",
+      "design_gap": ["弹层互斥规则缺失", "状态收敛缺失"],
+      "rule": "互斥浮层必须定义显示优先级与自动收敛规则",
+      "weight": 0.84,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P010",
+      "keywords": ["唤醒后无应答", "语音无响应"],
+      "category": "语音交互",
+      "design_gap": ["反馈机制缺失", "异常兜底缺失"],
+      "rule": "语音唤醒后必须在时限内给出反馈并定义失败兜底",
+      "weight": 0.9,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P011",
+      "keywords": ["指令无反馈", "识别后无动作"],
+      "category": "语音交互",
+      "design_gap": ["指令闭环缺失"],
+      "rule": "语音指令必须定义识别成功后的状态闭环与失败提示",
+      "weight": 0.88,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P012",
+      "keywords": ["点歌播放不一致", "结果不一致"],
+      "category": "状态一致性",
+      "design_gap": ["状态一致性约束缺失"],
+      "rule": "跨模块结果必须定义一致性校验与冲突裁决策略",
+      "weight": 0.9,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P013",
+      "keywords": ["连续唤醒无响应", "多次唤醒失效"],
+      "category": "稳定性",
+      "design_gap": ["资源回收缺失", "重入控制缺失"],
+      "rule": "连续触发场景必须定义重入控制与资源回收策略",
+      "weight": 0.89,
+      "enabled": true
+    },
+    {
+      "pattern_id": "P014",
+      "keywords": ["广告切换卡死", "切换后无响应"],
+      "category": "流程切换稳定性",
+      "design_gap": ["切换状态管理缺失"],
+      "rule": "跨流程切换必须定义过渡状态与失败回滚策略",
+      "weight": 0.86,
+      "enabled": true
+    }
+  ]
+}

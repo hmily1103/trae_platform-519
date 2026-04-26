@@ -1,0 +1,2704 @@
+{
+  "items": [
+    {
+      "rule_id": "R001",
+      "category": "Structure",
+      "rule_desc": "必须有需求背景",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有需求背景",
+      "risk": "缺失“必须有需求背景”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R002",
+      "category": "Structure",
+      "rule_desc": "必须有产品目标",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有产品目标",
+      "risk": "缺失“必须有产品目标”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R003",
+      "category": "Structure",
+      "rule_desc": "必须定义用户角色",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义用户角色",
+      "risk": "缺失“必须定义用户角色”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R004",
+      "category": "Structure",
+      "rule_desc": "必须定义使用场景",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义使用场景",
+      "risk": "缺失“必须定义使用场景”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R005",
+      "category": "Structure",
+      "rule_desc": "必须定义功能模块",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义功能模块",
+      "risk": "缺失“必须定义功能模块”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R006",
+      "category": "Structure",
+      "rule_desc": "必须有功能说明",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有功能说明",
+      "risk": "缺失“必须有功能说明”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R007",
+      "category": "Structure",
+      "rule_desc": "必须有流程描述",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有流程描述",
+      "risk": "缺失“必须有流程描述”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R008",
+      "category": "Structure",
+      "rule_desc": "必须有输入输出说明",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有输入输出说明",
+      "risk": "缺失“必须有输入输出说明”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R009",
+      "category": "Structure",
+      "rule_desc": "必须有异常说明",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有异常说明",
+      "risk": "缺失“必须有异常说明”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R010",
+      "category": "Structure",
+      "rule_desc": "必须有边界说明",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有边界说明",
+      "risk": "缺失“必须有边界说明”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R011",
+      "category": "Structure",
+      "rule_desc": "必须定义术语",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义术语",
+      "risk": "缺失“必须定义术语”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R012",
+      "category": "Structure",
+      "rule_desc": "必须有版本信息",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有版本信息",
+      "risk": "缺失“必须有版本信息”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R013",
+      "category": "Structure",
+      "rule_desc": "必须有修改记录",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有修改记录",
+      "risk": "缺失“必须有修改记录”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R014",
+      "category": "Structure",
+      "rule_desc": "必须有优先级说明",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有优先级说明",
+      "risk": "缺失“必须有优先级说明”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R015",
+      "category": "Structure",
+      "rule_desc": "必须有范围定义（做/不做）",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有范围定义（做/不做）",
+      "risk": "缺失“必须有范围定义（做/不做）”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R016",
+      "category": "Structure",
+      "rule_desc": "禁止模糊描述（如“可能”“大概”）",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：禁止模糊描述（如“可能”“大概”）",
+      "risk": "缺失“禁止模糊描述（如“可能”“大概”）”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R017",
+      "category": "Structure",
+      "rule_desc": "禁止仅有图片无文字",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：禁止仅有图片无文字",
+      "risk": "缺失“禁止仅有图片无文字”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R018",
+      "category": "Structure",
+      "rule_desc": "禁止仅有流程无说明",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：禁止仅有流程无说明",
+      "risk": "缺失“禁止仅有流程无说明”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R019",
+      "category": "Structure",
+      "rule_desc": "必须有模块间关系",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有模块间关系",
+      "risk": "缺失“必须有模块间关系”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R020",
+      "category": "Structure",
+      "rule_desc": "必须有入口说明",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有入口说明",
+      "risk": "缺失“必须有入口说明”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R021",
+      "category": "Structure",
+      "rule_desc": "必须有退出说明",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有退出说明",
+      "risk": "缺失“必须有退出说明”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R022",
+      "category": "Structure",
+      "rule_desc": "必须定义前置条件",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义前置条件",
+      "risk": "缺失“必须定义前置条件”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R023",
+      "category": "Structure",
+      "rule_desc": "必须定义后置结果",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义后置结果",
+      "risk": "缺失“必须定义后置结果”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R024",
+      "category": "Structure",
+      "rule_desc": "必须区分必做与可选",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须区分必做与可选",
+      "risk": "缺失“必须区分必做与可选”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R025",
+      "category": "Structure",
+      "rule_desc": "必须标注核心功能",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须标注核心功能",
+      "risk": "缺失“必须标注核心功能”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R026",
+      "category": "Structure",
+      "rule_desc": "必须有主路径说明",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有主路径说明",
+      "risk": "缺失“必须有主路径说明”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R027",
+      "category": "Structure",
+      "rule_desc": "必须避免重复定义",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须避免重复定义",
+      "risk": "缺失“必须避免重复定义”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R028",
+      "category": "Structure",
+      "rule_desc": "必须避免矛盾描述",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须避免矛盾描述",
+      "risk": "缺失“必须避免矛盾描述”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R029",
+      "category": "Structure",
+      "rule_desc": "必须统一术语",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须统一术语",
+      "risk": "缺失“必须统一术语”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R030",
+      "category": "Structure",
+      "rule_desc": "必须结构清晰（可解析）",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须结构清晰（可解析）",
+      "risk": "缺失“必须结构清晰（可解析）”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R031",
+      "category": "StateMachine",
+      "rule_desc": "多状态必须定义状态机",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：多状态必须定义状态机",
+      "risk": "缺失“多状态必须定义状态机”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R032",
+      "category": "StateMachine",
+      "rule_desc": "必须列出所有状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须列出所有状态",
+      "risk": "缺失“必须列出所有状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R033",
+      "category": "StateMachine",
+      "rule_desc": "必须定义初始状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义初始状态",
+      "risk": "缺失“必须定义初始状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R034",
+      "category": "StateMachine",
+      "rule_desc": "必须定义终止状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义终止状态",
+      "risk": "缺失“必须定义终止状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R035",
+      "category": "StateMachine",
+      "rule_desc": "每个状态必须有进入条件",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：每个状态必须有进入条件",
+      "risk": "缺失“每个状态必须有进入条件”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R036",
+      "category": "StateMachine",
+      "rule_desc": "每个状态必须有退出条件",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：每个状态必须有退出条件",
+      "risk": "缺失“每个状态必须有退出条件”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R037",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态转移路径",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态转移路径",
+      "risk": "缺失“必须定义状态转移路径”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R038",
+      "category": "StateMachine",
+      "rule_desc": "禁止隐式状态跳转",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：禁止隐式状态跳转",
+      "risk": "缺失“禁止隐式状态跳转”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R039",
+      "category": "StateMachine",
+      "rule_desc": "必须定义异常状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常状态",
+      "risk": "缺失“必须定义异常状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R040",
+      "category": "StateMachine",
+      "rule_desc": "必须定义中断状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义中断状态",
+      "risk": "缺失“必须定义中断状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R041",
+      "category": "StateMachine",
+      "rule_desc": "必须定义恢复逻辑",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义恢复逻辑",
+      "risk": "缺失“必须定义恢复逻辑”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R042",
+      "category": "StateMachine",
+      "rule_desc": "状态命名必须唯一",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：状态命名必须唯一",
+      "risk": "缺失“状态命名必须唯一”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R043",
+      "category": "StateMachine",
+      "rule_desc": "状态必须互斥",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：状态必须互斥",
+      "risk": "缺失“状态必须互斥”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R044",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态优先级",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态优先级",
+      "risk": "缺失“必须定义状态优先级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R045",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态冲突处理",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态冲突处理",
+      "risk": "缺失“必须定义状态冲突处理”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R046",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态超时",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态超时",
+      "risk": "缺失“必须定义状态超时”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R047",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态回退",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态回退",
+      "risk": "缺失“必须定义状态回退”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R048",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态持久化",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态持久化",
+      "risk": "缺失“必须定义状态持久化”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R049",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态同步",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态同步",
+      "risk": "缺失“必须定义状态同步”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R050",
+      "category": "StateMachine",
+      "rule_desc": "必须避免死循环状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须避免死循环状态",
+      "risk": "缺失“必须避免死循环状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R051",
+      "category": "StateMachine",
+      "rule_desc": "必须避免不可达状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须避免不可达状态",
+      "risk": "缺失“必须避免不可达状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R052",
+      "category": "StateMachine",
+      "rule_desc": "必须避免悬空状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须避免悬空状态",
+      "risk": "缺失“必须避免悬空状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R053",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态触发事件",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态触发事件",
+      "risk": "缺失“必须定义状态触发事件”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R054",
+      "category": "StateMachine",
+      "rule_desc": "必须定义自动/手动触发",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义自动/手动触发",
+      "risk": "缺失“必须定义自动/手动触发”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R055",
+      "category": "StateMachine",
+      "rule_desc": "必须定义跨模块状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义跨模块状态",
+      "risk": "缺失“必须定义跨模块状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R056",
+      "category": "StateMachine",
+      "rule_desc": "必须定义全局状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义全局状态",
+      "risk": "缺失“必须定义全局状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R057",
+      "category": "StateMachine",
+      "rule_desc": "必须定义局部状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义局部状态",
+      "risk": "缺失“必须定义局部状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R058",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态锁",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态锁",
+      "risk": "缺失“必须定义状态锁”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R059",
+      "category": "StateMachine",
+      "rule_desc": "必须定义并发状态处理",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发状态处理",
+      "risk": "缺失“必须定义并发状态处理”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R060",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态异常兜底",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态异常兜底",
+      "risk": "缺失“必须定义状态异常兜底”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R061",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态恢复策略",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态恢复策略",
+      "risk": "缺失“必须定义状态恢复策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R062",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态日志",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态日志",
+      "risk": "缺失“必须定义状态日志”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R063",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态监控",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态监控",
+      "risk": "缺失“必须定义状态监控”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R064",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态回滚",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态回滚",
+      "risk": "缺失“必须定义状态回滚”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R065",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态一致性",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态一致性",
+      "risk": "缺失“必须定义状态一致性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R066",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态依赖",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态依赖",
+      "risk": "缺失“必须定义状态依赖”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R067",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态失效",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态失效",
+      "risk": "缺失“必须定义状态失效”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R068",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态替换策略",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态替换策略",
+      "risk": "缺失“必须定义状态替换策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R069",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态优先级冲突",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态优先级冲突",
+      "risk": "缺失“必须定义状态优先级冲突”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R070",
+      "category": "StateMachine",
+      "rule_desc": "必须定义状态最终一致性",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义状态最终一致性",
+      "risk": "缺失“必须定义状态最终一致性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R071",
+      "category": "Flow",
+      "rule_desc": "必须定义完整流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义完整流程",
+      "risk": "缺失“必须定义完整流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R072",
+      "category": "Flow",
+      "rule_desc": "必须有开始节点",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有开始节点",
+      "risk": "缺失“必须有开始节点”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R073",
+      "category": "Flow",
+      "rule_desc": "必须有结束节点",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有结束节点",
+      "risk": "缺失“必须有结束节点”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R074",
+      "category": "Flow",
+      "rule_desc": "必须有路径分支",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有路径分支",
+      "risk": "缺失“必须有路径分支”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R075",
+      "category": "Flow",
+      "rule_desc": "必须有用户操作",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有用户操作",
+      "risk": "缺失“必须有用户操作”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R076",
+      "category": "Flow",
+      "rule_desc": "必须有系统行为",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有系统行为",
+      "risk": "缺失“必须有系统行为”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R077",
+      "category": "Flow",
+      "rule_desc": "必须有输入输出",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有输入输出",
+      "risk": "缺失“必须有输入输出”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R078",
+      "category": "Flow",
+      "rule_desc": "必须有异常流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有异常流程",
+      "risk": "缺失“必须有异常流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R079",
+      "category": "Flow",
+      "rule_desc": "必须有回退流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有回退流程",
+      "risk": "缺失“必须有回退流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R080",
+      "category": "Flow",
+      "rule_desc": "必须有重试流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须有重试流程",
+      "risk": "缺失“必须有重试流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R081",
+      "category": "Flow",
+      "rule_desc": "必须定义同步流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义同步流程",
+      "risk": "缺失“必须定义同步流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R082",
+      "category": "Flow",
+      "rule_desc": "必须定义异步流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异步流程",
+      "risk": "缺失“必须定义异步流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R083",
+      "category": "Flow",
+      "rule_desc": "必须定义并发流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发流程",
+      "risk": "缺失“必须定义并发流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R084",
+      "category": "Flow",
+      "rule_desc": "必须定义串行流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义串行流程",
+      "risk": "缺失“必须定义串行流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R085",
+      "category": "Flow",
+      "rule_desc": "禁止流程跳跃",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：禁止流程跳跃",
+      "risk": "缺失“禁止流程跳跃”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R086",
+      "category": "Flow",
+      "rule_desc": "禁止断链流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：禁止断链流程",
+      "risk": "缺失“禁止断链流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R087",
+      "category": "Flow",
+      "rule_desc": "必须定义触发条件",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义触发条件",
+      "risk": "缺失“必须定义触发条件”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R088",
+      "category": "Flow",
+      "rule_desc": "必须定义流程约束",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程约束",
+      "risk": "缺失“必须定义流程约束”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R089",
+      "category": "Flow",
+      "rule_desc": "必须定义流程优先级",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程优先级",
+      "risk": "缺失“必须定义流程优先级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R090",
+      "category": "Flow",
+      "rule_desc": "必须定义流程冲突",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程冲突",
+      "risk": "缺失“必须定义流程冲突”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R091",
+      "category": "Flow",
+      "rule_desc": "必须定义流程依赖",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程依赖",
+      "risk": "缺失“必须定义流程依赖”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R092",
+      "category": "Flow",
+      "rule_desc": "必须定义流程结束条件",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程结束条件",
+      "risk": "缺失“必须定义流程结束条件”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R093",
+      "category": "Flow",
+      "rule_desc": "必须定义流程中断",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程中断",
+      "risk": "缺失“必须定义流程中断”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R094",
+      "category": "Flow",
+      "rule_desc": "必须定义流程恢复",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程恢复",
+      "risk": "缺失“必须定义流程恢复”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R095",
+      "category": "Flow",
+      "rule_desc": "必须定义流程日志",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程日志",
+      "risk": "缺失“必须定义流程日志”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R096",
+      "category": "Flow",
+      "rule_desc": "必须定义流程监控",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程监控",
+      "risk": "缺失“必须定义流程监控”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R097",
+      "category": "Flow",
+      "rule_desc": "必须定义流程超时",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程超时",
+      "risk": "缺失“必须定义流程超时”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R098",
+      "category": "Flow",
+      "rule_desc": "必须定义流程失败处理",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程失败处理",
+      "risk": "缺失“必须定义流程失败处理”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R099",
+      "category": "Flow",
+      "rule_desc": "必须定义流程成功标准",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程成功标准",
+      "risk": "缺失“必须定义流程成功标准”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R100",
+      "category": "Flow",
+      "rule_desc": "必须定义流程边界",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程边界",
+      "risk": "缺失“必须定义流程边界”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R101",
+      "category": "Flow",
+      "rule_desc": "必须定义循环流程",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义循环流程",
+      "risk": "缺失“必须定义循环流程”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R102",
+      "category": "Flow",
+      "rule_desc": "必须定义最大循环次数",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义最大循环次数",
+      "risk": "缺失“必须定义最大循环次数”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R103",
+      "category": "Flow",
+      "rule_desc": "必须定义流程降级",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程降级",
+      "risk": "缺失“必须定义流程降级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R104",
+      "category": "Flow",
+      "rule_desc": "必须定义流程 fallback",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程 fallback",
+      "risk": "缺失“必须定义流程 fallback”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R105",
+      "category": "Flow",
+      "rule_desc": "必须定义流程版本差异",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程版本差异",
+      "risk": "缺失“必须定义流程版本差异”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R106",
+      "category": "Flow",
+      "rule_desc": "必须定义流程扩展点",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程扩展点",
+      "risk": "缺失“必须定义流程扩展点”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R107",
+      "category": "Flow",
+      "rule_desc": "必须定义流程复用",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程复用",
+      "risk": "缺失“必须定义流程复用”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R108",
+      "category": "Flow",
+      "rule_desc": "必须定义流程中状态变化",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程中状态变化",
+      "risk": "缺失“必须定义流程中状态变化”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R109",
+      "category": "Flow",
+      "rule_desc": "必须定义流程资源使用",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程资源使用",
+      "risk": "缺失“必须定义流程资源使用”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R110",
+      "category": "Flow",
+      "rule_desc": "必须定义流程一致性",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义流程一致性",
+      "risk": "缺失“必须定义流程一致性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R111",
+      "category": "Permission",
+      "rule_desc": "必须定义用户角色",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义用户角色",
+      "risk": "缺失“必须定义用户角色”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R112",
+      "category": "Permission",
+      "rule_desc": "必须定义角色权限",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义角色权限",
+      "risk": "缺失“必须定义角色权限”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R113",
+      "category": "Permission",
+      "rule_desc": "必须定义操作权限",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义操作权限",
+      "risk": "缺失“必须定义操作权限”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R114",
+      "category": "Permission",
+      "rule_desc": "必须定义访问控制",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义访问控制",
+      "risk": "缺失“必须定义访问控制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R115",
+      "category": "Permission",
+      "rule_desc": "必须定义鉴权机制",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义鉴权机制",
+      "risk": "缺失“必须定义鉴权机制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R116",
+      "category": "Permission",
+      "rule_desc": "必须定义权限粒度",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限粒度",
+      "risk": "缺失“必须定义权限粒度”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R117",
+      "category": "Permission",
+      "rule_desc": "必须定义权限继承",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限继承",
+      "risk": "缺失“必须定义权限继承”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R118",
+      "category": "Permission",
+      "rule_desc": "必须定义权限冲突",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限冲突",
+      "risk": "缺失“必须定义权限冲突”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R119",
+      "category": "Permission",
+      "rule_desc": "必须定义权限变更",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限变更",
+      "risk": "缺失“必须定义权限变更”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R120",
+      "category": "Permission",
+      "rule_desc": "必须定义权限校验",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限校验",
+      "risk": "缺失“必须定义权限校验”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R121",
+      "category": "Permission",
+      "rule_desc": "必须定义未授权处理",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义未授权处理",
+      "risk": "缺失“必须定义未授权处理”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R122",
+      "category": "Permission",
+      "rule_desc": "必须定义越权处理",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义越权处理",
+      "risk": "缺失“必须定义越权处理”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R123",
+      "category": "Permission",
+      "rule_desc": "必须定义高危操作保护",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义高危操作保护",
+      "risk": "缺失“必须定义高危操作保护”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R124",
+      "category": "Permission",
+      "rule_desc": "必须定义权限日志",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限日志",
+      "risk": "缺失“必须定义权限日志”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R125",
+      "category": "Permission",
+      "rule_desc": "必须定义权限审计",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限审计",
+      "risk": "缺失“必须定义权限审计”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R126",
+      "category": "Permission",
+      "rule_desc": "必须定义权限缓存",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限缓存",
+      "risk": "缺失“必须定义权限缓存”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R127",
+      "category": "Permission",
+      "rule_desc": "必须定义权限同步",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限同步",
+      "risk": "缺失“必须定义权限同步”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R128",
+      "category": "Permission",
+      "rule_desc": "必须定义权限失效",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限失效",
+      "risk": "缺失“必须定义权限失效”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R129",
+      "category": "Permission",
+      "rule_desc": "必须定义权限恢复",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限恢复",
+      "risk": "缺失“必须定义权限恢复”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R130",
+      "category": "Permission",
+      "rule_desc": "必须定义权限异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限异常",
+      "risk": "缺失“必须定义权限异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R131",
+      "category": "Permission",
+      "rule_desc": "必须定义权限边界",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限边界",
+      "risk": "缺失“必须定义权限边界”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R132",
+      "category": "Permission",
+      "rule_desc": "必须定义默认权限",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义默认权限",
+      "risk": "缺失“必须定义默认权限”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R133",
+      "category": "Permission",
+      "rule_desc": "必须定义最小权限原则",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义最小权限原则",
+      "risk": "缺失“必须定义最小权限原则”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R134",
+      "category": "Permission",
+      "rule_desc": "必须定义权限升级",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限升级",
+      "risk": "缺失“必须定义权限升级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R135",
+      "category": "Permission",
+      "rule_desc": "必须定义权限降级",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限降级",
+      "risk": "缺失“必须定义权限降级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R136",
+      "category": "Permission",
+      "rule_desc": "必须定义权限黑名单",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限黑名单",
+      "risk": "缺失“必须定义权限黑名单”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R137",
+      "category": "Permission",
+      "rule_desc": "必须定义权限白名单",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限白名单",
+      "risk": "缺失“必须定义权限白名单”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R138",
+      "category": "Permission",
+      "rule_desc": "必须定义权限隔离",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限隔离",
+      "risk": "缺失“必须定义权限隔离”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R139",
+      "category": "Permission",
+      "rule_desc": "必须定义跨系统权限",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义跨系统权限",
+      "risk": "缺失“必须定义跨系统权限”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R140",
+      "category": "Permission",
+      "rule_desc": "必须定义权限一致性",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限一致性",
+      "risk": "缺失“必须定义权限一致性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R141",
+      "category": "Exception",
+      "rule_desc": "每个流程必须定义异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：每个流程必须定义异常",
+      "risk": "缺失“每个流程必须定义异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R142",
+      "category": "Exception",
+      "rule_desc": "必须定义网络异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义网络异常",
+      "risk": "缺失“必须定义网络异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R143",
+      "category": "Exception",
+      "rule_desc": "必须定义超时异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义超时异常",
+      "risk": "缺失“必须定义超时异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R144",
+      "category": "Exception",
+      "rule_desc": "必须定义服务异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义服务异常",
+      "risk": "缺失“必须定义服务异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R145",
+      "category": "Exception",
+      "rule_desc": "必须定义数据异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据异常",
+      "risk": "缺失“必须定义数据异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R146",
+      "category": "Exception",
+      "rule_desc": "必须定义输入异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义输入异常",
+      "risk": "缺失“必须定义输入异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R147",
+      "category": "Exception",
+      "rule_desc": "必须定义权限异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限异常",
+      "risk": "缺失“必须定义权限异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R148",
+      "category": "Exception",
+      "rule_desc": "必须定义资源异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义资源异常",
+      "risk": "缺失“必须定义资源异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R149",
+      "category": "Exception",
+      "rule_desc": "必须定义未知异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义未知异常",
+      "risk": "缺失“必须定义未知异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R150",
+      "category": "Exception",
+      "rule_desc": "必须定义异常分类",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常分类",
+      "risk": "缺失“必须定义异常分类”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R151",
+      "category": "Exception",
+      "rule_desc": "必须定义异常处理策略",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常处理策略",
+      "risk": "缺失“必须定义异常处理策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R152",
+      "category": "Exception",
+      "rule_desc": "必须定义异常提示",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常提示",
+      "risk": "缺失“必须定义异常提示”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R153",
+      "category": "Exception",
+      "rule_desc": "必须定义异常重试",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常重试",
+      "risk": "缺失“必须定义异常重试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R154",
+      "category": "Exception",
+      "rule_desc": "必须定义异常降级",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常降级",
+      "risk": "缺失“必须定义异常降级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R155",
+      "category": "Exception",
+      "rule_desc": "必须定义异常兜底",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常兜底",
+      "risk": "缺失“必须定义异常兜底”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R156",
+      "category": "Exception",
+      "rule_desc": "必须定义异常日志",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常日志",
+      "risk": "缺失“必须定义异常日志”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R157",
+      "category": "Exception",
+      "rule_desc": "必须定义异常监控",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常监控",
+      "risk": "缺失“必须定义异常监控”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R158",
+      "category": "Exception",
+      "rule_desc": "必须定义异常报警",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常报警",
+      "risk": "缺失“必须定义异常报警”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R159",
+      "category": "Exception",
+      "rule_desc": "必须定义异常恢复",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常恢复",
+      "risk": "缺失“必须定义异常恢复”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R160",
+      "category": "Exception",
+      "rule_desc": "必须定义异常影响范围",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常影响范围",
+      "risk": "缺失“必须定义异常影响范围”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R161",
+      "category": "Exception",
+      "rule_desc": "必须定义异常隔离",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常隔离",
+      "risk": "缺失“必须定义异常隔离”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R162",
+      "category": "Exception",
+      "rule_desc": "必须定义异常传播",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常传播",
+      "risk": "缺失“必须定义异常传播”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R163",
+      "category": "Exception",
+      "rule_desc": "必须定义异常拦截",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常拦截",
+      "risk": "缺失“必须定义异常拦截”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R164",
+      "category": "Exception",
+      "rule_desc": "必须定义异常超时",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常超时",
+      "risk": "缺失“必须定义异常超时”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R165",
+      "category": "Exception",
+      "rule_desc": "必须定义异常回滚",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常回滚",
+      "risk": "缺失“必须定义异常回滚”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R166",
+      "category": "Exception",
+      "rule_desc": "必须定义异常补偿",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常补偿",
+      "risk": "缺失“必须定义异常补偿”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R167",
+      "category": "Exception",
+      "rule_desc": "必须定义异常状态",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常状态",
+      "risk": "缺失“必须定义异常状态”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R168",
+      "category": "Exception",
+      "rule_desc": "必须定义异常优先级",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常优先级",
+      "risk": "缺失“必须定义异常优先级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R169",
+      "category": "Exception",
+      "rule_desc": "必须定义异常处理链",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常处理链",
+      "risk": "缺失“必须定义异常处理链”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R170",
+      "category": "Exception",
+      "rule_desc": "必须定义异常限流",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常限流",
+      "risk": "缺失“必须定义异常限流”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R171",
+      "category": "Exception",
+      "rule_desc": "必须定义异常降级路径",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常降级路径",
+      "risk": "缺失“必须定义异常降级路径”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R172",
+      "category": "Exception",
+      "rule_desc": "必须定义异常恢复时间",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常恢复时间",
+      "risk": "缺失“必须定义异常恢复时间”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R173",
+      "category": "Exception",
+      "rule_desc": "必须定义异常影响用户",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常影响用户",
+      "risk": "缺失“必须定义异常影响用户”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R174",
+      "category": "Exception",
+      "rule_desc": "必须定义异常数据处理",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常数据处理",
+      "risk": "缺失“必须定义异常数据处理”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R175",
+      "category": "Exception",
+      "rule_desc": "必须定义异常日志结构",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常日志结构",
+      "risk": "缺失“必须定义异常日志结构”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R176",
+      "category": "Exception",
+      "rule_desc": "必须定义异常trace",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常trace",
+      "risk": "缺失“必须定义异常trace”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R177",
+      "category": "Exception",
+      "rule_desc": "必须定义异常重放",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常重放",
+      "risk": "缺失“必须定义异常重放”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R178",
+      "category": "Exception",
+      "rule_desc": "必须定义异常测试场景",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常测试场景",
+      "risk": "缺失“必须定义异常测试场景”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R179",
+      "category": "Exception",
+      "rule_desc": "必须定义异常验证",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常验证",
+      "risk": "缺失“必须定义异常验证”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R180",
+      "category": "Exception",
+      "rule_desc": "必须定义异常复盘",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常复盘",
+      "risk": "缺失“必须定义异常复盘”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R181",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发场景",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发场景",
+      "risk": "缺失“必须定义并发场景”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R182",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发冲突",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发冲突",
+      "risk": "缺失“必须定义并发冲突”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R183",
+      "category": "Concurrency",
+      "rule_desc": "必须定义优先级",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义优先级",
+      "risk": "缺失“必须定义优先级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R184",
+      "category": "Concurrency",
+      "rule_desc": "必须定义资源竞争",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义资源竞争",
+      "risk": "缺失“必须定义资源竞争”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R185",
+      "category": "Concurrency",
+      "rule_desc": "必须定义锁机制",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义锁机制",
+      "risk": "缺失“必须定义锁机制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R186",
+      "category": "Concurrency",
+      "rule_desc": "必须定义队列",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义队列",
+      "risk": "缺失“必须定义队列”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R187",
+      "category": "Concurrency",
+      "rule_desc": "必须定义串行化",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义串行化",
+      "risk": "缺失“必须定义串行化”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R188",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发限制",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发限制",
+      "risk": "缺失“必须定义并发限制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R189",
+      "category": "Concurrency",
+      "rule_desc": "必须定义最大并发数",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义最大并发数",
+      "risk": "缺失“必须定义最大并发数”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R190",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发超时",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发超时",
+      "risk": "缺失“必须定义并发超时”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R191",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发失败处理",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发失败处理",
+      "risk": "缺失“必须定义并发失败处理”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R192",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发重试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发重试",
+      "risk": "缺失“必须定义并发重试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R193",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发隔离",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发隔离",
+      "risk": "缺失“必须定义并发隔离”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R194",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发一致性",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发一致性",
+      "risk": "缺失“必须定义并发一致性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R195",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发顺序",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发顺序",
+      "risk": "缺失“必须定义并发顺序”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R196",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发日志",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发日志",
+      "risk": "缺失“必须定义并发日志”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R197",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发监控",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发监控",
+      "risk": "缺失“必须定义并发监控”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R198",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发降级",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发降级",
+      "risk": "缺失“必须定义并发降级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R199",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发异常",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发异常",
+      "risk": "缺失“必须定义并发异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R200",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发恢复",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发恢复",
+      "risk": "缺失“必须定义并发恢复”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R201",
+      "category": "Concurrency",
+      "rule_desc": "必须定义分布式一致性",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义分布式一致性",
+      "risk": "缺失“必须定义分布式一致性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R202",
+      "category": "Concurrency",
+      "rule_desc": "必须定义最终一致性",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义最终一致性",
+      "risk": "缺失“必须定义最终一致性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R203",
+      "category": "Concurrency",
+      "rule_desc": "必须定义强一致性",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义强一致性",
+      "risk": "缺失“必须定义强一致性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R204",
+      "category": "Concurrency",
+      "rule_desc": "必须定义幂等性",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义幂等性",
+      "risk": "缺失“必须定义幂等性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R205",
+      "category": "Concurrency",
+      "rule_desc": "必须定义去重机制",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义去重机制",
+      "risk": "缺失“必须定义去重机制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R206",
+      "category": "Concurrency",
+      "rule_desc": "必须定义事务边界",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义事务边界",
+      "risk": "缺失“必须定义事务边界”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R207",
+      "category": "Concurrency",
+      "rule_desc": "必须定义回滚策略",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义回滚策略",
+      "risk": "缺失“必须定义回滚策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R208",
+      "category": "Concurrency",
+      "rule_desc": "必须定义补偿机制",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义补偿机制",
+      "risk": "缺失“必须定义补偿机制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R209",
+      "category": "Concurrency",
+      "rule_desc": "必须定义并发测试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义并发测试",
+      "risk": "缺失“必须定义并发测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R210",
+      "category": "Concurrency",
+      "rule_desc": "必须定义竞态条件处理",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义竞态条件处理",
+      "risk": "缺失“必须定义竞态条件处理”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R211",
+      "category": "Data",
+      "rule_desc": "必须定义数据来源",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据来源",
+      "risk": "缺失“必须定义数据来源”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R212",
+      "category": "Data",
+      "rule_desc": "必须定义数据结构",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据结构",
+      "risk": "缺失“必须定义数据结构”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R213",
+      "category": "Data",
+      "rule_desc": "必须定义数据格式",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据格式",
+      "risk": "缺失“必须定义数据格式”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R214",
+      "category": "Data",
+      "rule_desc": "必须定义数据校验",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据校验",
+      "risk": "缺失“必须定义数据校验”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R215",
+      "category": "Data",
+      "rule_desc": "必须定义数据更新策略",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据更新策略",
+      "risk": "缺失“必须定义数据更新策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R216",
+      "category": "Data",
+      "rule_desc": "必须定义数据缓存",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据缓存",
+      "risk": "缺失“必须定义数据缓存”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R217",
+      "category": "Data",
+      "rule_desc": "必须定义数据一致性",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据一致性",
+      "risk": "缺失“必须定义数据一致性”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R218",
+      "category": "Data",
+      "rule_desc": "必须定义数据同步",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据同步",
+      "risk": "缺失“必须定义数据同步”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R219",
+      "category": "Data",
+      "rule_desc": "必须定义数据延迟",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据延迟",
+      "risk": "缺失“必须定义数据延迟”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R220",
+      "category": "Data",
+      "rule_desc": "必须定义数据过期",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据过期",
+      "risk": "缺失“必须定义数据过期”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R221",
+      "category": "Data",
+      "rule_desc": "必须定义数据清理",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据清理",
+      "risk": "缺失“必须定义数据清理”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R222",
+      "category": "Data",
+      "rule_desc": "必须定义数据备份",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据备份",
+      "risk": "缺失“必须定义数据备份”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R223",
+      "category": "Data",
+      "rule_desc": "必须定义数据恢复",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据恢复",
+      "risk": "缺失“必须定义数据恢复”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R224",
+      "category": "Data",
+      "rule_desc": "必须定义数据权限",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据权限",
+      "risk": "缺失“必须定义数据权限”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R225",
+      "category": "Data",
+      "rule_desc": "必须定义数据安全",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据安全",
+      "risk": "缺失“必须定义数据安全”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R226",
+      "category": "Data",
+      "rule_desc": "必须定义数据脱敏",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据脱敏",
+      "risk": "缺失“必须定义数据脱敏”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R227",
+      "category": "Data",
+      "rule_desc": "必须定义数据加密",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据加密",
+      "risk": "缺失“必须定义数据加密”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R228",
+      "category": "Data",
+      "rule_desc": "必须定义数据日志",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据日志",
+      "risk": "缺失“必须定义数据日志”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R229",
+      "category": "Data",
+      "rule_desc": "必须定义数据监控",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据监控",
+      "risk": "缺失“必须定义数据监控”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R230",
+      "category": "Data",
+      "rule_desc": "必须定义数据异常",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据异常",
+      "risk": "缺失“必须定义数据异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R231",
+      "category": "Data",
+      "rule_desc": "必须定义数据冲突",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据冲突",
+      "risk": "缺失“必须定义数据冲突”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R232",
+      "category": "Data",
+      "rule_desc": "必须定义数据合并",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据合并",
+      "risk": "缺失“必须定义数据合并”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R233",
+      "category": "Data",
+      "rule_desc": "必须定义数据去重",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据去重",
+      "risk": "缺失“必须定义数据去重”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R234",
+      "category": "Data",
+      "rule_desc": "必须定义数据版本",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据版本",
+      "risk": "缺失“必须定义数据版本”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R235",
+      "category": "Data",
+      "rule_desc": "必须定义数据迁移",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据迁移",
+      "risk": "缺失“必须定义数据迁移”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R236",
+      "category": "Data",
+      "rule_desc": "必须定义数据扩展",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据扩展",
+      "risk": "缺失“必须定义数据扩展”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R237",
+      "category": "Data",
+      "rule_desc": "必须定义数据依赖",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据依赖",
+      "risk": "缺失“必须定义数据依赖”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R238",
+      "category": "Data",
+      "rule_desc": "必须定义数据边界",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据边界",
+      "risk": "缺失“必须定义数据边界”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R239",
+      "category": "Data",
+      "rule_desc": "必须定义数据容量",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据容量",
+      "risk": "缺失“必须定义数据容量”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R240",
+      "category": "Data",
+      "rule_desc": "必须定义数据一致性验证",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据一致性验证",
+      "risk": "缺失“必须定义数据一致性验证”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R241",
+      "category": "Platform",
+      "rule_desc": "必须定义平台类型",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义平台类型",
+      "risk": "缺失“必须定义平台类型”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R242",
+      "category": "Platform",
+      "rule_desc": "必须定义芯片差异",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义芯片差异",
+      "risk": "缺失“必须定义芯片差异”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R243",
+      "category": "Platform",
+      "rule_desc": "必须定义性能差异",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义性能差异",
+      "risk": "缺失“必须定义性能差异”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R244",
+      "category": "Platform",
+      "rule_desc": "必须定义内存限制",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义内存限制",
+      "risk": "缺失“必须定义内存限制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R245",
+      "category": "Platform",
+      "rule_desc": "必须定义CPU限制",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义CPU限制",
+      "risk": "缺失“必须定义CPU限制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R246",
+      "category": "Platform",
+      "rule_desc": "必须定义GPU能力",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义GPU能力",
+      "risk": "缺失“必须定义GPU能力”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R247",
+      "category": "Platform",
+      "rule_desc": "必须定义解码能力",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义解码能力",
+      "risk": "缺失“必须定义解码能力”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R248",
+      "category": "Platform",
+      "rule_desc": "必须定义系统版本差异",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义系统版本差异",
+      "risk": "缺失“必须定义系统版本差异”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R249",
+      "category": "Platform",
+      "rule_desc": "必须定义兼容策略",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义兼容策略",
+      "risk": "缺失“必须定义兼容策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R250",
+      "category": "Platform",
+      "rule_desc": "必须定义降级策略",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义降级策略",
+      "risk": "缺失“必须定义降级策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R251",
+      "category": "Platform",
+      "rule_desc": "必须定义能力检测",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义能力检测",
+      "risk": "缺失“必须定义能力检测”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R252",
+      "category": "Platform",
+      "rule_desc": "必须定义动态适配",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义动态适配",
+      "risk": "缺失“必须定义动态适配”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R253",
+      "category": "Platform",
+      "rule_desc": "必须定义资源占用",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义资源占用",
+      "risk": "缺失“必须定义资源占用”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R254",
+      "category": "Platform",
+      "rule_desc": "必须定义平台异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义平台异常",
+      "risk": "缺失“必须定义平台异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R255",
+      "category": "Platform",
+      "rule_desc": "必须定义平台日志",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义平台日志",
+      "risk": "缺失“必须定义平台日志”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R256",
+      "category": "Platform",
+      "rule_desc": "必须定义平台监控",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义平台监控",
+      "risk": "缺失“必须定义平台监控”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R257",
+      "category": "Platform",
+      "rule_desc": "必须定义平台差异测试",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义平台差异测试",
+      "risk": "缺失“必须定义平台差异测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R258",
+      "category": "Platform",
+      "rule_desc": "必须定义平台特性开关",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义平台特性开关",
+      "risk": "缺失“必须定义平台特性开关”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R259",
+      "category": "Platform",
+      "rule_desc": "必须定义平台 fallback",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义平台 fallback",
+      "risk": "缺失“必须定义平台 fallback”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R260",
+      "category": "Platform",
+      "rule_desc": "必须定义平台隔离策略",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义平台隔离策略",
+      "risk": "缺失“必须定义平台隔离策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R261",
+      "category": "Security",
+      "rule_desc": "必须验证输入",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须验证输入",
+      "risk": "缺失“必须验证输入”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R262",
+      "category": "Security",
+      "rule_desc": "必须防止注入攻击",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须防止注入攻击",
+      "risk": "缺失“必须防止注入攻击”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R263",
+      "category": "Security",
+      "rule_desc": "必须防止越权访问",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须防止越权访问",
+      "risk": "缺失“必须防止越权访问”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R264",
+      "category": "Security",
+      "rule_desc": "必须防止数据泄露",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须防止数据泄露",
+      "risk": "缺失“必须防止数据泄露”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R265",
+      "category": "Security",
+      "rule_desc": "必须防止跨设备访问",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须防止跨设备访问",
+      "risk": "缺失“必须防止跨设备访问”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R266",
+      "category": "Security",
+      "rule_desc": "必须定义认证机制",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义认证机制",
+      "risk": "缺失“必须定义认证机制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R267",
+      "category": "Security",
+      "rule_desc": "必须定义加密策略",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义加密策略",
+      "risk": "缺失“必须定义加密策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R268",
+      "category": "Security",
+      "rule_desc": "必须定义token机制",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义token机制",
+      "risk": "缺失“必须定义token机制”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R269",
+      "category": "Security",
+      "rule_desc": "必须定义防重放",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义防重放",
+      "risk": "缺失“必须定义防重放”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R270",
+      "category": "Security",
+      "rule_desc": "必须定义风控策略",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义风控策略",
+      "risk": "缺失“必须定义风控策略”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R271",
+      "category": "Security",
+      "rule_desc": "必须定义安全日志",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义安全日志",
+      "risk": "缺失“必须定义安全日志”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R272",
+      "category": "Security",
+      "rule_desc": "必须定义安全监控",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义安全监控",
+      "risk": "缺失“必须定义安全监控”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R273",
+      "category": "Security",
+      "rule_desc": "必须定义安全告警",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义安全告警",
+      "risk": "缺失“必须定义安全告警”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R274",
+      "category": "Security",
+      "rule_desc": "必须定义安全审计",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义安全审计",
+      "risk": "缺失“必须定义安全审计”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R275",
+      "category": "Security",
+      "rule_desc": "必须定义安全异常",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义安全异常",
+      "risk": "缺失“必须定义安全异常”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R276",
+      "category": "Security",
+      "rule_desc": "必须定义安全恢复",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义安全恢复",
+      "risk": "缺失“必须定义安全恢复”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R277",
+      "category": "Security",
+      "rule_desc": "必须定义接口安全",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义接口安全",
+      "risk": "缺失“必须定义接口安全”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R278",
+      "category": "Security",
+      "rule_desc": "必须定义权限安全",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义权限安全",
+      "risk": "缺失“必须定义权限安全”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R279",
+      "category": "Security",
+      "rule_desc": "必须定义数据安全",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义数据安全",
+      "risk": "缺失“必须定义数据安全”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R280",
+      "category": "Security",
+      "rule_desc": "必须定义安全测试",
+      "source_pattern": "PRD300",
+      "severity": "P0",
+      "detect": "检查PRD文本是否显式覆盖：必须定义安全测试",
+      "risk": "缺失“必须定义安全测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R281",
+      "category": "Testability",
+      "rule_desc": "功能必须可测试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：功能必须可测试",
+      "risk": "缺失“功能必须可测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R282",
+      "category": "Testability",
+      "rule_desc": "必须定义成功条件",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义成功条件",
+      "risk": "缺失“必须定义成功条件”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R283",
+      "category": "Testability",
+      "rule_desc": "必须定义失败条件",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义失败条件",
+      "risk": "缺失“必须定义失败条件”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R284",
+      "category": "Testability",
+      "rule_desc": "必须定义测试方法",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义测试方法",
+      "risk": "缺失“必须定义测试方法”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R285",
+      "category": "Testability",
+      "rule_desc": "必须定义测试数据",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义测试数据",
+      "risk": "缺失“必须定义测试数据”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R286",
+      "category": "Testability",
+      "rule_desc": "必须定义测试环境",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义测试环境",
+      "risk": "缺失“必须定义测试环境”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R287",
+      "category": "Testability",
+      "rule_desc": "必须定义测试范围",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义测试范围",
+      "risk": "缺失“必须定义测试范围”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R288",
+      "category": "Testability",
+      "rule_desc": "必须定义测试边界",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义测试边界",
+      "risk": "缺失“必须定义测试边界”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R289",
+      "category": "Testability",
+      "rule_desc": "必须定义测试用例",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义测试用例",
+      "risk": "缺失“必须定义测试用例”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R290",
+      "category": "Testability",
+      "rule_desc": "必须定义测试优先级",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义测试优先级",
+      "risk": "缺失“必须定义测试优先级”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R291",
+      "category": "Testability",
+      "rule_desc": "必须定义自动化测试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义自动化测试",
+      "risk": "缺失“必须定义自动化测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R292",
+      "category": "Testability",
+      "rule_desc": "必须定义回归测试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义回归测试",
+      "risk": "缺失“必须定义回归测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R293",
+      "category": "Testability",
+      "rule_desc": "必须定义异常测试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义异常测试",
+      "risk": "缺失“必须定义异常测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R294",
+      "category": "Testability",
+      "rule_desc": "必须定义性能测试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义性能测试",
+      "risk": "缺失“必须定义性能测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R295",
+      "category": "Testability",
+      "rule_desc": "必须定义压力测试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义压力测试",
+      "risk": "缺失“必须定义压力测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R296",
+      "category": "Testability",
+      "rule_desc": "必须定义兼容性测试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义兼容性测试",
+      "risk": "缺失“必须定义兼容性测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R297",
+      "category": "Testability",
+      "rule_desc": "必须定义安全测试",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义安全测试",
+      "risk": "缺失“必须定义安全测试”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R298",
+      "category": "Testability",
+      "rule_desc": "必须定义验收标准",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义验收标准",
+      "risk": "缺失“必须定义验收标准”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R299",
+      "category": "Testability",
+      "rule_desc": "必须定义测试覆盖率",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义测试覆盖率",
+      "risk": "缺失“必须定义测试覆盖率”会导致需求不完整或上线风险上升"
+    },
+    {
+      "rule_id": "R300",
+      "category": "Testability",
+      "rule_desc": "必须定义测试报告",
+      "source_pattern": "PRD300",
+      "severity": "P1",
+      "detect": "检查PRD文本是否显式覆盖：必须定义测试报告",
+      "risk": "缺失“必须定义测试报告”会导致需求不完整或上线风险上升"
+    }
+  ]
+}

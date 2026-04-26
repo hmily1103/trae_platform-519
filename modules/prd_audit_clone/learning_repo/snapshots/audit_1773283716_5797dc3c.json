@@ -1,0 +1,1127 @@
+{
+  "snapshot_id": "audit_1773283716_5797dc3c",
+  "created_at": 1773283716,
+  "created_at_str": "2026-03-12 10:48:36",
+  "offline_mode": true,
+  "prd_text": "星聚会0822版本--雷⽯侧接⼝-持续更新\u0001\n1. 批量展⽰⼆维码(done)\u0001\n1. POST\u0001\n2. uri:/xjh/bar/batchqrcode\u0001\n3. post\u0001body\u0001参数如下（form形式）\u0001\n参数名字\u0001 参数类型\u0001 参数说明\u0001\nrooms\u0001 string\u0001 roomid列表，⽤逗号分隔\u0001\nqr_bg_code string\u0001\nqr_code\u0001 string\u0001\nshowTime\u0001 string\u0001 显⽰时⻓，单位s\u0001\nqr_bg_x\u0001 int\u0001 距离左上⻆的x位置\u0001单位px\u0001\nqr_bg_y\u0001 int\u0001 距离左上⻆的位置\u0001单位px\u0001\u0001\ntop_title\u0001 String\u0001\u0001 \u0001⼆维码上⽅显⽰⽂字\u0001\nbottom_title\u0001 String\u0001\u0001 \u0001⼆维码下⽅显⽰⽂字\u0001\nuser_name\u0001 string\u0001 新增：⽤⼾名字\u0001\nuser_head\u0001 string\u0001 新增：⽤⼾头像\u0001\nsong_name\u0001 string\u0001 新增：歌曲名字\u0001\nbettingType\u0001 string\u0001 新增：押注类型\u0001\nbettingTitle\u0001 string\u0001 新增：押注标题\u0001\nbettingHead\u0001 string\u0001 新增：押注头像\u0001\n4. 返回结果\n代码块\u0001\n{\"code\":\"200\",\"msg\":\" 成功 \"} 1\n2\n改接⼝为异步批量通知接⼝，返回成功\n2. 查询是否满⾜PK条件\u0001\n1. GET\u0001\n2. uri:/xjh/pk/ready\u0001\n3. 参数\n参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001\nsongId\u0001 int\u0001 歌曲id\u0001\n4. 返回结果\n代码块\u0001\n{\"code\":\"200\",\"msg\":\" 成功 \",\"result\":{\"state\":1} \nstate ：\n0：不满⾜ Pk 条件\n1：满⾜ PK 条件\n3. 开启PK（done）\u0001\n1. POST\u0001\n2. uri:/xjh/pk/start\u0001\n3. post\u0001body\u0001参数如下（form形式）\u0001\n参数名字\u0001 参数类型\u0001 参数说明\u0001\nuserId\u0001 string\u0001 PK邀请者id\u0001\ninviteeUserId\u0001 string\u0001 PK被邀请者id\u0001\nuserHeadImgUrl\u0001 String\u0001 PK邀请者头像url\u0001\n3\n1\n2\n3\n4\n5\ninviteeUserHeadI\nmgUrl\u0001\nString\u0001 PK被邀请者头像url\u0001\nuserName\u0001 string\u0001 PK邀请者名称\u0001\ninviteeUserName\u0001 String\u0001 PK被邀请者名称\u0001\ninviteeRoomid\u0001 String\u0001 PK邀请者的⽤⼾头像\u0001\nroomid\u0001 String\u0001 PK邀请者的roomid\u0001\ninviteeRoomid\u0001 String\u0001 PK被邀请者的roomid\u0001\ngroupId\u0001 String\u0001 组队的房间ID\u0001\nsongId\u0001 int\u0001 歌曲id\u0001\nsongName\u0001 string\u0001 歌曲名称\u0001\nsingerName\u0001 string\u0001 歌⼿名称\u0001\nsingerId\u0001 string\u0001 歌⼿id\u0001\nbettingType\u0001 string\u0001 新增，押注类型\u0001\nuserRank\u0001 int\u0001 新增，PK邀请者的排名\u0001\ninviteeRank\u0001 int\u0001 新增，PK被邀请者的排名\u0001\nuserWinStreak\u0001 int\u0001 新增，PK邀请者的连胜场次\u0001\ninviteeWinStreak\u0001 int\u0001 新增，PK被邀请者的连胜场次\u0001\nuserWinRate\u0001 string\u0001 新增，PK邀请者的胜率\u0001\ninviteeWinRate\u0001 string\u0001 新增，PK被邀请者的胜率\u0001\ndelaySeconds\u0001 int\u0001 新增，等待多少秒后显⽰弹框（单位：秒）\u0001\ndisplaySeconds\u0001 int\u0001 新增，弹框展⽰持续时间（单位：秒）\u0001\ntext\u0001 string\u0001 新增，弹框中显⽰的⽂字内容\u0001\nimageUrl\u0001 string\u0001 新增，弹框中显⽰的图⽚URL\u0001\ndifficultyLevel\u0001 float\u0001 难度系数\u0001\n4. 返回结果\n代码块\u0001\n{\"code\":\"200\",\"msg\":\" 成功 \",\"result\":{}} \n4. 查询pk歌单（done）\u0001\n1. GET\u0001\n2. uri:/xjh/pk/songlist\u0001\n3. 参数：⽆\n4. 返回结果\n待曲库做完后，以列表形式同步给星聚会维护，定期轮询同步，线上业务不需要。\n5. PK歌单的搜索（done）\u0001\n1. GET\u0001\n2. uri:/xjh/pk/search\u0001\n3. 参数\nroomid\u0001\u0001 string\u0001 roomid\u0001\npage\u0001 int\u0001 当前⻚（默认值为1）\u0001\nsize\u0001 int\u0001 每⻚⼤⼩（最⼤值:30，默认值为10）\u0001\nword\u0001 string\u0001 关键字\u0001\n4. 返回结果\n同/xjh/search/all接⼝\u0001\n6. 已点列表（done）\u0001\n1. GET\u0001\n1\n2. uri:/xjh/bar/song/selected\u0001\n3. 参数\n参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001\n4. 返回值\n代码块\u0001\n{\n    \"code\":\"200\",\n    \"msg\":\" 返回具体功能成功的消息 \",\n    \"result\":[\n        {\n            \"songId\": \"7682828\",\n            \"songName\":\" 后来  \",\n            \"singerName\":\" 王兴鹤 \",\n            \"singerId\":\"2434748\",\n            \"userId\":\"o6qE3t2Utj2IXE_sJ-8aWDp-cErg\",\n            \"state\":\"1\" // 1- 正在播放； 2- 在下载 \n            \"downloadProgress\":0,\n            \"mvPic\":\"\",//mv 缩略图 \n            \"isScore\":0,// 是否打分⽂件 \n            \"activityType\":0 //1:PK 2:K 歌  3 拆红包 \n        }  \n    ]\n}\n字段名\u0001 类型\u0001 描述\u0001\ncode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nmsg\u0001 string\u0001 描述\u0001\nresult\u0001 list(json)\u0001 songId:歌曲ID\u0001\nsongName：歌曲名称\u0001\nsingerName：歌星名称\u0001\nsingerId：歌星ID\u0001\nuserId：⽤⼾ID\u0001\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\nstate：当前状态\u00011-\u0001正在播放；2-在下载\u0001\ndownloadProgress：下载进度\u0001\nmvPic：mv缩略图\u0001\nisScore：是否打分歌曲\u0001\nactivityType：活动类型（1:PK\u00012:K歌\u00013拆红包）\u0001\n7. 已唱列表（done）\u0001\n1. GET\u0001\n2. uri:/xjh/bar/song/singed\u0001\n3. 参数\n参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001\n4. 返回值\n代码块\u0001\n{\n    \"code\":\"200\",\n    \"msg\":\" 返回具体功能成功的消息 \",\n    \"result\":[\n        {\n            \"appId\":\"\",\n            \"songId\": \"7682828\",\n            \"songName\":\" 后来  \",\n            \"singerName\":\" 王兴鹤 \",\n            \"singerId\":\"2434748\",\n            \"userId\":\"o6qE3t2Utj2IXE_sJ-8aWDp-cErg\",\n            \"state\":\"1\" // 1- 正在播放； 2- 在下载 \n            \"isScore\":0,// 是否打分⽂件 \n            \"activityType\":0 //1:PK 2:K 歌  3 拆红包 \n        }  \n    ]\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\nresult\u0001 list(json)\u0001 songId:歌曲ID\u0001\nsongName：歌曲名称\u0001\nsingerName：歌星名称\u0001\nsingerId：歌星ID\u0001\nuserId：⽤⼾ID\u0001\nstate：当前状态\u00011-\u0001正在播放；2-在下载\u0001\nisScore：是否打分歌曲\u0001\nactivityType：活动类型（1:PK\u00012:K歌\u00013拆红包）\u0001\n8. 霸屏烟花\u0001(done)\u0001\n1. GET\u0001\n2. uri:/xjh/bar/fireworks\u0001\n3. 参数\n参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001\ntype string\u0001 7682828\u0001\nuserRank\u0001 string\u0001 ⽤⼾当前排名\u0001\nuserItemCount\u0001 string\u0001 ⽤⼾⽤有的道具数量\u0001\nuserBoostScor\ne\u0001\nstring\u0001 助⼒获得的总分结果\u0001\ncurrentScore\u0001 string\u0001 当前礼物的分数\u0001\ncurrentVotes\u0001 int\u0001 烟花票数\u0001\nmode\u0001 int\u0001 \u0001展⽰模式:1\u0001\u0001'parallel'（并⾏展⽰）,\u00010\u0001'queue'（排队等待展⽰）\u0001\nacclaimWord\u0001 string\u0001 赞美词\u0001\nboostVotes\u0001 int\u0001 助⼒获得的总票数结果（不包含当前票数）\u0001\n9. 发送票数（done）\u0001\n1. POST\u0001\n2. /xjh/bar/votes\u0001\n3. post\u0001body\u0001参数如下（form形式）\u0001\n参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001\ncontent\u0001 int\u0001 票数值\u0001\n10. 录⾳开关(done)\u0001\n1. POST\u0001\n2. uri:/xjh/bar/record\u0001\n3. 参数\n参数名字\u0001 参数类型\u0001 参数说明\u0001\nrecord\u0001 bool\u0001 true：打开；false：关闭\u0001\nuserId\u0001 string\u0001 ⽤⼾id\u0001\n4. 返回结果\n代码块\u0001\n{\"errcode\":\"200\",\"errmsg\":\" 成功 \",\"result\":{}} \n11. MV素材获取（done）\u0001\n1. GET\u0001\n2. uri:/xjh/mv/list\u0001\n3. 返回结果\n代码块\u0001\n1\n{\n    \"errcode\": 200,\n    \"errmsg\": \" 请求成功 \", \n    \"data\": {\n        \"mv_list\": [\n            {\n                \"songId\": \"7300355\",\n                \"music_name\": \"后来\", \n                \"video_list\": [\n                    {\"subId\": \"1\",\"name\": \" 整⾸ \",\"is_whole\": 1,\"sex\": 2,\"cover\":\n \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-091623.jpg\",\"url\":\n \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-\n091623.mp4\",\"duration\": 60}\n                    {\"subId\": \"2\",\"name\": \"⽚段1\",\"is_whole\": 0,\"sex\": \n2,\"cover\": \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-\n091623.jpg\",\"url\": \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-\n091623.mp4\",\"duration\": 60},\n                    {\"subId\": \"3\",\"name\": \"⽚段2\",\"is_whole\": 0,\"sex\": \n1,\"cover\": \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-\n091724.jpg\",\"url\": \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-\n091724.mp4\",\"duration\": 67}\n                ]\n            }\n        ],\n    }\n}\n12. ⽣成MV提交（done）\u0001\n1. POST\u0001\n2. uri:/xjh/mv/create\u0001\n3. post\u0001body\u0001参数如下（form形式）\u0001\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nsongId\u0001 string\u0001 是\u0001 歌曲id\u0001\nsubId\u0001 string\u0001 是\u0001 素材id\u0001\nrecordUrl\u0001 string\u0001 是\u0001 录⾳地址（混合后的录⾳地址）\u0001\nuserId\u0001 string\u0001 是\u0001 ⽤⼾id\u0001\nimgUrl\u0001 string\u0001 否\u0001 ⽤⼾头像地址\u0001\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n4. 返回结果\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \" 请求成功 \", \n    \"data\": {\n            \"taskId\": 20000011,\n            \"total\": 2,  # 总等待任务 \n            \"expect_time\": 8  # 预计等待时⻓（分钟） \n    }\n}\n13. 查询MV⽣成结果（done）\u0001\n1. GET\u0001\n2. uri:/xjh/mv/status\u0001\n3. 参数\n参数名字\u0001 参数类型\u0001 参数说明\u0001\ntaskId\u0001 string\u0001 任务ID\u0001\n4. 返回结果\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \" 请求成功 \", \n    \"data\": {\n        \"taskId\": \"20000011\",\n        \"state\": 2,  # 0:失败  1:进⾏中  2:完成 \n        \"merge_url\": \"https://...\",\n    }\n}\n14. 包房⾃检\u0001\n1\n2\n3\n4\n5\n6\n7\n8\n9\n1\n2\n3\n4\n5\n6\n7\n8\n9\n1. GET\u0001\n2. uri:/xjh/room/roomlist\u0001\n3. 参数\n参数名字\u0001 参数类型\u0001 参数说明\u0001\nktvid\u0001 string\u0001\n代码块\u0001\n增加 isSupportPk ，包房是否⽀持 pk \n{\"errcode\":200,\"errmsg\":\"ok\",\"result\":\n[{\"room_mac\":\"00e07e07f661\",\"room_ip\":\"192.168.1.66\",\"room_name\":\"854\",\"play\":t\nrue,\"isSupportPk\":true},\n{\"room_mac\":\"00e07e08b226\",\"room_ip\":\"192.168.1.69\",\"room_name\":\"801\",\"play\":tr\nue,\"isSupportPk\":true}]}\n15. 押注列表\u0001\n1. GET\u0001\n2. uri:/xjh/pk/bettingtype\u0001\n3. 参数：⽆\n代码块\u0001\n{\"errcode\":200,\"errmsg\":\" 服务正常 \",\"data\":[{\"bettingType\":1,\"bettingTitle\":\" 啤\n酒 \",\"bettingHead\":\"https://qncweb.ktvsky.com/20250909/other/b6b8e04f5fd92d52528\nc4f4b450ce8df.png\"},{\"bettingType\":2,\"bettingTitle\":\" 果\n盘 \",\"bettingHead\":\"https://qncweb.ktvsky.com/20250909/other/b6b8e04f5fd92d52528\nc4f4b450ce8df.png\"},{\"bettingType\":3,\"bettingTitle\":\" 饮\n料 \",\"bettingHead\":\"https://qncweb.ktvsky.com/20250909/other/b6b8e04f5fd92d52528\nc4f4b450ce8df.png\"},{\"bettingType\":4,\"bettingTitle\":\" 爆⽶\n花 \",\"bettingHead\":\"https://qncweb.ktvsky.com/20250909/other/b6b8e04f5fd92d52528\nc4f4b450ce8df.png\"}],\"requestID\":\"0eb4aead-578e-43d7-ae3e-27817a5c091d\"}\n16. 好友助⼒\u0001\n1\n2\n1\n1. POST\u0001\n2. uri:/xjh/pk/boost\u0001\n3. 参数\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nimageUrl\u0001 string\u0001 是\u0001 助⼒活动宣传图⽚地址\u0001\nqrCodeUrl\u0001 string\u0001 助⼒活动⼆维码图⽚地址，⽤于分享和扫描参与\u0001\nroomid\u0001 string\u0001 roomid\u0001\n17. 开始修⾳\u0001\n1. POST\u0001\n2. uri:/xjh/users/repairsound\u0001\n3. 参数\u0001post\u0001body\u0001参数如下（json形式）\u0001\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nrecord_id\u0001 string\u0001 是\u0001 录⾳ID\u0001\nnoise_reduction\u0001 int\u0001 是\u0001 修⾳参数：降噪\u0001（0：不开启\u0001\u00011：开启）\u0001\ncorrection\u0001 int\u0001 是\u0001 修⾳参数：校正（0：不开启\u0001\u00011：开启）\u0001\nenhance\u0001 int\u0001 是\u0001 修⾳参数：增强（0：不开启\u0001\u00011：开启）\u0001\nrender\u0001 int\u0001 是\u0001 修⾳参数：渲染（0：不开启\u0001\u00011：开启）\u0001\n4. 返回值：\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \"ok\",\n    \"data\": 1\n}\n字段名\u0001 类型\u0001 描述\u0001\n1\n2\n3\n4\n5\nerrcode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\ndata\u0001 int\u0001 修⾳记录ID\u0001\n18. 获取修⾳结果\u0001\n1. POST\u0001\n2. uri:/xjh/users/repairsound/result\u0001\n3. 参数\u0001post\u0001body\u0001参数如下（json形式）\u0001\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nrepair_id\u0001 int\u0001 是\u0001 修⾳记录ID\u0001\n4. 返回值：\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \"ok\",\n    \"data\": {\n        \"repair_id\": 1,\n        \"status\": 1,\n        \"repaired_url\":\"\"\n    }\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\ndata\u0001 json\u0001 修⾳记录结果\u0001\nrepair_id：修⾳记录ID\u0001\nstatus：当前状态（0：待处理\u00011：处理中\u00012：处理完成\u00013:修⾳失败\u00014.上传\n失败）\u0001\n1\n2\n3\n4\n5\n6\n7\n8\n9\nrepaired_url：修⾳⾳频⽂件下载地址\u0001\n19. 获取录⾳记录所对应的修⾳列表（⼀个录⾳多次修⾳后会有多条记录）\u0001\n1. POST\u0001\n2. uri:/xjh/users/repairsound/list\u0001\n3. 参数\u0001post\u0001body\u0001参数如下（json形式）\u0001\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nrecord_id\u0001 string\u0001 是\u0001 录⾳ID\u0001\n4. 返回值：\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \"ok\",\n    \"data\": [\n        {\n            \"repair_id\": 1,\n            \"status\": 1,\n            \"repaired_url\":\"\"\n        },\n        {\n            \"repair_id\": 2,\n            \"status\": 1,\n            \"repaired_url\":\"\"\n        }\n    ]\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\ndata\u0001 json（list）\u0001 修⾳记录列表\u0001\nrepair_id：修⾳记录ID\u0001\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\nstatus：当前状态（0：待处理\u00011：处理中\u00012：处理完成\u00013:修⾳失败\u00014.上传\n失败）\u0001\nrepaired_url：修⾳⾳频⽂件下载地址\u0001\n20. 红包⽤⼾弹幕\u0001\n1. POST\u0001\n2. uri:/xjh/redpacket/userbarrage\u0001\n3. 参数\u0001post\u0001body\u0001参数如下（json形式）\u0001\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nktv_id_list\u0001 list（string）\u0001 是\u0001 ktvID列表\u0001\ndata\u0001 list(json)\u0001 是\u0001 ⽤⼾列表\u0001\nuserHeadU\nrl\u0001\nstring\u0001 是\u0001 ⽤⼾头像\u0001\nuserName\u0001 string\u0001 是\u0001 ⽤⼾名称\u0001\nmoney\u0001 string\u0001 是\u0001 ⾦额\u0001\n4. 返回值：\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \"ok\"\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\n21. 抢红包弹窗\u0001\n1. POST\u0001\n1\n2\n3\n4\n2. uri:/xjh/redpacket/startgrab\u0001\n3. 参数\u0001post\u0001body\u0001参数如下（json形式）\u0001\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nktv_id_list\u0001 list（string）\u0001 是\u0001 ktvID列表\u0001\nshowTime\u0001 int\u0001 是\u0001 显⽰时间（单位秒）\u0001\ntitle\u0001 string\u0001 是\u0001 标题\u0001\nbottomTitle\u0001 string\u0001 是\u0001 底部标题\u0001\nqrUrl\u0001 string\u0001 是\u0001 ⼆维码链接\u0001\nactivityId\u0001 string\u0001 是\u0001 活动ID\u0001\ndelayTime\u0001 int\u0001 是\u0001 贴边的倒计时时间（单位秒）\u0001\nsongName\u0001 string\u0001 是\u0001 歌曲名称\u0001\n4. 返回值：\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \"ok\"\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\n22. 赢得红包提⽰\u0001\n1. POST\u0001\n2. uri:/xjh/redpacket/startgrab/win\u0001\n3. 参数\u0001post\u0001body\u0001参数如下（json形式）\u0001\n1\n2\n3\n4\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nrooms\u0001 string\u0001 是\u0001 房台码列表（⽤英⽂逗号隔开）\u0001\nshowTime\u0001 int\u0001 是\u0001 显⽰时间（单位秒）\u0001\nqrUrl\u0001 string\u0001 是\u0001 ⼆维码链接\u0001\ndelayTime\u0001 int\u0001 是\u0001 贴边展⽰时间（单位秒）\u0001\n4. 返回值：\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \"ok\"\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\n23. K歌⼤赛开始\u0001\n1. POST\u0001\n2. uri:/xjh/activity/ksong\u0001\n3. 参数\u0001post\u0001body\u0001参数如下（json形式）\u0001\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nroomid\u0001 string\u0001 是\u0001 房台码\u0001\nactivity_id\u0001 string\u0001 是\u0001 活动id\u0001\nactivity_record_id\u0001 string\u0001 是\u0001 ⽤⼾参与活动记录id\u0001\nsong_id\u0001 string\u0001 是\u0001 歌曲id\u0001\nsong_name\u0001 string\u0001 是\u0001 歌曲名称\u0001\nisSongTop\u0001 bool\u0001 是\u0001 是否置顶\u0001\n1\n2\n3\n4\nuserName\u0001 string\u0001 是\u0001 ⽤⼾名字\u0001\nuserHeadUrl\u0001 string\u0001 是\u0001 ⽤⼾头像\u0001\nuserId\u0001 string\u0001 是\u0001 ⽤⼾id\u0001\nshowTime\u0001 int\u0001 是\u0001 显⽰时间（单位秒）\u0001\nai_score\u0001 float\u0001 是\u0001 ai预估总分\u0001\ndifficulty_level\u0001 float\u0001 是\u0001 难度系数\u0001\npitch_accuracy_avg\u0001 float\u0001 是\u0001 ⾳准全国平均分\u0001\nbreath_control_avg\u0001 float\u0001 是\u0001 ⽓息全国平均分\u0001\nrhythm_accuracy_avg\u0001 float\u0001 是\u0001 节奏全国平均分\u0001\nemotional_expression_avg\u0001 float\u0001 是\u0001 情感全国平均分\u0001\nvocal_technique_avg\u0001 float\u0001 是\u0001 技巧全国平均分\u0001\n4. 返回值：\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \"ok\"\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\n24. 抢红包活动开始\u0001\n1. POST\u0001\n2. uri:/xjh/activity/redpacket\u0001\n3. 参数\u0001post\u0001body\u0001参数如下（json形式）\u0001\n1\n2\n3\n4\n参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nroomid\u0001 string\u0001 是\u0001 房台码\u0001\nactivity_id\u0001 string\u0001 是\u0001 活动id\u0001\nactivity_record_id\u0001 string\u0001 是\u0001 ⽤⼾参与活动记录id\u0001\nsong_id\u0001 string\u0001 是\u0001 歌曲id\u0001\nsong_name\u0001 string\u0001 是\u0001 歌曲名称\u0001\nisSongTop\u0001 bool\u0001 是\u0001 是否置顶\u0001\nuserName\u0001 string\u0001 是\u0001 ⽤⼾名称\u0001\nuserHeadUrl\u0001 string\u0001 是\u0001 ⽤⼾头像\u0001\nuserId\u0001 string\u0001 是\u0001 ⽤⼾id\u0001\nshowTime\u0001 int\u0001 是\u0001 显⽰时间（单位秒）\u0001\npitch_accuracy_avg\u0001 float\u0001 是\u0001 ⾳准全国平均分\u0001\nbreath_control_avg\u0001 float\u0001 是\u0001 ⽓息全国平均分\u0001\nrhythm_accuracy_avg\u0001 float\u0001 是\u0001 节奏全国平均分\u0001\nemotional_expression_avg\u0001 float\u0001 是\u0001 情感全国平均分\u0001\nvocal_technique_avg\u0001 float\u0001 是\u0001 技巧全国平均分\u0001\n4. 返回值：\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \"ok\"\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\n1\n2\n3\n4\n25. 获取多维打分难度系数信息\u0001\n1. POST\u0001\n2. uri:/xjh/mdscoreinfo\u0001\n3. 参数\u0001⽆\u0001\n4. 返回值：\n代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \"success\",\n    \"data\": \n\"https://qnktv.ktvdaren.com/kcloud/syncfile/musicsizeduoweidafeng_2025092604013\n7.txt\"\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\ndata\u0001 string\u0001 多维打分信息下载地址（每列信息⽤竖线分隔）\u0001\n格式说明：ID|歌曲编号|mv⽂件⼤⼩列表|多维打分下载地址|⾳准|节奏|⽓息|情感|技\n巧|难度系数|全国平均分\u0001\n例⼦如下：\u0001\n1|4138416|,104640936,68906648,230088636,121676556,51096844,104842848,|\nhttps://qnktv.ktvdaren.com/duoweidafeng/4138416.base|8|4|6|4|7|7|66.8\u0001\n更新说明：⽂档下载地址每天凌晨4点会重新⽣成，请在⽣成后的时间定时拉取\u0001\n1\n2\n3\n4\n5",
+  "stage1_output": {
+    "product_name": "【PRD未说明】",
+    "background": "【PRD未说明】",
+    "goal": "参数名字\u0001 参数类型\u0001 参数说明\u0001 roomid\u0001 string\u0001 roomid\u0001 type string\u0001 7682828\u0001 userRank\u0001 string\u0001 ⽤⼾当前排名\u0001 userItemCount\u0001 string\u0001 ⽤⼾⽤有的道具数量\u0001 userBoostScor e\u0001 string\u0001 助⼒获得的总分结果\u0001 currentScore\u0001 string\u0001 当前礼物的分数\u0001 currentVotes\u0001 int\u0001 烟花票数\u0001 mode\u0001 int\u0001 \u0001展⽰模式:1\u0001\u0001'parallel'（并⾏展⽰）,\u00010\u0001'queue'（排队等待展⽰）\u0001 acclaimWord\u0001 string\u0001 赞美词\u0001 boostVotes\u0001 int\u0001 助⼒获得的总票数结果（不包含当前票数）\u0001",
+    "modules": [
+      "返回结果",
+      "返回值",
+      "参数：⽆"
+    ],
+    "features": [
+      "【PRD未说明】"
+    ],
+    "user_roles": [
+      "【PRD未说明】"
+    ],
+    "flows": [
+      "【PRD未说明】"
+    ],
+    "states": [
+      "当前"
+    ],
+    "business_rules": [
+      "【PRD未说明】"
+    ],
+    "data_structures": [
+      "【PRD未说明】"
+    ],
+    "permissions": [
+      "【PRD未说明】"
+    ],
+    "exceptions": [
+      "【PRD未说明】"
+    ],
+    "edge_cases": [
+      "【PRD未说明】"
+    ],
+    "dependencies": [
+      "【PRD未说明】"
+    ],
+    "non_functional_requirements": [
+      "【PRD未说明】"
+    ],
+    "success_metrics": [
+      "【PRD未说明】"
+    ],
+    "source_map": {
+      "modules": [
+        "L0033-L0038",
+        "L0104-L0155",
+        "L0366-L0376"
+      ],
+      "features": [
+        "【PRD未说明】"
+      ],
+      "user_roles": [
+        "【PRD未说明】"
+      ],
+      "flows": [
+        "【PRD未说明】"
+      ],
+      "states": [
+        "L0104-L0155"
+      ],
+      "business_rules": [
+        "【PRD未说明】"
+      ],
+      "data_structures": [
+        "【PRD未说明】"
+      ],
+      "permissions": [
+        "【PRD未说明】"
+      ],
+      "exceptions": [
+        "【PRD未说明】"
+      ],
+      "edge_cases": [
+        "【PRD未说明】"
+      ],
+      "dependencies": [
+        "【PRD未说明】"
+      ],
+      "non_functional_requirements": [
+        "【PRD未说明】"
+      ],
+      "success_metrics": [
+        "【PRD未说明】"
+      ]
+    },
+    "blocks": [
+      {
+        "level": 1,
+        "title": "正文",
+        "content": "星聚会0822版本--雷⽯侧接⼝-持续更新\u0001",
+        "range": "L0001-L0001"
+      },
+      {
+        "level": 1,
+        "title": "批量展⽰⼆维码(done)\u0001",
+        "content": "",
+        "range": "L0002-L0002"
+      },
+      {
+        "level": 1,
+        "title": "POST\u0001",
+        "content": "",
+        "range": "L0003-L0003"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/bar/batchqrcode\u0001",
+        "content": "",
+        "range": "L0004-L0004"
+      },
+      {
+        "level": 1,
+        "title": "post\u0001body\u0001参数如下（form形式）\u0001",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\nrooms\u0001 string\u0001 roomid列表，⽤逗号分隔\u0001\nqr_bg_code string\u0001\nqr_code\u0001 string\u0001\nshowTime\u0001 string\u0001 显⽰时⻓，单位s\u0001\nqr_bg_x\u0001 int\u0001 距离左上⻆的x位置\u0001单位px\u0001\nqr_bg_y\u0001 int\u0001 距离左上⻆的位置\u0001单位px\u0001\u0001\ntop_title\u0001 String\u0001\u0001 \u0001⼆维码上⽅显⽰⽂字\u0001\nbottom_title\u0001 String\u0001\u0001 \u0001⼆维码下⽅显⽰⽂字\u0001\nuser_name\u0001 string\u0001 新增：⽤⼾名字\u0001\nuser_head\u0001 string\u0001 新增：⽤⼾头像\u0001\nsong_name\u0001 string\u0001 新增：歌曲名字\u0001\nbettingType\u0001 string\u0001 新增：押注类型\u0001\nbettingTitle\u0001 string\u0001 新增：押注标题\u0001\nbettingHead\u0001 string\u0001 新增：押注头像\u0001",
+        "range": "L0005-L0020"
+      },
+      {
+        "level": 1,
+        "title": "返回结果",
+        "content": "代码块\u0001\n{\"code\":\"200\",\"msg\":\" 成功 \"} 1\n2\n改接⼝为异步批量通知接⼝，返回成功",
+        "range": "L0021-L0025"
+      },
+      {
+        "level": 1,
+        "title": "查询是否满⾜PK条件\u0001",
+        "content": "",
+        "range": "L0026-L0026"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "",
+        "range": "L0027-L0027"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/pk/ready\u0001",
+        "content": "",
+        "range": "L0028-L0028"
+      },
+      {
+        "level": 1,
+        "title": "参数",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001\nsongId\u0001 int\u0001 歌曲id\u0001",
+        "range": "L0029-L0032"
+      },
+      {
+        "level": 1,
+        "title": "返回结果",
+        "content": "代码块\u0001\n{\"code\":\"200\",\"msg\":\" 成功 \",\"result\":{\"state\":1}\nstate ：\n0：不满⾜ Pk 条件\n1：满⾜ PK 条件",
+        "range": "L0033-L0038"
+      },
+      {
+        "level": 1,
+        "title": "开启PK（done）\u0001",
+        "content": "",
+        "range": "L0039-L0039"
+      },
+      {
+        "level": 1,
+        "title": "POST\u0001",
+        "content": "",
+        "range": "L0040-L0040"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/pk/start\u0001",
+        "content": "",
+        "range": "L0041-L0041"
+      },
+      {
+        "level": 1,
+        "title": "post\u0001body\u0001参数如下（form形式）\u0001",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\nuserId\u0001 string\u0001 PK邀请者id\u0001\ninviteeUserId\u0001 string\u0001 PK被邀请者id\u0001\nuserHeadImgUrl\u0001 String\u0001 PK邀请者头像url\u0001\n3\n1\n2\n3\n4\n5\ninviteeUserHeadI\nmgUrl\u0001\nString\u0001 PK被邀请者头像url\u0001\nuserName\u0001 string\u0001 PK邀请者名称\u0001\ninviteeUserName\u0001 String\u0001 PK被邀请者名称\u0001\ninviteeRoomid\u0001 String\u0001 PK邀请者的⽤⼾头像\u0001\nroomid\u0001 String\u0001 PK邀请者的roomid\u0001\ninviteeRoomid\u0001 String\u0001 PK被邀请者的roomid\u0001\ngroupId\u0001 String\u0001 组队的房间ID\u0001\nsongId\u0001 int\u0001 歌曲id\u0001\nsongName\u0001 string\u0001 歌曲名称\u0001\nsingerName\u0001 string\u0001 歌⼿名称\u0001\nsingerId\u0001 string\u0001 歌⼿id\u0001\nbettingType\u0001 string\u0001 新增，押注类型\u0001\nuserRank\u0001 int\u0001 新增，PK邀请者的排名\u0001\ninviteeRank\u0001 int\u0001 新增，PK被邀请者的排名\u0001\nuserWinStreak\u0001 int\u0001 新增，PK邀请者的连胜场次\u0001\ninviteeWinStreak\u0001 int\u0001 新增，PK被邀请者的连胜场次\u0001\nuserWinRate\u0001 string\u0001 新增，PK邀请者的胜率\u0001\ninviteeWinRate\u0001 string\u0001 新增，PK被邀请者的胜率\u0001\ndelaySeconds\u0001 int\u0001 新增，等待多少秒后显⽰弹框（单位：秒）\u0001\ndisplaySeconds\u0001 int\u0001 新增，弹框展⽰持续时间（单位：秒）\u0001\ntext\u0001 string\u0001 新增，弹框中显⽰的⽂字内容\u0001\nimageUrl\u0001 string\u0001 新增，弹框中显⽰的图⽚URL\u0001\ndifficultyLevel\u0001 float\u0001 难度系数\u0001",
+        "range": "L0042-L0077"
+      },
+      {
+        "level": 1,
+        "title": "返回结果",
+        "content": "代码块\u0001\n{\"code\":\"200\",\"msg\":\" 成功 \",\"result\":{}}",
+        "range": "L0078-L0080"
+      },
+      {
+        "level": 1,
+        "title": "查询pk歌单（done）\u0001",
+        "content": "",
+        "range": "L0081-L0081"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "",
+        "range": "L0082-L0082"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/pk/songlist\u0001",
+        "content": "",
+        "range": "L0083-L0083"
+      },
+      {
+        "level": 1,
+        "title": "参数：⽆",
+        "content": "",
+        "range": "L0084-L0084"
+      },
+      {
+        "level": 1,
+        "title": "返回结果",
+        "content": "待曲库做完后，以列表形式同步给星聚会维护，定期轮询同步，线上业务不需要。",
+        "range": "L0085-L0086"
+      },
+      {
+        "level": 1,
+        "title": "PK歌单的搜索（done）\u0001",
+        "content": "",
+        "range": "L0087-L0087"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "",
+        "range": "L0088-L0088"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/pk/search\u0001",
+        "content": "",
+        "range": "L0089-L0089"
+      },
+      {
+        "level": 1,
+        "title": "参数",
+        "content": "roomid\u0001\u0001 string\u0001 roomid\u0001\npage\u0001 int\u0001 当前⻚（默认值为1）\u0001\nsize\u0001 int\u0001 每⻚⼤⼩（最⼤值:30，默认值为10）\u0001\nword\u0001 string\u0001 关键字\u0001",
+        "range": "L0090-L0094"
+      },
+      {
+        "level": 1,
+        "title": "返回结果",
+        "content": "同/xjh/search/all接⼝\u0001",
+        "range": "L0095-L0096"
+      },
+      {
+        "level": 1,
+        "title": "已点列表（done）\u0001",
+        "content": "",
+        "range": "L0097-L0097"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "1",
+        "range": "L0098-L0099"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/bar/song/selected\u0001",
+        "content": "",
+        "range": "L0100-L0100"
+      },
+      {
+        "level": 1,
+        "title": "参数",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001",
+        "range": "L0101-L0103"
+      },
+      {
+        "level": 1,
+        "title": "返回值",
+        "content": "代码块\u0001\n{\n    \"code\":\"200\",\n    \"msg\":\" 返回具体功能成功的消息 \",\n    \"result\":[\n        {\n            \"songId\": \"7682828\",\n            \"songName\":\" 后来  \",\n            \"singerName\":\" 王兴鹤 \",\n            \"singerId\":\"2434748\",\n            \"userId\":\"o6qE3t2Utj2IXE_sJ-8aWDp-cErg\",\n            \"state\":\"1\" // 1- 正在播放； 2- 在下载\n            \"downloadProgress\":0,\n            \"mvPic\":\"\",//mv 缩略图\n            \"isScore\":0,// 是否打分⽂件\n            \"activityType\":0 //1:PK 2:K 歌  3 拆红包\n        }\n    ]\n}\n字段名\u0001 类型\u0001 描述\u0001\ncode\u0001 int\u0001 200：成功\u0001\n其他：失败\u0001\nmsg\u0001 string\u0001 描述\u0001\nresult\u0001 list(json)\u0001 songId:歌曲ID\u0001\nsongName：歌曲名称\u0001\nsingerName：歌星名称\u0001\nsingerId：歌星ID\u0001\nuserId：⽤⼾ID\u0001\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\nstate：当前状态\u00011-\u0001正在播放；2-在下载\u0001\ndownloadProgress：下载进度\u0001\nmvPic：mv缩略图\u0001\nisScore：是否打分歌曲\u0001\nactivityType：活动类型（1:PK\u00012:K歌\u00013拆红包）\u0001",
+        "range": "L0104-L0155"
+      },
+      {
+        "level": 1,
+        "title": "已唱列表（done）\u0001",
+        "content": "",
+        "range": "L0156-L0156"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "",
+        "range": "L0157-L0157"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/bar/song/singed\u0001",
+        "content": "",
+        "range": "L0158-L0158"
+      },
+      {
+        "level": 1,
+        "title": "参数",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001",
+        "range": "L0159-L0161"
+      },
+      {
+        "level": 1,
+        "title": "返回值",
+        "content": "代码块\u0001\n{\n    \"code\":\"200\",\n    \"msg\":\" 返回具体功能成功的消息 \",\n    \"result\":[\n        {\n            \"appId\":\"\",\n            \"songId\": \"7682828\",\n            \"songName\":\" 后来  \",\n            \"singerName\":\" 王兴鹤 \",\n            \"singerId\":\"2434748\",\n            \"userId\":\"o6qE3t2Utj2IXE_sJ-8aWDp-cErg\",\n            \"state\":\"1\" // 1- 正在播放； 2- 在下载\n            \"isScore\":0,// 是否打分⽂件\n            \"activityType\":0 //1:PK 2:K 歌  3 拆红包\n        }\n    ]\n}\n字段名\u0001 类型\u0001 描述\u0001\nerrcode\u0001 int\u0001 200：成功\u0001\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n其他：失败\u0001\nerrmsg\u0001 string\u0001 描述\u0001\nresult\u0001 list(json)\u0001 songId:歌曲ID\u0001\nsongName：歌曲名称\u0001\nsingerName：歌星名称\u0001\nsingerId：歌星ID\u0001\nuserId：⽤⼾ID\u0001\nstate：当前状态\u00011-\u0001正在播放；2-在下载\u0001\nisScore：是否打分歌曲\u0001\nactivityType：活动类型（1:PK\u00012:K歌\u00013拆红包）\u0001",
+        "range": "L0162-L0209"
+      },
+      {
+        "level": 1,
+        "title": "霸屏烟花\u0001(done)\u0001",
+        "content": "",
+        "range": "L0210-L0210"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "",
+        "range": "L0211-L0211"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/bar/fireworks\u0001",
+        "content": "",
+        "range": "L0212-L0212"
+      },
+      {
+        "level": 1,
+        "title": "参数",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001\ntype string\u0001 7682828\u0001\nuserRank\u0001 string\u0001 ⽤⼾当前排名\u0001\nuserItemCount\u0001 string\u0001 ⽤⼾⽤有的道具数量\u0001\nuserBoostScor\ne\u0001\nstring\u0001 助⼒获得的总分结果\u0001\ncurrentScore\u0001 string\u0001 当前礼物的分数\u0001\ncurrentVotes\u0001 int\u0001 烟花票数\u0001\nmode\u0001 int\u0001 \u0001展⽰模式:1\u0001\u0001'parallel'（并⾏展⽰）,\u00010\u0001'queue'（排队等待展⽰）\u0001\nacclaimWord\u0001 string\u0001 赞美词\u0001\nboostVotes\u0001 int\u0001 助⼒获得的总票数结果（不包含当前票数）\u0001",
+        "range": "L0213-L0226"
+      },
+      {
+        "level": 1,
+        "title": "发送票数（done）\u0001",
+        "content": "",
+        "range": "L0227-L0227"
+      },
+      {
+        "level": 1,
+        "title": "POST\u0001",
+        "content": "",
+        "range": "L0228-L0228"
+      },
+      {
+        "level": 1,
+        "title": "/xjh/bar/votes\u0001",
+        "content": "",
+        "range": "L0229-L0229"
+      },
+      {
+        "level": 1,
+        "title": "post\u0001body\u0001参数如下（form形式）\u0001",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\nroomid\u0001 string\u0001 roomid\u0001\ncontent\u0001 int\u0001 票数值\u0001",
+        "range": "L0230-L0233"
+      },
+      {
+        "level": 1,
+        "title": "录⾳开关(done)\u0001",
+        "content": "",
+        "range": "L0234-L0234"
+      },
+      {
+        "level": 1,
+        "title": "POST\u0001",
+        "content": "",
+        "range": "L0235-L0235"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/bar/record\u0001",
+        "content": "",
+        "range": "L0236-L0236"
+      },
+      {
+        "level": 1,
+        "title": "参数",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\nrecord\u0001 bool\u0001 true：打开；false：关闭\u0001\nuserId\u0001 string\u0001 ⽤⼾id\u0001",
+        "range": "L0237-L0240"
+      },
+      {
+        "level": 1,
+        "title": "返回结果",
+        "content": "代码块\u0001\n{\"errcode\":\"200\",\"errmsg\":\" 成功 \",\"result\":{}}",
+        "range": "L0241-L0243"
+      },
+      {
+        "level": 1,
+        "title": "MV素材获取（done）\u0001",
+        "content": "",
+        "range": "L0244-L0244"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "",
+        "range": "L0245-L0245"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/mv/list\u0001",
+        "content": "",
+        "range": "L0246-L0246"
+      },
+      {
+        "level": 1,
+        "title": "返回结果",
+        "content": "代码块\u0001\n1\n{\n    \"errcode\": 200,\n    \"errmsg\": \" 请求成功 \",\n    \"data\": {\n        \"mv_list\": [\n            {\n                \"songId\": \"7300355\",\n                \"music_name\": \"后来\",\n                \"video_list\": [\n                    {\"subId\": \"1\",\"name\": \" 整⾸ \",\"is_whole\": 1,\"sex\": 2,\"cover\":\n \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-091623.jpg\",\"url\":\n \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-",
+        "range": "L0247-L0261"
+      },
+      {
+        "level": 1,
+        "title": "mp4\",\"duration\": 60}",
+        "content": "{\"subId\": \"2\",\"name\": \"⽚段1\",\"is_whole\": 0,\"sex\":\n2,\"cover\": \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-\n091623.jpg\",\"url\": \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-",
+        "range": "L0262-L0265"
+      },
+      {
+        "level": 1,
+        "title": "mp4\",\"duration\": 60},",
+        "content": "{\"subId\": \"3\",\"name\": \"⽚段2\",\"is_whole\": 0,\"sex\":\n1,\"cover\": \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-\n091724.jpg\",\"url\": \"https://faces.ktvsky.com/faceswap/src/record_home/20250723-",
+        "range": "L0266-L0269"
+      },
+      {
+        "level": 1,
+        "title": "mp4\",\"duration\": 67}",
+        "content": "]\n            }\n        ],\n    }\n}",
+        "range": "L0270-L0275"
+      },
+      {
+        "level": 1,
+        "title": "⽣成MV提交（done）\u0001",
+        "content": "",
+        "range": "L0276-L0276"
+      },
+      {
+        "level": 1,
+        "title": "POST\u0001",
+        "content": "",
+        "range": "L0277-L0277"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/mv/create\u0001",
+        "content": "",
+        "range": "L0278-L0278"
+      },
+      {
+        "level": 1,
+        "title": "post\u0001body\u0001参数如下（form形式）\u0001",
+        "content": "参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nsongId\u0001 string\u0001 是\u0001 歌曲id\u0001\nsubId\u0001 string\u0001 是\u0001 素材id\u0001\nrecordUrl\u0001 string\u0001 是\u0001 录⾳地址（混合后的录⾳地址）\u0001\nuserId\u0001 string\u0001 是\u0001 ⽤⼾id\u0001\nimgUrl\u0001 string\u0001 否\u0001 ⽤⼾头像地址\u0001\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18",
+        "range": "L0279-L0303"
+      },
+      {
+        "level": 1,
+        "title": "返回结果",
+        "content": "代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \" 请求成功 \",\n    \"data\": {\n            \"taskId\": 20000011,\n            \"total\": 2,  # 总等待任务\n            \"expect_time\": 8  # 预计等待时⻓（分钟）\n    }\n}",
+        "range": "L0304-L0314"
+      },
+      {
+        "level": 1,
+        "title": "查询MV⽣成结果（done）\u0001",
+        "content": "",
+        "range": "L0315-L0315"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "",
+        "range": "L0316-L0316"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/mv/status\u0001",
+        "content": "",
+        "range": "L0317-L0317"
+      },
+      {
+        "level": 1,
+        "title": "参数",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\ntaskId\u0001 string\u0001 任务ID\u0001",
+        "range": "L0318-L0320"
+      },
+      {
+        "level": 1,
+        "title": "返回结果",
+        "content": "代码块\u0001\n{\n    \"errcode\": 200,\n    \"errmsg\": \" 请求成功 \",\n    \"data\": {\n        \"taskId\": \"20000011\",\n        \"state\": 2,  # 0:失败  1:进⾏中  2:完成\n        \"merge_url\": \"https://...\",\n    }\n}",
+        "range": "L0321-L0331"
+      },
+      {
+        "level": 1,
+        "title": "包房⾃检\u0001",
+        "content": "1\n2\n3\n4\n5\n6\n7\n8\n9\n1\n2\n3\n4\n5\n6\n7\n8\n9",
+        "range": "L0332-L0350"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "",
+        "range": "L0351-L0351"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/room/roomlist\u0001",
+        "content": "",
+        "range": "L0352-L0352"
+      },
+      {
+        "level": 1,
+        "title": "参数",
+        "content": "参数名字\u0001 参数类型\u0001 参数说明\u0001\nktvid\u0001 string\u0001\n代码块\u0001\n增加 isSupportPk ，包房是否⽀持 pk\n{\"errcode\":200,\"errmsg\":\"ok\",\"result\":\n[{\"room_mac\":\"00e07e07f661\",\"room_ip\":\"192.168.1.66\",\"room_name\":\"854\",\"play\":t\nrue,\"isSupportPk\":true},\n{\"room_mac\":\"00e07e08b226\",\"room_ip\":\"192.168.1.69\",\"room_name\":\"801\",\"play\":tr\nue,\"isSupportPk\":true}]}",
+        "range": "L0353-L0362"
+      },
+      {
+        "level": 1,
+        "title": "押注列表\u0001",
+        "content": "",
+        "range": "L0363-L0363"
+      },
+      {
+        "level": 1,
+        "title": "GET\u0001",
+        "content": "",
+        "range": "L0364-L0364"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/pk/bettingtype\u0001",
+        "content": "",
+        "range": "L0365-L0365"
+      },
+      {
+        "level": 1,
+        "title": "参数：⽆",
+        "content": "代码块\u0001\n{\"errcode\":200,\"errmsg\":\" 服务正常 \",\"data\":[{\"bettingType\":1,\"bettingTitle\":\" 啤\n酒 \",\"bettingHead\":\"https://qncweb.ktvsky.com/20250909/other/b6b8e04f5fd92d52528\nc4f4b450ce8df.png\"},{\"bettingType\":2,\"bettingTitle\":\" 果\n盘 \",\"bettingHead\":\"https://qncweb.ktvsky.com/20250909/other/b6b8e04f5fd92d52528\nc4f4b450ce8df.png\"},{\"bettingType\":3,\"bettingTitle\":\" 饮\n料 \",\"bettingHead\":\"https://qncweb.ktvsky.com/20250909/other/b6b8e04f5fd92d52528\nc4f4b450ce8df.png\"},{\"bettingType\":4,\"bettingTitle\":\" 爆⽶\n花 \",\"bettingHead\":\"https://qncweb.ktvsky.com/20250909/other/b6b8e04f5fd92d52528\nc4f4b450ce8df.png\"}],\"requestID\":\"0eb4aead-578e-43d7-ae3e-27817a5c091d\"}",
+        "range": "L0366-L0376"
+      },
+      {
+        "level": 1,
+        "title": "好友助⼒\u0001",
+        "content": "1\n2\n1",
+        "range": "L0377-L0380"
+      },
+      {
+        "level": 1,
+        "title": "POST\u0001",
+        "content": "",
+        "range": "L0381-L0381"
+      },
+      {
+        "level": 1,
+        "title": "uri:/xjh/pk/boost\u0001",
+        "content": "",
+        "range": "L0382-L0382"
+      },
+      {
+        "level": 1,
+        "title": "参数",
+        "content": "参数名字\u0001 参数类型\u0001 是否必传\u0001 参数说明\u0001\nimageUrl\u0001 string\u0001 是\u0001 助⼒活动宣传图⽚地址\u0001\nqrCodeUrl\u0001 string\u0001 助⼒活动⼆维码图⽚地址，⽤于分享和扫描参与\u0001\nroomid\u0001 string\u0001 roomid\u0001",
+        "range": "L0383-L0387"
+      },
+      {
+        "level": 1,
+        "title": "开始修⾳\u0001",
+        "content": "",
+        "range": "L0388-L0388"
+      },
+      {
+        "level": 1,
+        "title": "POST\u0001",
+        "content": "",
+        "range": "L0389-L0389"
+      }
+    ],
+    "parse_quality": {
+      "overall": 6.3,
+      "blocks": 80,
+      "notes": [
+        "必备要素缺失较多，建议先补齐角色/状态/流程/异常/依赖/指标。"
+      ]
+    },
+    "required_elements": {
+      "items": [
+        {
+          "key": "roles",
+          "name": "用户角色",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "缺失会阻断开发/验收"
+        },
+        {
+          "key": "states",
+          "name": "状态机/模式",
+          "present": true,
+          "count": 1,
+          "score": 6.0,
+          "impact": ""
+        },
+        {
+          "key": "flows",
+          "name": "核心流程",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "缺失会阻断开发/验收"
+        },
+        {
+          "key": "exceptions",
+          "name": "异常与边界",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "建议补充以降低风险"
+        },
+        {
+          "key": "dependencies",
+          "name": "外部依赖",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "建议补充以降低风险"
+        },
+        {
+          "key": "success_metrics",
+          "name": "成功指标",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "建议补充以降低风险"
+        }
+      ],
+      "overall": 2.7
+    },
+    "conflict_candidates": []
+  },
+  "stage2_output": {
+    "defects": [
+      {
+        "id": "R004",
+        "type": "规则边界缺失",
+        "module": "业务规则",
+        "anchor": "L21: 4. 返回结果",
+        "description": "未定义最小值或最大值。",
+        "risk_level": "P2",
+        "reason": "边界未定义。",
+        "suggestion": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+        "source": "rule"
+      },
+      {
+        "id": "R006",
+        "type": "状态孤岛",
+        "module": "状态机",
+        "anchor": "L0104-L0155",
+        "description": "某状态没有入口，状态不可达。",
+        "risk_level": "P0",
+        "reason": "状态机断裂。",
+        "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+        "source": "rule"
+      },
+      {
+        "id": "R007",
+        "type": "状态死路",
+        "module": "状态机",
+        "anchor": "L0104-L0155",
+        "description": "某状态没有出口，无法结束。",
+        "risk_level": "P0",
+        "reason": "状态机断裂。",
+        "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+        "source": "rule"
+      },
+      {
+        "id": "R008",
+        "type": "非法状态跳转",
+        "module": "状态机",
+        "anchor": "L0104-L0155",
+        "description": "出现不合理跳转。",
+        "risk_level": "P0",
+        "reason": "业务逻辑错误。",
+        "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+        "source": "rule"
+      },
+      {
+        "id": "R009",
+        "type": "状态回滚缺失",
+        "module": "状态机",
+        "anchor": "L0104-L0155",
+        "description": "异常情况下没有回滚逻辑。",
+        "risk_level": "P2",
+        "reason": "数据不一致。",
+        "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+        "source": "rule"
+      },
+      {
+        "id": "R012",
+        "type": "异常流程缺失",
+        "module": "业务流程",
+        "anchor": "L21: 4. 返回结果",
+        "description": "只描述成功路径，缺少失败处理。",
+        "risk_level": "P0",
+        "reason": "异常未定义。",
+        "suggestion": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+        "source": "rule"
+      },
+      {
+        "id": "R013",
+        "type": "中断流程缺失",
+        "module": "业务流程",
+        "anchor": "L21: 4. 返回结果",
+        "description": "未定义用户中途退出的处理。",
+        "risk_level": "P2",
+        "reason": "状态/资源泄漏。",
+        "suggestion": "针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "R015",
+        "type": "重试机制缺失",
+        "module": "业务流程",
+        "anchor": "L21: 4. 返回结果",
+        "description": "接口失败是否允许重试未说明。",
+        "risk_level": "P2",
+        "reason": "重复执行或无法恢复。",
+        "suggestion": "针对业务流程补充“重试机制缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "R016",
+        "type": "字段定义缺失",
+        "module": "数据结构",
+        "anchor": "L21: 4. 返回结果",
+        "description": "字段未说明类型、长度、是否必填。",
+        "risk_level": "P2",
+        "reason": "前后端理解不一致。",
+        "suggestion": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+        "source": "rule"
+      },
+      {
+        "id": "R017",
+        "type": "数据来源不明确",
+        "module": "数据结构",
+        "anchor": "L21: 4. 返回结果",
+        "description": "数据从哪里来未说明。",
+        "risk_level": "P2",
+        "reason": "依赖不清。",
+        "suggestion": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+        "source": "rule"
+      },
+      {
+        "id": "R019",
+        "type": "数据一致性风险",
+        "module": "数据结构",
+        "anchor": "L21: 4. 返回结果",
+        "description": "多系统写入同一数据未定义协调方式。",
+        "risk_level": "P1",
+        "reason": "数据不一致。",
+        "suggestion": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+        "source": "rule"
+      },
+      {
+        "id": "R023",
+        "type": "成功标准缺失",
+        "module": "可测试性",
+        "anchor": "L21: 4. 返回结果",
+        "description": "未说明成功条件。",
+        "risk_level": "P2",
+        "reason": "验收标准不清。",
+        "suggestion": "针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "R025",
+        "type": "日志记录缺失",
+        "module": "可测试性",
+        "anchor": "L21: 4. 返回结果",
+        "description": "关键操作没有日志要求。",
+        "risk_level": "P2",
+        "reason": "无法审计与排查。",
+        "suggestion": "针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "R027",
+        "type": "接口幂等性缺失",
+        "module": "系统与技术",
+        "anchor": "L21: 4. 返回结果",
+        "description": "接口重复调用未说明处理方式。",
+        "risk_level": "P2",
+        "reason": "重复扣款/重复发货。",
+        "suggestion": "针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "R028",
+        "type": "外部依赖未定义",
+        "module": "系统与技术",
+        "anchor": "L21: 4. 返回结果",
+        "description": "依赖系统未说明。",
+        "risk_level": "P2",
+        "reason": "集成与排障困难。",
+        "suggestion": "补充外部依赖清单、可用性要求和故障降级方案，明确依赖不可用时的回退逻辑。",
+        "source": "rule"
+      },
+      {
+        "id": "D001",
+        "type": "扫描异常",
+        "module": "扫描引擎",
+        "anchor": "L21: 4. 返回结果",
+        "description": "漏洞扫描阶段执行失败",
+        "risk_level": "P1",
+        "reason": "LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json",
+        "suggestion": "检查 LLM 配置或重试扫描",
+        "source": "llm"
+      }
+    ],
+    "coverage": {
+      "exception_coverage": [
+        {
+          "item": "超时",
+          "covered": false,
+          "keywords": [
+            "超时",
+            "timeout"
+          ]
+        },
+        {
+          "item": "弱网/断网",
+          "covered": false,
+          "keywords": [
+            "弱网",
+            "断网",
+            "网络"
+          ]
+        },
+        {
+          "item": "失败/错误码",
+          "covered": false,
+          "keywords": [
+            "失败",
+            "错误",
+            "error",
+            "错误码"
+          ]
+        },
+        {
+          "item": "重试",
+          "covered": false,
+          "keywords": [
+            "重试",
+            "retry"
+          ]
+        },
+        {
+          "item": "回滚/补偿",
+          "covered": false,
+          "keywords": [
+            "回滚",
+            "补偿",
+            "撤销"
+          ]
+        },
+        {
+          "item": "幂等/重复提交",
+          "covered": false,
+          "keywords": [
+            "幂等",
+            "去重",
+            "重复提交",
+            "重复点击"
+          ]
+        }
+      ],
+      "boundary_coverage": [
+        {
+          "item": "范围/上下限",
+          "covered": false,
+          "keywords": [
+            "最大",
+            "最小",
+            "上限",
+            "下限",
+            "范围"
+          ]
+        },
+        {
+          "item": "并发",
+          "covered": false,
+          "keywords": [
+            "并发",
+            "同时",
+            "抢占"
+          ]
+        },
+        {
+          "item": "重复操作",
+          "covered": false,
+          "keywords": [
+            "重复",
+            "幂等",
+            "去重",
+            "重复提交",
+            "重复点击"
+          ]
+        },
+        {
+          "item": "弱网/超时",
+          "covered": false,
+          "keywords": [
+            "弱网",
+            "断网",
+            "超时"
+          ]
+        }
+      ],
+      "raw_text_sample": "【PRD未说明】 【PRD未说明】"
+    }
+  },
+  "reports": {
+    "L1": "# 【审计报告】PRD：工具扫描+人工复核版（含16项缺陷，P0级4项）（本地规则体检版，无大模型推理）\n\n> 【本地规则体检版】当前未接入可用大模型，本报告基于本地规则引擎与静态分析自动生成，主要用于结构完整性和显性风险初筛，不能替代人工评审与线上大模型审计。",
+    "L2": "# 【审计报告】PRD：工具扫描+人工复核版（含16项缺陷，P0级4项）（本地规则体检版，无大模型推理）\n\n> 【本地规则体检版】当前未接入可用大模型，本报告基于本地规则引擎与静态分析自动生成，主要用于结构完整性和显性风险初筛，不能替代人工评审与线上大模型审计。\n\n## 一、总体结论\n\n- 审计结论：未定义最小值或最大值。\n- 综合质量评分：6.4/10（基于七维评分）\n- 结构复杂度：0.2/10（简单；状态与流程数量较少，整体复杂度较低。）\n### 核心风险摘要\n- 一句话总结：当前 PRD 存在多处关键规则缺口，建议先完成核心风险闭环再进入开发。\n- 三个致命伤：\n  - 状态机不完整（P0，4项）\n  - 流程闭环缺失（P0，3项）\n  - 数据契约与一致性不足（P1，3项）\n\n### 七维质量评分明细（必填）\n\n| 维度 | 评分 | 扣分原因 | 说明 |\n| :--- | :--- | :--- | :--- |\n| 需求完整度 | 8.0/10 | -0.5：外部依赖/关键功能缺失 | 基于结构完整性与缺陷综合评估。 |\n| 规则明确度 | 7.6/10 | — | 存在规则歧义/冲突/不可执行表述，导致实现与验收口径不一致风险。 |\n| 流程一致性 | 5.3/10 | -0.5：流程闭环不足（并发/重试/幂等） | 流程闭环不足（成功/失败/中断/重试/并发口径缺失），上线行为易不一致。 |\n| 状态机完备度 | 3.6/10 | -2.0：状态与转移/回滚/恢复缺失<br>-0.5：状态与转移/回滚/恢复缺失 | 状态定义/转移/回滚/恢复规则不完整，复杂场景下容易出现不可达/死路/非法跳转。 |\n| 异常覆盖度 | 5.6/10 | -0.5：异常/边界/超时覆盖不足<br>-2.0：异常/边界/超时覆盖不足<br>-1.0：异常/边界/超时覆盖不足 | 异常/边界/弱网/超时/重复等场景覆盖不足，失败闭环与恢复策略不明确。 |\n| 可测试性 | 7.7/10 | — | 存在不可测试描述/成功标准缺失，验收条件难以量化。 |\n| 技术可实现性 | 7.3/10 | — | 并发/幂等/重试等工程约束未落地，存在实现与稳定性风险。 |\n\n### 异常/边界覆盖速览（辅助）\n\n| 类别 | 检查项 | 是否覆盖 |\n| :--- | :--- | :--- |\n| 异常 | 超时 | 否 |\n| 异常 | 弱网/断网 | 否 |\n| 异常 | 失败/错误码 | 否 |\n| 异常 | 重试 | 否 |\n| 异常 | 回滚/补偿 | 否 |\n| 异常 | 幂等/重复提交 | 否 |\n| 边界 | 范围/上下限 | 否 |\n| 边界 | 并发 | 否 |\n| 边界 | 重复操作 | 否 |\n| 边界 | 弱网/超时 | 否 |\n\n\n## 二、核心问题矩阵（合并版）\n\n| 风险等级 | 核心问题 | 涉及锚点 | 问题描述 | 现场翻车（业务视角） | 风险分析 | 审计建议 |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n| P0 | **状态机不完整（P0）——系统不知道下一步该去哪** | L0104-L0155 | 某状态没有入口，状态不可达。；某状态没有出口，无法结束。；出现不合理跳转。 例如：用户退出投屏后系统没有回到可控状态，下一次进入时行为不一致，现场演示容易翻车。 | 退出/返回路径不一致，现场演示卡死或切换混乱。 | 状态机断裂。；业务逻辑错误。；数据不一致。 | 补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。 |\n| P0 | **模式切换规则不完整（P0）——退出投屏后去哪了？** | L21: 4. 返回结果 | 只描述成功路径，缺少失败处理。；未定义用户中途退出的处理。；接口失败是否允许重试未说明。 例如：用户退出投屏后系统没有回到可控状态，下一次进入时行为不一致，现场演示容易翻车。 | 退出/返回路径不一致，现场演示卡死或切换混乱。 | 异常未定义。；状态/资源泄漏。；重复执行或无法恢复。 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 |\n| P1 | **数据契约与一致性不足（P1）——需要补齐可执行规则** | L21: 4. 返回结果 | 字段未说明类型、长度、是否必填。；数据从哪里来未说明。；多系统写入同一数据未定义协调方式。 例如：字段口径不一致导致一端显示“已成功”另一端仍是“处理中”，用户重复点击触发重复请求。 | 体验不一致引发投诉，后续返工成本高。 | 前后端理解不一致。；依赖不清。；数据不一致。 | 补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。 |\n| P1 | **扫描引擎问题聚合（P1）——需要补齐可执行规则** | L21: 4. 返回结果 | 漏洞扫描阶段执行失败 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json | 检查 LLM 配置或重试扫描 |\n| P2 | **可测试性问题聚合（P2）——需要补齐可执行规则** | L21: 4. 返回结果 | 未说明成功条件。；关键操作没有日志要求。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 验收标准不清。；无法审计与排查。 | 针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。 |\n| P2 | **系统与技术问题聚合（P2）——需要补齐可执行规则** | L21: 4. 返回结果 | 接口重复调用未说明处理方式。；依赖系统未说明。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 重复扣款/重复发货。；集成与排障困难。 | 针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。 |\n| P2 | **业务规则问题聚合（P2）——需要补齐可执行规则** | L21: 4. 返回结果 | 未定义最小值或最大值。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 边界未定义。 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 |\n\n\n### 详细漏洞清单（原始版）\n\n- 扫描来源：规则库 15 条，LLM 1 条，混合 0 条\n\n### 漏洞1\n- 模块：业务规则\n- 类型：规则边界缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：未定义最小值或最大值。\n- 原因：边界未定义。\n- 建议：补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。\n\n### 漏洞2\n- 模块：状态机\n- 类型：状态孤岛\n- 风险等级：P0\n- 来源：rule\n- 锚点：L0104-L0155\n- 描述：例如：某状态没有入口，状态不可达。\n- 原因：状态机断裂。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞3\n- 模块：状态机\n- 类型：状态死路\n- 风险等级：P0\n- 来源：rule\n- 锚点：L0104-L0155\n- 描述：例如：某状态没有出口，无法结束。\n- 原因：状态机断裂。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞4\n- 模块：状态机\n- 类型：非法状态跳转\n- 风险等级：P0\n- 来源：rule\n- 锚点：L0104-L0155\n- 描述：例如：出现不合理跳转。\n- 原因：业务逻辑错误。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞5\n- 模块：状态机\n- 类型：状态回滚缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L0104-L0155\n- 描述：例如：异常情况下没有回滚逻辑。\n- 原因：数据不一致。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞6\n- 模块：业务流程\n- 类型：异常流程缺失\n- 风险等级：P0\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：只描述成功路径，缺少失败处理。\n- 原因：异常未定义。\n- 建议：补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。\n\n### 漏洞7\n- 模块：业务流程\n- 类型：中断流程缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：未定义用户中途退出的处理。\n- 原因：状态/资源泄漏。\n- 建议：针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞8\n- 模块：业务流程\n- 类型：重试机制缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：接口失败是否允许重试未说明。\n- 原因：重复执行或无法恢复。\n- 建议：针对业务流程补充“重试机制缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞9\n- 模块：数据结构\n- 类型：字段定义缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：字段未说明类型、长度、是否必填。\n- 原因：前后端理解不一致。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞10\n- 模块：数据结构\n- 类型：数据来源不明确\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：数据从哪里来未说明。\n- 原因：依赖不清。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞11\n- 模块：数据结构\n- 类型：数据一致性风险\n- 风险等级：P1\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：多系统写入同一数据未定义协调方式。\n- 原因：数据不一致。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞12\n- 模块：可测试性\n- 类型：成功标准缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：未说明成功条件。\n- 原因：验收标准不清。\n- 建议：针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞13\n- 模块：可测试性\n- 类型：日志记录缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：关键操作没有日志要求。\n- 原因：无法审计与排查。\n- 建议：针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞14\n- 模块：系统与技术\n- 类型：接口幂等性缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：接口重复调用未说明处理方式。\n- 原因：重复扣款/重复发货。\n- 建议：针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞15\n- 模块：系统与技术\n- 类型：外部依赖未定义\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：依赖系统未说明。\n- 原因：集成与排障困难。\n- 建议：补充外部依赖清单、可用性要求和故障降级方案，明确依赖不可用时的回退逻辑。\n\n### 漏洞16\n- 模块：扫描引擎\n- 类型：扫描异常\n- 风险等级：P1\n- 来源：llm\n- 锚点：L21: 4. 返回结果\n- 描述：例如：漏洞扫描阶段执行失败\n- 原因：LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json\n- 建议：检查 LLM 配置或重试扫描\n\n\n## 四、待确认清单\n\n| 优先级 | 待确认项 | 紧急程度 | 涉及模块 | 具体问题 | 影响 |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n| P0 | 异常流程缺失 | 🔥🔥🔥 不确认没法开工 | 业务流程 | 只描述成功路径，缺少失败处理。 | 需澄清后方可进入开发/评审 |\n| P1 | 数据一致性风险 | 🔥🔥 不确认会做错 | 数据结构 | 多系统写入同一数据未定义协调方式。 | 需澄清后方可进入开发/评审 |\n| P2 | 字段定义缺失 | 🔥 可以边做边等 | 数据结构 | 字段未说明类型、长度、是否必填。 | 需澄清后方可进入开发/评审 |\n| P2 | 重试机制缺失 | 🔥 可以边做边等 | 业务流程 | 接口失败是否允许重试未说明。 | 需澄清后方可进入开发/评审 |\n| P2 | 接口幂等性缺失 | 🔥 可以边做边等 | 系统与技术 | 接口重复调用未说明处理方式。 | 需澄清后方可进入开发/评审 |\n| P2 | 中断流程缺失 | 🔥 可以边做边等 | 业务流程 | 未定义用户中途退出的处理。 | 需澄清后方可进入开发/评审 |\n| P2 | 状态回滚缺失 | 🔥 可以边做边等 | 状态机 | 异常情况下没有回滚逻辑。 | 需澄清后方可进入开发/评审 |\n| P2 | 规则边界缺失 | 🔥 可以边做边等 | 业务规则 | 未定义最小值或最大值。 | 需澄清后方可进入开发/评审 |\n| P2 | 日志记录缺失 | 🔥 可以边做边等 | 可测试性 | 关键操作没有日志要求。 | 需澄清后方可进入开发/评审 |\n| P2 | 数据来源不明确 | 🔥 可以边做边等 | 数据结构 | 数据从哪里来未说明。 | 需澄清后方可进入开发/评审 |\n\n## 五、测试重点（测试团队专用）\n\n| 测试类型 | 测试点 | 对应风险 |\n| :--- | :--- | :--- |\n| 功能测试 | 状态机不完整 | P0 |\n| 异常测试 | 流程闭环缺失 | P0 |\n| 功能测试 | 数据契约与一致性不足 | P1 |\n| 异常测试 | 扫描引擎问题聚合 | P1 |\n| 功能测试 | 可测试性问题聚合 | P2 |\n| 功能测试 | 系统与技术问题聚合 | P2 |\n| 功能测试 | 业务规则问题聚合 | P2 |\n\n## 六、研发重点（研发团队专用）\n\n| 模块 | 研发关注点 | 风险等级 |\n| :--- | :--- | :--- |\n| L0104-L0155 | 补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。 | P0 |\n| L21: 4. 返回结果 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 | P0 |\n| L21: 4. 返回结果 | 补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。 | P1 |\n| L21: 4. 返回结果 | 检查 LLM 配置或重试扫描 | P1 |\n| L21: 4. 返回结果 | 针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。 | P2 |\n| L21: 4. 返回结果 | 针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。 | P2 |\n| L21: 4. 返回结果 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 | P2 |\n\n## 七、项目风险\n- 状态机不完整（P0）\n- 流程闭环缺失（P0）\n- 数据契约与一致性不足（P1）\n- 扫描引擎问题聚合（P1）\n- 可测试性问题聚合（P2）\n- 系统与技术问题聚合（P2）\n- 业务规则问题聚合（P2）\n\n## 八、计划建议\n- 先完成 P0 漏洞澄清并冻结关键流程\n- 按 P0→P1→P2 优先级推进修复与复审\n- 同步更新测试点并执行回归验证",
+    "L3": "# 【审计报告】PRD：工具扫描+人工复核版（含16项缺陷，P0级4项）（本地规则体检版，无大模型推理）\n\n> 【本地规则体检版】当前未接入可用大模型，本报告基于本地规则引擎与静态分析自动生成，主要用于结构完整性和显性风险初筛，不能替代人工评审与线上大模型审计。\n\n## 一、总体结论\n\n- 审计结论：未定义最小值或最大值。\n- 综合质量评分：6.4/10（基于七维评分）\n- 结构复杂度：0.2/10（简单；状态与流程数量较少，整体复杂度较低。）\n### 核心风险摘要\n- 一句话总结：当前 PRD 存在多处关键规则缺口，建议先完成核心风险闭环再进入开发。\n- 三个致命伤：\n  - 状态机不完整（P0，4项）\n  - 流程闭环缺失（P0，3项）\n  - 数据契约与一致性不足（P1，3项）\n\n### 七维质量评分明细（必填）\n\n| 维度 | 评分 | 扣分原因 | 说明 |\n| :--- | :--- | :--- | :--- |\n| 需求完整度 | 8.0/10 | -0.5：外部依赖/关键功能缺失 | 基于结构完整性与缺陷综合评估。 |\n| 规则明确度 | 7.6/10 | — | 存在规则歧义/冲突/不可执行表述，导致实现与验收口径不一致风险。 |\n| 流程一致性 | 5.3/10 | -0.5：流程闭环不足（并发/重试/幂等） | 流程闭环不足（成功/失败/中断/重试/并发口径缺失），上线行为易不一致。 |\n| 状态机完备度 | 3.6/10 | -2.0：状态与转移/回滚/恢复缺失<br>-0.5：状态与转移/回滚/恢复缺失 | 状态定义/转移/回滚/恢复规则不完整，复杂场景下容易出现不可达/死路/非法跳转。 |\n| 异常覆盖度 | 5.6/10 | -0.5：异常/边界/超时覆盖不足<br>-2.0：异常/边界/超时覆盖不足<br>-1.0：异常/边界/超时覆盖不足 | 异常/边界/弱网/超时/重复等场景覆盖不足，失败闭环与恢复策略不明确。 |\n| 可测试性 | 7.7/10 | — | 存在不可测试描述/成功标准缺失，验收条件难以量化。 |\n| 技术可实现性 | 7.3/10 | — | 并发/幂等/重试等工程约束未落地，存在实现与稳定性风险。 |\n\n### 异常/边界覆盖速览（辅助）\n\n| 类别 | 检查项 | 是否覆盖 |\n| :--- | :--- | :--- |\n| 异常 | 超时 | 否 |\n| 异常 | 弱网/断网 | 否 |\n| 异常 | 失败/错误码 | 否 |\n| 异常 | 重试 | 否 |\n| 异常 | 回滚/补偿 | 否 |\n| 异常 | 幂等/重复提交 | 否 |\n| 边界 | 范围/上下限 | 否 |\n| 边界 | 并发 | 否 |\n| 边界 | 重复操作 | 否 |\n| 边界 | 弱网/超时 | 否 |\n\n\n## 二、核心问题矩阵（合并版）\n\n| 风险等级 | 核心问题 | 涉及锚点 | 问题描述 | 现场翻车（业务视角） | 风险分析 | 审计建议 |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n| P0 | **状态机不完整（P0）——系统不知道下一步该去哪** | L0104-L0155 | 某状态没有入口，状态不可达。；某状态没有出口，无法结束。；出现不合理跳转。 例如：用户退出投屏后系统没有回到可控状态，下一次进入时行为不一致，现场演示容易翻车。 | 退出/返回路径不一致，现场演示卡死或切换混乱。 | 状态机断裂。；业务逻辑错误。；数据不一致。 | 补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。 |\n| P0 | **模式切换规则不完整（P0）——退出投屏后去哪了？** | L21: 4. 返回结果 | 只描述成功路径，缺少失败处理。；未定义用户中途退出的处理。；接口失败是否允许重试未说明。 例如：用户退出投屏后系统没有回到可控状态，下一次进入时行为不一致，现场演示容易翻车。 | 退出/返回路径不一致，现场演示卡死或切换混乱。 | 异常未定义。；状态/资源泄漏。；重复执行或无法恢复。 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 |\n| P1 | **数据契约与一致性不足（P1）——需要补齐可执行规则** | L21: 4. 返回结果 | 字段未说明类型、长度、是否必填。；数据从哪里来未说明。；多系统写入同一数据未定义协调方式。 例如：字段口径不一致导致一端显示“已成功”另一端仍是“处理中”，用户重复点击触发重复请求。 | 体验不一致引发投诉，后续返工成本高。 | 前后端理解不一致。；依赖不清。；数据不一致。 | 补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。 |\n| P1 | **扫描引擎问题聚合（P1）——需要补齐可执行规则** | L21: 4. 返回结果 | 漏洞扫描阶段执行失败 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json | 检查 LLM 配置或重试扫描 |\n| P2 | **可测试性问题聚合（P2）——需要补齐可执行规则** | L21: 4. 返回结果 | 未说明成功条件。；关键操作没有日志要求。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 验收标准不清。；无法审计与排查。 | 针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。 |\n| P2 | **系统与技术问题聚合（P2）——需要补齐可执行规则** | L21: 4. 返回结果 | 接口重复调用未说明处理方式。；依赖系统未说明。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 重复扣款/重复发货。；集成与排障困难。 | 针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。 |\n| P2 | **业务规则问题聚合（P2）——需要补齐可执行规则** | L21: 4. 返回结果 | 未定义最小值或最大值。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 边界未定义。 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 |\n\n\n### 详细漏洞清单（原始版）\n\n- 扫描来源：规则库 15 条，LLM 1 条，混合 0 条\n\n### 漏洞1\n- 模块：业务规则\n- 类型：规则边界缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：未定义最小值或最大值。\n- 原因：边界未定义。\n- 建议：补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。\n\n### 漏洞2\n- 模块：状态机\n- 类型：状态孤岛\n- 风险等级：P0\n- 来源：rule\n- 锚点：L0104-L0155\n- 描述：例如：某状态没有入口，状态不可达。\n- 原因：状态机断裂。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞3\n- 模块：状态机\n- 类型：状态死路\n- 风险等级：P0\n- 来源：rule\n- 锚点：L0104-L0155\n- 描述：例如：某状态没有出口，无法结束。\n- 原因：状态机断裂。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞4\n- 模块：状态机\n- 类型：非法状态跳转\n- 风险等级：P0\n- 来源：rule\n- 锚点：L0104-L0155\n- 描述：例如：出现不合理跳转。\n- 原因：业务逻辑错误。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞5\n- 模块：状态机\n- 类型：状态回滚缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L0104-L0155\n- 描述：例如：异常情况下没有回滚逻辑。\n- 原因：数据不一致。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞6\n- 模块：业务流程\n- 类型：异常流程缺失\n- 风险等级：P0\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：只描述成功路径，缺少失败处理。\n- 原因：异常未定义。\n- 建议：补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。\n\n### 漏洞7\n- 模块：业务流程\n- 类型：中断流程缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：未定义用户中途退出的处理。\n- 原因：状态/资源泄漏。\n- 建议：针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞8\n- 模块：业务流程\n- 类型：重试机制缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：接口失败是否允许重试未说明。\n- 原因：重复执行或无法恢复。\n- 建议：针对业务流程补充“重试机制缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞9\n- 模块：数据结构\n- 类型：字段定义缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：字段未说明类型、长度、是否必填。\n- 原因：前后端理解不一致。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞10\n- 模块：数据结构\n- 类型：数据来源不明确\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：数据从哪里来未说明。\n- 原因：依赖不清。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞11\n- 模块：数据结构\n- 类型：数据一致性风险\n- 风险等级：P1\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：多系统写入同一数据未定义协调方式。\n- 原因：数据不一致。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞12\n- 模块：可测试性\n- 类型：成功标准缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：未说明成功条件。\n- 原因：验收标准不清。\n- 建议：针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞13\n- 模块：可测试性\n- 类型：日志记录缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：关键操作没有日志要求。\n- 原因：无法审计与排查。\n- 建议：针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞14\n- 模块：系统与技术\n- 类型：接口幂等性缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：接口重复调用未说明处理方式。\n- 原因：重复扣款/重复发货。\n- 建议：针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞15\n- 模块：系统与技术\n- 类型：外部依赖未定义\n- 风险等级：P2\n- 来源：rule\n- 锚点：L21: 4. 返回结果\n- 描述：例如：依赖系统未说明。\n- 原因：集成与排障困难。\n- 建议：补充外部依赖清单、可用性要求和故障降级方案，明确依赖不可用时的回退逻辑。\n\n### 漏洞16\n- 模块：扫描引擎\n- 类型：扫描异常\n- 风险等级：P1\n- 来源：llm\n- 锚点：L21: 4. 返回结果\n- 描述：例如：漏洞扫描阶段执行失败\n- 原因：LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json\n- 建议：检查 LLM 配置或重试扫描\n\n\n## 四、待确认清单\n\n| 优先级 | 待确认项 | 紧急程度 | 涉及模块 | 具体问题 | 影响 |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n| P0 | 异常流程缺失 | 🔥🔥🔥 不确认没法开工 | 业务流程 | 只描述成功路径，缺少失败处理。 | 需澄清后方可进入开发/评审 |\n| P1 | 数据一致性风险 | 🔥🔥 不确认会做错 | 数据结构 | 多系统写入同一数据未定义协调方式。 | 需澄清后方可进入开发/评审 |\n| P2 | 字段定义缺失 | 🔥 可以边做边等 | 数据结构 | 字段未说明类型、长度、是否必填。 | 需澄清后方可进入开发/评审 |\n| P2 | 重试机制缺失 | 🔥 可以边做边等 | 业务流程 | 接口失败是否允许重试未说明。 | 需澄清后方可进入开发/评审 |\n| P2 | 接口幂等性缺失 | 🔥 可以边做边等 | 系统与技术 | 接口重复调用未说明处理方式。 | 需澄清后方可进入开发/评审 |\n| P2 | 中断流程缺失 | 🔥 可以边做边等 | 业务流程 | 未定义用户中途退出的处理。 | 需澄清后方可进入开发/评审 |\n| P2 | 状态回滚缺失 | 🔥 可以边做边等 | 状态机 | 异常情况下没有回滚逻辑。 | 需澄清后方可进入开发/评审 |\n| P2 | 规则边界缺失 | 🔥 可以边做边等 | 业务规则 | 未定义最小值或最大值。 | 需澄清后方可进入开发/评审 |\n| P2 | 日志记录缺失 | 🔥 可以边做边等 | 可测试性 | 关键操作没有日志要求。 | 需澄清后方可进入开发/评审 |\n| P2 | 数据来源不明确 | 🔥 可以边做边等 | 数据结构 | 数据从哪里来未说明。 | 需澄清后方可进入开发/评审 |\n\n## 五、测试重点（测试团队专用）\n\n| 测试类型 | 测试点 | 对应风险 |\n| :--- | :--- | :--- |\n| 功能测试 | 状态机不完整 | P0 |\n| 异常测试 | 流程闭环缺失 | P0 |\n| 功能测试 | 数据契约与一致性不足 | P1 |\n| 异常测试 | 扫描引擎问题聚合 | P1 |\n| 功能测试 | 可测试性问题聚合 | P2 |\n| 功能测试 | 系统与技术问题聚合 | P2 |\n| 功能测试 | 业务规则问题聚合 | P2 |\n\n## 六、研发重点（研发团队专用）\n\n| 模块 | 研发关注点 | 风险等级 |\n| :--- | :--- | :--- |\n| L0104-L0155 | 补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。 | P0 |\n| L21: 4. 返回结果 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 | P0 |\n| L21: 4. 返回结果 | 补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。 | P1 |\n| L21: 4. 返回结果 | 检查 LLM 配置或重试扫描 | P1 |\n| L21: 4. 返回结果 | 针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。 | P2 |\n| L21: 4. 返回结果 | 针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。 | P2 |\n| L21: 4. 返回结果 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 | P2 |\n\n## 七、项目风险\n- 状态机不完整（P0）\n- 流程闭环缺失（P0）\n- 数据契约与一致性不足（P1）\n- 扫描引擎问题聚合（P1）\n- 可测试性问题聚合（P2）\n- 系统与技术问题聚合（P2）\n- 业务规则问题聚合（P2）\n\n## 八、计划建议\n- 先完成 P0 漏洞澄清并冻结关键流程\n- 按 P0→P1→P2 优先级推进修复与复审\n- 同步更新测试点并执行回归验证"
+  },
+  "extras": {
+    "test_matrix": {
+      "function_matrix": [
+        {
+          "module": "返回结果",
+          "test_types": {
+            "正常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "异常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "边界条件": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "并发场景": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "中断恢复": {
+              "status": "覆盖",
+              "suggestion": ""
+            }
+          }
+        },
+        {
+          "module": "返回值",
+          "test_types": {
+            "正常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "异常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "边界条件": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "并发场景": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "中断恢复": {
+              "status": "覆盖",
+              "suggestion": ""
+            }
+          }
+        },
+        {
+          "module": "参数：⽆",
+          "test_types": {
+            "正常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "异常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "边界条件": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "并发场景": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "中断恢复": {
+              "status": "覆盖",
+              "suggestion": ""
+            }
+          }
+        }
+      ],
+      "state_matrix": {
+        "当前": {
+          "has_entry": false,
+          "has_exit": false,
+          "test_priority": "P1",
+          "note": "状态未在流程/规则中提及，建议补充转换说明"
+        }
+      },
+      "concurrent_matrix": {},
+      "boundary_matrix": [
+        {
+          "item": "超时",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "弱网/断网",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "失败/错误码",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "重试",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "回滚/补偿",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "幂等/重复提交",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        }
+      ],
+      "permission_matrix": []
+    },
+    "diagrams": {
+      "state_diagram": "```mermaid\nstateDiagram-v2\n    [*] --> 当前\n    当前 --> [*]\n```",
+      "permission_matrix": "用户角色未定义，请在 PRD 中补充 user_roles，以便生成权限矩阵。",
+      "concurrency_diagram": "无高优先级并发场景或事件不足，请在 PRD 中补充业务规则与流程。"
+    },
+    "kg": {
+      "root_causes": [],
+      "risk_chains": [],
+      "system_risks": [],
+      "meta": {
+        "hits": [
+          "D001",
+          "R004",
+          "R006",
+          "R007",
+          "R008",
+          "R009",
+          "R012",
+          "R013",
+          "R015",
+          "R016",
+          "R017",
+          "R019",
+          "R023",
+          "R025",
+          "R027",
+          "R028"
+        ],
+        "edges_used": 0
+      }
+    },
+    "extras_quality": {
+      "stage4": {
+        "overall": 7.2,
+        "details": {
+          "function_matrix": 4.0,
+          "boundary_matrix": 1.2,
+          "concurrent_matrix": 0.0,
+          "permission_matrix": 1.0,
+          "state_matrix": 1.0,
+          "stats": {
+            "modules_total": 3,
+            "modules_shown": 3,
+            "boundary_items": 6,
+            "boundary_covered": 0,
+            "concurrent_items": 0,
+            "roles_total": 0,
+            "states_total": 1
+          },
+          "notes": []
+        }
+      },
+      "stage5": {
+        "overall": 9.0,
+        "details": {
+          "state_diagram": 4.0,
+          "permission_matrix": 3.0,
+          "concurrency_diagram": 2.0,
+          "stats": {
+            "roles_total": 0,
+            "states_total": 1
+          },
+          "notes": []
+        }
+      }
+    }
+  },
+  "learning_meta": {
+    "source_raw": {
+      "rule": 15,
+      "llm": 1,
+      "other": 0
+    },
+    "source_learning": {
+      "rule": 15,
+      "llm": 0,
+      "other": 0
+    },
+    "lane": "local_only"
+  }
+}

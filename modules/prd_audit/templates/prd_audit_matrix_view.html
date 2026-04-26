@@ -1,0 +1,257 @@
+{% extends "prd_audit_base.html" %}
+
+{% block module_content %}
+<div class="card prd-card">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-muted"><i class="fas fa-table me-2"></i>分析矩阵（独立页）</h5>
+        <a class="btn btn-sm btn-outline-secondary" href="/prd_audit/">返回PRD审计</a>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            <button class="btn btn-sm btn-outline-primary" id="btnOnlyMissing">只看缺失</button>
+            <button class="btn btn-sm btn-outline-danger" id="btnOnlyP0">只看P0</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btnResetFilter">重置筛选</button>
+            <button class="btn btn-sm btn-outline-success ms-auto" id="btnExportPytest"><i class="fas fa-code me-1"></i>生成 Pytest 代码</button>
+        </div>
+        <div id="matrixStandaloneContent" class="small"></div>
+        <div id="pytestWrap" class="mt-3" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-semibold">Pytest 代码</div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" id="btnCopyPytestCode">复制代码</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnDownloadPytestCode">下载 .py</button>
+                </div>
+            </div>
+            <div id="pytestStatus" class="small text-muted mb-2"></div>
+            <pre class="border rounded p-2 m-0" id="pytestCodeContent" style="max-height: 320px; overflow:auto; white-space: pre-wrap; font-family: Consolas, monospace; font-size: 0.9em;"></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    var STORAGE_KEY = 'prd_audit_matrix_bundle';
+    var filters = { missing: false, p0: false };
+    var contentEl = document.getElementById('matrixStandaloneContent');
+    var btnOnlyMissing = document.getElementById('btnOnlyMissing');
+    var btnOnlyP0 = document.getElementById('btnOnlyP0');
+    var btnResetFilter = document.getElementById('btnResetFilter');
+    var btnExportPytest = document.getElementById('btnExportPytest');
+    var pytestWrap = document.getElementById('pytestWrap');
+    var pytestStatus = document.getElementById('pytestStatus');
+    var pytestCodeContent = document.getElementById('pytestCodeContent');
+    var btnCopyPytestCode = document.getElementById('btnCopyPytestCode');
+    var btnDownloadPytestCode = document.getElementById('btnDownloadPytestCode');
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function loadSnapshot() {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return null;
+            var obj = JSON.parse(raw);
+            if (!obj || typeof obj !== 'object') return null;
+            return obj;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function getMatrix() {
+        var snap = loadSnapshot();
+        if (!snap || !snap.testMatrix || typeof snap.testMatrix !== 'object') return null;
+        return snap.testMatrix;
+    }
+
+    function pass(status, risk) {
+        var ok = true;
+        if (filters.missing) ok = ok && String(status || '') === '缺失';
+        if (filters.p0) ok = ok && String(risk || '') === 'P0';
+        return ok;
+    }
+
+    function renderFunction(items) {
+        if (!Array.isArray(items) || !items.length) return '';
+        var cols = ['正常流程','异常流程','边界条件','并发场景','中断恢复'];
+        var rows = items.filter(function(r){
+            if (!filters.missing && !filters.p0) return true;
+            var tt = (r && r.test_types) || {};
+            return cols.some(function(c){
+                var it = tt[c] || {};
+                return pass(it.status, it.risk_level);
+            });
+        });
+        if (!rows.length) return '';
+        var html = '<div class="mb-3"><div class="fw-semibold mb-1">功能测试矩阵</div><div class="table-responsive"><table class="table table-sm table-bordered"><thead><tr><th>模块</th>';
+        cols.forEach(function(c){ html += '<th>' + esc(c) + '</th>'; });
+        html += '</tr></thead><tbody>';
+        rows.forEach(function(r){
+            var tt = (r && r.test_types) || {};
+            html += '<tr><td>' + esc(r.module || '-') + '</td>';
+            cols.forEach(function(c){
+                var it = tt[c] || {};
+                html += '<td>' + esc((it.status || '-') + (it.risk_level ? ' / ' + it.risk_level : '')) + '</td>';
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table></div></div>';
+        return html;
+    }
+
+    function renderBoundary(items) {
+        if (!Array.isArray(items) || !items.length) return '';
+        var rows = items.filter(function(it){
+            if (!filters.missing && !filters.p0) return true;
+            if (filters.p0) return false;
+            return !it.covered;
+        });
+        if (!rows.length) return '';
+        var html = '<div class="mb-3"><div class="fw-semibold mb-1">边界/异常覆盖</div><div class="table-responsive"><table class="table table-sm table-bordered"><thead><tr><th>项</th><th>状态</th><th>说明</th></tr></thead><tbody>';
+        rows.forEach(function(it){
+            html += '<tr><td>' + esc(it.item || '-') + '</td><td>' + esc(it.covered ? '覆盖' : '缺失') + '</td><td>' + esc(it.note || '-') + '</td></tr>';
+        });
+        html += '</tbody></table></div></div>';
+        return html;
+    }
+
+    function renderConcurrent(obj) {
+        if (!obj || typeof obj !== 'object') return '';
+        var keys = Object.keys(obj);
+        if (!keys.length) return '';
+        var rows = keys.filter(function(k){
+            var it = obj[k] || {};
+            var st = it.status === '未定义' ? '缺失' : '覆盖';
+            return (!filters.missing && !filters.p0) || pass(st, it.risk_level);
+        });
+        if (!rows.length) return '';
+        var html = '<div class="mb-3"><div class="fw-semibold mb-1">并发矩阵</div><div class="table-responsive"><table class="table table-sm table-bordered"><thead><tr><th>并发项</th><th>状态</th><th>风险</th><th>建议</th></tr></thead><tbody>';
+        rows.forEach(function(k){
+            var it = obj[k] || {};
+            html += '<tr><td>' + esc(k) + '</td><td>' + esc(it.status || '-') + '</td><td>' + esc(it.risk_level || '-') + '</td><td>' + esc(it.suggestion || '-') + '</td></tr>';
+        });
+        html += '</tbody></table></div></div>';
+        return html;
+    }
+
+    function renderPermission(items) {
+        if (!Array.isArray(items) || !items.length) return '';
+        if (filters.missing || filters.p0) return '';
+        var html = '<div class="mb-3"><div class="fw-semibold mb-1">权限矩阵</div><div class="table-responsive"><table class="table table-sm table-bordered"><thead><tr><th>角色</th><th>动作</th><th>状态</th></tr></thead><tbody>';
+        items.forEach(function(it){
+            html += '<tr><td>' + esc(it.role || '-') + '</td><td>' + esc(it.action || '-') + '</td><td>' + esc(it.status || '-') + '</td></tr>';
+        });
+        html += '</tbody></table></div></div>';
+        return html;
+    }
+
+    function render() {
+        var t = getMatrix();
+        if (!t) {
+            contentEl.innerHTML = '<div class="text-muted">暂无矩阵快照，请先在 PRD 审计页执行一次分析。</div>';
+            return;
+        }
+        var html = '';
+        html += renderFunction(t.function_matrix);
+        html += renderBoundary(t.boundary_matrix);
+        html += renderConcurrent(t.concurrent_matrix);
+        html += renderPermission(t.permission_matrix);
+        contentEl.innerHTML = html || '<div class="text-muted">当前筛选条件下暂无命中项。</div>';
+    }
+
+    btnOnlyMissing.addEventListener('click', function(){
+        filters.missing = !filters.missing;
+        btnOnlyMissing.className = 'btn btn-sm ' + (filters.missing ? 'btn-primary' : 'btn-outline-primary');
+        render();
+    });
+    btnOnlyP0.addEventListener('click', function(){
+        filters.p0 = !filters.p0;
+        btnOnlyP0.className = 'btn btn-sm ' + (filters.p0 ? 'btn-danger' : 'btn-outline-danger');
+        render();
+    });
+    btnResetFilter.addEventListener('click', function(){
+        filters.missing = false;
+        filters.p0 = false;
+        btnOnlyMissing.className = 'btn btn-sm btn-outline-primary';
+        btnOnlyP0.className = 'btn btn-sm btn-outline-danger';
+        render();
+    });
+
+    if (btnExportPytest) {
+        btnExportPytest.addEventListener('click', function() {
+            var matrix = getMatrix();
+            if (!matrix) {
+                alert('暂无测试矩阵数据，请先在 PRD 审计页执行一次分析。');
+                return;
+            }
+            pytestWrap.style.display = '';
+            pytestCodeContent.textContent = '正在生成 Pytest 代码，请稍候...\n（约需 30-60 秒）';
+            pytestStatus.textContent = '生成中...';
+            btnExportPytest.disabled = true;
+            fetch('/prd_audit/api/generate_test_code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ test_matrix: matrix })
+            }).then(function(response) {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                var reader = response.body.getReader();
+                var decoder = new TextDecoder('utf-8');
+                pytestCodeContent.textContent = '';
+                pytestStatus.textContent = '正在接收代码...';
+                function readChunk() {
+                    return reader.read().then(function(result) {
+                        if (result.done) {
+                            pytestStatus.textContent = '生成完成';
+                            btnExportPytest.disabled = false;
+                            return;
+                        }
+                        pytestCodeContent.textContent += decoder.decode(result.value, { stream: true });
+                        pytestCodeContent.scrollTop = pytestCodeContent.scrollHeight;
+                        return readChunk();
+                    });
+                }
+                return readChunk();
+            }).catch(function(err) {
+                pytestCodeContent.textContent += '\n\n[错误] 生成失败: ' + err.message;
+                pytestStatus.textContent = '发生错误';
+                btnExportPytest.disabled = false;
+            });
+        });
+    }
+
+    if (btnCopyPytestCode) {
+        btnCopyPytestCode.addEventListener('click', function() {
+            var code = pytestCodeContent.textContent || '';
+            if (!code.trim()) return;
+            navigator.clipboard.writeText(code).then(function() {
+                pytestStatus.textContent = '已复制到剪贴板';
+                setTimeout(function(){ pytestStatus.textContent = '生成完成'; }, 2000);
+            }).catch(function() {});
+        });
+    }
+
+    if (btnDownloadPytestCode) {
+        btnDownloadPytestCode.addEventListener('click', function() {
+            var code = pytestCodeContent.textContent || '';
+            if (!code.trim()) return;
+            var blob = new Blob([code], { type: 'text/x-python;charset=utf-8' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'test_from_matrix.py';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+        });
+    }
+    render();
+})();
+</script>
+{% endblock %}

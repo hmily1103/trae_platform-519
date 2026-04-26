@@ -1,0 +1,22 @@
+name: prd-audit-gate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "modules/prd_audit/**"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+      - name: PRD Audit CI Gate
+        run: |
+          python -m modules.prd_audit.ci_gate --prd-text "投屏 > 游戏 > 广告。高优先级可打断低优先级。"

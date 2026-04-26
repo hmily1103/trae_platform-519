@@ -1,0 +1,29 @@
+# Trae Platform 统一配置
+# 阈值、超时、重试等集中管理，支持环境变量覆盖
+
+adb:
+  timeout: 10          # ADB 命令默认超时(秒)
+  retry: 2             # 瞬时失败重试次数
+  connect_timeout: 10  # adb connect 超时
+  list_timeout: 5      # adb devices 超时
+
+player_stress:
+  interval_seconds: 5      # 默认采样间隔
+  interval_standard: 5    # 标准模式采样间隔
+  interval_deep: 1        # 深度压测采样间隔
+  interval_ultra: 5       # 极低功耗采样间隔
+  freeze_threshold: 5     # 画面冻结检测阈值
+  black_screen_threshold: 5  # 黑屏亮度阈值
+
+reboot:
+  retries:
+    adb_enable: 5
+    adb_connect: 5
+    serial_on: 3
+    serial_off: 3
+    process_check: 3
+  adb_connect_timeout_sec: 10
+  adb_port_probe_timeout_ms: 1500
+
+report:
+  base_dir: data/reports  # 报告根目录(相对项目根)

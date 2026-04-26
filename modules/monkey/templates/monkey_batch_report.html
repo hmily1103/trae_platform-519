@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>批次 Monkey 报告 - {{ batch_id }}</title>
+  <style>
+    body { font-family: "Microsoft YaHei", sans-serif; margin: 20px; background: #fff; color: #333; }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; }
+    .meta { color: #666; font-size: 0.9rem; margin-bottom: 16px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 24px; font-size: 0.85rem; }
+    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+    th { background: #f5f5f5; }
+    .chart-wrap { margin: 20px 0; max-width: 900px; }
+    .chart-wrap img { max-width: 100%; height: auto; }
+    .device-section { margin-bottom: 24px; }
+    .device-section h3 { font-size: 1.1rem; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h1>批次 Monkey 报告</h1>
+  <div class="meta">
+    批次 ID: {{ batch_id }} &nbsp;|&nbsp;
+    设备数: {{ meta.device_ids | length }} &nbsp;|&nbsp;
+    轮数: {{ meta.rounds }} &nbsp;|&nbsp;
+    采样间隔: {{ sample_interval_minutes }} 分钟
+  </div>
+
+  <div class="meta" style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+    <strong>报告说明：</strong>本报告汇总各设备、各轮次的 Monkey 测试结果，便于对比多机多轮表现。<br>
+    <strong>如何阅读：</strong>下表每一行对应「某设备 + 某轮次」的一次测试。FPS 为界面帧率（越高越流畅），CPU% 为应用占用，内存前/后/变化为进程占用及增长；「事件」表示已执行/计划执行的随机操作数；状态为 SUCCESS 表示正常结束，否则请查看「失败原因」；Crash 与 ANR 分别表示崩溃次数与应用无响应次数，大于 0 需重点关注。下方曲线为按 {{ sample_interval_minutes }} 分钟采样的性能趋势，FPS 骤降或 CPU/内存突增常与卡顿、崩溃相关。
+  </div>
+
+  <h2>汇总</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>设备</th>
+        <th>轮次</th>
+        <th>报告 ID</th>
+        <th>内存前(MB)</th>
+        <th>内存后(MB)</th>
+        <th>内存变化(MB)</th>
+        <th>FPS</th>
+        <th>CPU%</th>
+        <th>事件</th>
+        <th>状态</th>
+        <th>失败原因</th>
+        <th>Crash</th>
+        <th>ANR</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in report_data %}
+      <tr class="{{ 'table-danger' if r.status and r.status not in ('SUCCESS', 'RUNNING') else '' }}">
+        <td>{{ r.device_id }}</td>
+        <td>{{ r.round_index or '-' }}</td>
+        <td>{{ (r.report_id or '')[:12] }}...</td>
+        <td>{{ r.before_mem_mb or '-' }}</td>
+        <td>{{ r.after_mem_mb or '-' }}</td>
+        <td>{{ r.delta_mem_mb or '-' }}</td>
+        <td>{{ (r.video_fps or 0) | round(1) }}</td>
+        <td>{{ (r.cpu_app or 0) | round(1) }}</td>
+        <td>{{ r.events_executed or 0 }}/{{ r.events_planned or 0 }}</td>
+        <td><strong>{{ r.status or '-' }}</strong></td>
+        <td class="text-danger small">{{ r.status_reason or '-' }}</td>
+        <td class="{{ 'text-danger fw-bold' if (r.crash_count or 0) > 0 else 'text-muted' }}">{{ r.crash_count or 0 }}</td>
+        <td class="{{ 'text-danger fw-bold' if (r.anr_count or 0) > 0 else 'text-muted' }}">{{ r.anr_count or 0 }}</td>
+      </tr>
+      {% if r.error_details and r.error_details|length > 0 %}
+      <tr class="small bg-light">
+        <td colspan="13" class="py-2">
+          <strong>错误详情:</strong>
+          <ul class="mb-0 mt-1">
+            {% for err in r.error_details %}
+            <li class="text-danger">{{ err }}</li>
+            {% endfor %}
+          </ul>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if chart_base64_list %}
+  <h2>性能曲线（按 {{ sample_interval_minutes }} 分钟采样）</h2>
+  <p class="small text-muted">FPS 高且稳定表示界面流畅；CPU/内存突增或 FPS 骤降至 0 可能表示卡顿、崩溃或应用结束。</p>
+  {% for b64 in chart_base64_list %}
+  <div class="chart-wrap"><img src="data:image/png;base64,{{ b64 }}" alt="chart"/></div>
+  {% endfor %}
+  {% else %}
+  <h2>性能曲线（按 {{ sample_interval_minutes }} 分钟采样）</h2>
+  <p class="small text-muted">FPS 高且稳定表示界面流畅；CPU/内存突增或 FPS 骤降至 0 可能表示卡顿、崩溃或应用结束。</p>
+  <p>请使用浏览器打开本页查看交互图表；导出 PDF 时将包含静态曲线图。</p>
+  {% for r in report_data %}
+  <div class="device-section">
+    <h3>{{ r.device_id }} {% if r.round_index %} 第 {{ r.round_index }} 轮 {% endif %}</h3>
+    <div class="chart-wrap"><canvas id="chart_{{ r.device_id }}_{{ r.round_index }}_{{ r.report_id }}" width="800" height="220"></canvas></div>
+  </div>
+  {% endfor %}
+  <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script>
+    (function(){
+      var reportData = {{ report_data_json | safe }};
+      var interval = {{ sample_interval_minutes }};
+      reportData.forEach(function(r){
+        var id = 'chart_' + (r.device_id || '').replace(/:/g, '_') + '_' + (r.round_index || 0) + '_' + (r.report_id || '').slice(0,8);
+        var el = document.getElementById(id);
+        if (!el || !r.performance_history || !r.performance_history.length) return;
+        var hist = r.performance_history;
+        var labels = hist.map(function(p){ return p.ts ? (typeof p.ts === 'string' ? p.ts.slice(11,19) : '') : ''; });
+        new Chart(el.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              { label: 'FPS', data: hist.map(function(p){ return p.fps || 0; }), borderColor: 'rgb(75,192,192)', tension: 0.1, yAxisID: 'y', pointRadius: 0 },
+              { label: 'CPU%', data: hist.map(function(p){ return p.cpu || 0; }), borderColor: 'rgb(255,99,132)', tension: 0.1, yAxisID: 'y', pointRadius: 0 },
+              { label: 'Memory(MB)', data: hist.map(function(p){ return p.mem || 0; }), borderColor: 'rgb(54,162,235)', tension: 0.1, yAxisID: 'y1', pointRadius: 0 }
+            ]
+          },
+          options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true }, y1: { position: 'right', grid: { drawOnChartArea: false } } }
+          }
+        });
+      });
+    })();
+  </script>
+  {% endif %}
+</body>
+</html>

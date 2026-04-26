@@ -1,0 +1,234 @@
+{% extends "ui_automation_base.html" %}
+
+{% block module_content %}
+<!-- Hero Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm bg-primary text-white" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="fw-bold mb-1"><i class="fas fa-robot me-2"></i>UI 自动化平台</h2>
+                        <p class="mb-0 opacity-75">基于图像识别与控件定位的新一代自动化测试解决方案。</p>
+                    </div>
+                    <div>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-light text-primary shadow-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="far fa-calendar-alt me-1"></i> 本周数据
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow">
+                                <li><a class="dropdown-item" href="#">本周</a></li>
+                                <li><a class="dropdown-item" href="#">本月</a></li>
+                                <li><a class="dropdown-item" href="#">全年</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Key Metrics -->
+<div class="row mb-4">
+    <div class="col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3 text-primary">
+                    <i class="fas fa-folder-open fa-lg"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted text-uppercase small fw-bold mb-1">项目总数</h6>
+                    <h3 class="fw-bold mb-0 text-dark" id="projectCount">-</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="bg-success bg-opacity-10 p-3 rounded-circle me-3 text-success">
+                    <i class="fas fa-file-code fa-lg"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted text-uppercase small fw-bold mb-1">用例总数</h6>
+                    <h3 class="fw-bold mb-0 text-dark" id="caseCount">-</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="bg-info bg-opacity-10 p-3 rounded-circle me-3 text-info">
+                    <i class="fas fa-play-circle fa-lg"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted text-uppercase small fw-bold mb-1">累计运行</h6>
+                    <h3 class="fw-bold mb-0 text-dark" id="totalRuns">-</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="bg-warning bg-opacity-10 p-3 rounded-circle me-3 text-warning">
+                    <i class="fas fa-chart-line fa-lg"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted text-uppercase small fw-bold mb-1">通过率</h6>
+                    <h3 class="fw-bold mb-0 text-dark" id="passRate">-</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity & Quick Actions -->
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 fw-bold"><i class="fas fa-history me-2 text-primary"></i>最近构建</h5>
+                <a href="/ui_automation/reports" class="btn btn-sm btn-outline-primary rounded-pill">查看全部</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">#</th>
+                                <th>任务名称</th>
+                                <th>项目</th>
+                                <th>触发时间</th>
+                                <th>耗时</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data will be populated by JS -->
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                    加载数据中...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="card-title mb-0 fw-bold"><i class="fas fa-bolt me-2 text-warning"></i>快捷入口</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-3">
+                    <a href="/ui_automation/recorder" class="btn btn-outline-primary text-start p-3 shadow-sm border-0 bg-light-subtle hover-shadow transition-all">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white p-2 rounded-circle shadow-sm me-3 text-primary">
+                                <i class="fas fa-video fs-4"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">录制新用例</h6>
+                                <small class="text-muted d-block">打开录制工坊，通过设备操作生成脚本</small>
+                            </div>
+                        </div>
+                    </a>
+                    
+                    <a href="/ui_automation/cases" class="btn btn-outline-success text-start p-3 shadow-sm border-0 bg-light-subtle hover-shadow transition-all">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white p-2 rounded-circle shadow-sm me-3 text-success">
+                                <i class="fas fa-layer-group fs-4"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">创建测试计划</h6>
+                                <small class="text-muted d-block">组合现有用例，创建新的测试套件</small>
+                            </div>
+                        </div>
+                    </a>
+                    
+                    <a href="#" class="btn btn-outline-info text-start p-3 shadow-sm border-0 bg-light-subtle hover-shadow transition-all">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-white p-2 rounded-circle shadow-sm me-3 text-info">
+                                <i class="fas fa-book fs-4"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">查看文档</h6>
+                                <small class="text-muted d-block">阅读 UI 自动化平台使用指南</small>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        refreshDashboardStats();
+    });
+
+    async function refreshDashboardStats() {
+        try {
+            const result = await ApiClient.get('/ui_automation/api/stats');
+            if (result && result.success && result.data) {
+                const stats = result.data;
+                $('#projectCount').text(stats.project_count);
+                $('#caseCount').text(stats.case_count);
+                $('#totalRuns').text(stats.total_runs);
+                $('#passRate').text(stats.pass_rate + '%');
+                
+                renderRecentReports(stats.recent_reports || []);
+            }
+        } catch (error) {
+            console.error('获取仪表盘数据失败:', error);
+        }
+    }
+    
+    function renderRecentReports(reports) {
+        const tbody = $('table tbody');
+        tbody.empty();
+        
+        if (reports.length === 0) {
+            tbody.append('<tr><td colspan="6" class="text-center py-4 text-muted">暂无执行记录</td></tr>');
+            return;
+        }
+        
+        reports.forEach(report => {
+            const startTime = report.start_time ? new Date(report.start_time * 1000).toLocaleString() : '-';
+            const duration = report.end_time && report.start_time ? ((report.end_time - report.start_time).toFixed(1) + 's') : '-';
+            
+            let statusBadge = '<span class="badge bg-secondary rounded-pill">未知</span>';
+            if (report.status === 'completed') {
+                statusBadge = '<span class="badge bg-success rounded-pill"><i class="fas fa-check-circle me-1"></i>完成</span>';
+            } else if (report.status === 'running') {
+                statusBadge = '<span class="badge bg-primary rounded-pill"><i class="spinner-border spinner-border-sm me-1" style="width: 0.7em; height: 0.7em;"></i>运行中</span>';
+            } else if (report.status === 'failed' || report.status === 'error') {
+                statusBadge = '<span class="badge bg-danger rounded-pill"><i class="fas fa-times-circle me-1"></i>失败</span>';
+            } else if (report.status === 'stopped') {
+                statusBadge = '<span class="badge bg-warning text-dark rounded-pill"><i class="fas fa-pause-circle me-1"></i>停止</span>';
+            }
+            
+            const tr = `
+                <tr>
+                    <td class="ps-4 fw-medium text-muted">${report.job_id ? '#' + report.job_id.substring(4, 12) : '-'}</td>
+                    <td><span class="fw-bold text-dark">${report.suite_name || '未命名套件'}</span></td>
+                    <td><span class="badge bg-light text-secondary border">${report.project_name || '-'}</span></td>
+                    <td class="text-muted small">${startTime}</td>
+                    <td class="text-muted small">${duration}</td>
+                    <td>${statusBadge}</td>
+                </tr>
+            `;
+            tbody.append(tr);
+        });
+    }
+</script>
+{% endblock %}

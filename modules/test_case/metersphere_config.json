@@ -1,0 +1,7 @@
+{
+  "base_url": "http://10.0.50.17:8081/#/track/case/all",
+  "import_api_path": "http://10.0.50.17:8081/#/track/case/all",
+  "project_id": "",
+  "auth_header_name": "Authorization",
+  "payload_data_key": "cases"
+}

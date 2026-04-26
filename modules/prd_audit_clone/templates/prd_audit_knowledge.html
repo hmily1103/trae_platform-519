@@ -1,0 +1,115 @@
+{% extends "prd_audit_base.html" %}
+
+{% block module_content %}
+<div class="card prd-card">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-muted"><i class="fas fa-database me-2"></i>PRD知识库</h5>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary" id="btnPrdKnowledgeRefresh">刷新</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btnPrdKnowledgeImport">导入</button>
+            <button class="btn btn-sm btn-outline-success" id="btnPrdKnowledgeExport">导出</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <input type="file" id="prdKnowledgeImportInput" accept="application/json,.json" class="d-none">
+        <p class="small text-muted mb-2">PRD知识库以表格形式展示。</p>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th style="width:120px;">能力ID</th>
+                        <th style="width:120px;">名称</th>
+                        <th style="width:100px;">领域</th>
+                        <th style="width:80px;">优先级</th>
+                        <th>触发条件</th>
+                        <th style="width:220px;">建议模板</th>
+                    </tr>
+                </thead>
+                <tbody id="prdKnowledgeTbody"><tr><td colspan="6" class="text-muted small">加载中...</td></tr></tbody>
+            </table>
+        </div>
+        <div id="prdKnowledgeStatus" class="small text-muted mt-2"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var statusEl = document.getElementById('prdKnowledgeStatus');
+    var tbody = document.getElementById('prdKnowledgeTbody');
+    var btnRefresh = document.getElementById('btnPrdKnowledgeRefresh');
+    var btnImport = document.getElementById('btnPrdKnowledgeImport');
+    var btnExport = document.getElementById('btnPrdKnowledgeExport');
+    var importInput = document.getElementById('prdKnowledgeImportInput');
+    function setStatus(t, bad) {
+        statusEl.textContent = t || '';
+        statusEl.className = 'small mt-2 ' + (bad ? 'text-danger' : 'text-muted');
+    }
+    function loadData() {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-muted small">加载中...</td></tr>';
+        setStatus('加载中...', false);
+        fetch('/prd_audit_clone/api/knowledge_cards', { method: 'GET' })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if (!res || !res.success) throw new Error((res && res.message) || '加载失败');
+                var items = (res.data && res.data.items) || [];
+                if (!items.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-muted small">暂无知识卡片</td></tr>';
+                    setStatus('已加载', false);
+                    return;
+                }
+                tbody.innerHTML = items.map(function(it) {
+                    return '<tr>' +
+                        '<td>' + (it.capability_id || '-') + '</td>' +
+                        '<td>' + (it.name || '-') + '</td>' +
+                        '<td>' + (it.domain || '-') + '</td>' +
+                        '<td>' + (it.priority || '-') + '</td>' +
+                        '<td>' + (it.trigger || '-') + '</td>' +
+                        '<td>' + (it.suggestion_template || '-') + '</td>' +
+                    '</tr>';
+                }).join('');
+                setStatus('已加载', false);
+            })
+            .catch(function(err){
+                tbody.innerHTML = '<tr><td colspan="6" class="text-danger small">加载失败：' + (err.message || String(err)) + '</td></tr>';
+                setStatus('加载失败：' + (err.message || String(err)), true);
+            });
+    }
+    btnRefresh.addEventListener('click', loadData);
+    if (btnExport) {
+        btnExport.addEventListener('click', function() {
+            window.location.href = '/prd_audit_clone/api/knowledge_cards/export';
+        });
+    }
+    if (btnImport && importInput) {
+        btnImport.addEventListener('click', function() { importInput.click(); });
+        importInput.addEventListener('change', function(e) {
+            var file = e.target.files && e.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function() {
+                var payload;
+                try { payload = JSON.parse(String(reader.result || '{}')); } catch (err) { setStatus('导入失败：JSON格式错误', true); return; }
+                setStatus('导入中...', false);
+                fetch('/prd_audit_clone/api/knowledge_cards', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if (!res || !res.success) throw new Error((res && res.message) || '导入失败');
+                    setStatus('导入成功', false);
+                    loadData();
+                })
+                .catch(function(err){ setStatus('导入失败：' + (err.message || String(err)), true); });
+            };
+            reader.readAsText(file, 'utf-8');
+            e.target.value = '';
+        });
+    }
+    loadData();
+})();
+</script>
+{% endblock %}

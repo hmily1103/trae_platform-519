@@ -1,0 +1,1629 @@
+{% extends "base.html" %}
+
+{% block title %}日志监控 - Trae Platform{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-1"><i class="fas fa-terminal"></i> Android 日志监控</h2>
+    <p class="text-muted small mb-4">实时抓取设备 logcat，并结合规则与大模型做日志根因分析和智能告警。</p>
+    
+    <!-- 设备连接区域 (复用组件) -->
+    {% set api_prefix = '/log_monitor' %}
+    {% set mode = 'connect' %}
+    {% set show_device_list = true %}
+    {% include 'components/device_connection_card.html' %}
+    
+    <!-- 监控控制区域 -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-play-circle"></i> 监控控制</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">选择设备</label>
+                    <select class="form-select" id="monitorDeviceSelect">
+                        <option value="">请先连接设备...</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">应用包名</label>
+                    <input type="text" class="form-control" id="targetPackage" value="com.thunder.ktv" placeholder="com.thunder.ktv">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">日志级别</label>
+                    <select class="form-select" id="logLevelSelect">
+                        <option value="Verbose">Verbose (全部)</option>
+                        <option value="Debug">Debug</option>
+                        <option value="Info">Info</option>
+                        <option value="Warning">Warning</option>
+                        <option value="Error" selected>Error</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button class="btn btn-success" id="btnStartMonitor" onclick="startMonitor()">
+                            <i class="fas fa-play"></i> 开始监控
+                        </button>
+                        <button class="btn btn-danger" id="btnStopMonitor" onclick="stopMonitor()" style="display: none;">
+                            <i class="fas fa-stop"></i> 停止监控
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 过滤和搜索 -->
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">关键词过滤</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="filterKeyword" placeholder="输入关键词过滤日志...">
+                        <div class="input-group-text bg-dark text-white border-dark">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="voiceOnlyMode">
+                                <label class="form-check-label small" for="voiceOnlyMode" title="开启后停止渲染黑框日志，专注后端语音追踪以提升性能">专注语音模式</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">清空日志</label>
+                    <button class="btn btn-warning w-100" onclick="clearLogs()">
+                        <i class="fas fa-trash"></i> 清空
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 告警面板 -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-exclamation-triangle"></i> 实时告警</span>
+            <div>
+                <button class="btn btn-sm btn-outline-dark" onclick="showAlertRulesModal()">
+                    <i class="fas fa-cog"></i> 告警规则
+                </button>
+                <button class="btn btn-sm btn-outline-dark" onclick="showAlertsHistory()">
+                    <i class="fas fa-history"></i> 告警历史
+                </button>
+                <span class="badge bg-danger ms-2" id="alertCount">0</span>
+            </div>
+        </div>
+        <div class="card-body p-2">
+            <div id="alertPanel" style="max-height: 200px; overflow-y: auto;">
+                <div class="text-muted text-center py-3">暂无告警</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 日志显示区域 -->
+    <div class="card">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-file-alt"></i> 实时日志</span>
+            <div class="d-flex align-items-center">
+                <div class="me-2">
+                    <label class="btn btn-sm btn-outline-light mb-0">
+                        <i class="fas fa-file-upload me-1"></i> 上传日志分析
+                        <input type="file" id="logFileUpload" accept=".log,.txt,.out,.trace,*/*" class="d-none" onchange="handleLogFileUpload(this)">
+                    </label>
+                </div>
+                <button class="btn btn-sm btn-outline-info me-2" onclick="exportCurrentLogs()" title="将当前面板上的日志导出为本地文件">
+                    <i class="fas fa-download"></i> 导出日志
+                </button>
+                <button class="btn btn-sm btn-outline-warning me-2" onclick="showVoiceTrackerModal()" title="查看语音指令状态追踪">
+                    <i class="fas fa-microphone"></i> 语音追踪
+                </button>
+                <button class="btn btn-sm btn-outline-light me-2" onclick="analyzeRecentLogsWithAI()" title="对最近日志进行智能摘要">
+                    <i class="fas fa-robot"></i> 智能摘要
+                </button>
+                <span class="badge bg-info" id="logCount">0 条</span>
+                <span class="badge bg-danger" id="errorCount">错误: 0</span>
+            </div>
+        </div>
+        <div class="card-body bg-dark text-white p-0">
+            <div id="logArea" class="font-monospace" style="height: 600px; overflow-y: auto; padding: 15px; font-size: 12px;">
+                <div class="text-muted">等待开始监控...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentTaskId = null;
+    let currentEventSource = null;
+    let currentAlertSource = null;
+    let logCount = 0;
+    let errorCount = 0;
+    let alertCount = 0;
+    let connectedDevices = [];
+    let alerts = [];
+    let recentLogBuffer = [];  // 最近日志缓冲，用于智能分析（最多保留 200 条）
+
+    // 页面加载时初始化
+    $(document).ready(function() {
+        refreshDevices();
+        checkRunningTasks();
+        
+        // 关键词过滤
+        $('#filterKeyword').on('input', function() {
+            filterLogs($(this).val());
+        });
+    });
+
+    // 刷新设备列表
+    async function refreshDevices() {
+        try {
+            const result = await ApiClient.get('/log_monitor/api/devices', { showLoading: false });
+            if (result && result.data && result.data.devices) {
+                connectedDevices = result.data.devices;
+                updateDeviceList();
+                updateMonitorDeviceSelect();
+            }
+        } catch (error) {
+            console.error('获取设备列表失败:', error);
+        }
+    }
+
+    // 更新设备列表显示
+    function updateDeviceList() {
+        const listDiv = $('#deviceList');
+        if (connectedDevices.length === 0) {
+            listDiv.html('<div class="text-muted">无设备连接</div>');
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+        connectedDevices.forEach(device => {
+            html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-mobile-alt text-success"></i> ${device}</span>
+                    <span class="badge bg-success">已连接</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+        listDiv.html(html);
+    }
+
+    // 更新监控设备选择框
+    function updateMonitorDeviceSelect() {
+        const select = $('#monitorDeviceSelect');
+        select.empty();
+        select.append('<option value="">请选择设备...</option>');
+        connectedDevices.forEach(device => {
+            select.append(`<option value="${device}">${device}</option>`);
+        });
+    }
+
+    // 连接设备
+    async function connectDevice() {
+        const ip = $('#deviceIp').val();
+        const port = $('#devicePort').val() || 8787;
+        
+        if (!ip) {
+            toast.warning('请输入设备IP');
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.post('/log_monitor/api/connect', {
+                ip: ip,
+                port: parseInt(port)
+            });
+            
+            if (result.success || result.ok) {
+                toast.success(result.message || '设备连接成功');
+                refreshDevices();
+                $('#deviceIp').val('');
+            }
+        } catch (error) {
+            // 错误已自动处理
+        }
+    }
+
+    // 开始监控
+    async function startMonitor() {
+        const deviceId = $('#monitorDeviceSelect').val();
+        if (!deviceId) {
+            toast.warning('请先选择设备');
+            return;
+        }
+        
+        const logLevel = $('#logLevelSelect').val();
+        const targetPackage = $('#targetPackage').val() || 'com.thunder.ktv';
+        currentTaskId = `log_monitor_${Date.now()}`;
+        
+        try {
+            const result = await ApiClient.post('/log_monitor/api/start', {
+                device_id: deviceId,
+                task_id: currentTaskId,
+                min_log_level: logLevel,
+                target_package: targetPackage
+            });
+            
+            if (result.success || result.ok) {
+                if (result.data && result.data.task_id) {
+                    currentTaskId = result.data.task_id;
+                }
+                
+                toast.success('监控已启动');
+                $('#btnStartMonitor').hide();
+                $('#btnStopMonitor').show();
+                $('#logArea').html('');
+                logCount = 0;
+                errorCount = 0;
+                recentLogBuffer = [];
+                updateStats();
+                
+                // 启动 SSE 连接
+                startEventSource();
+                startAlertSource();
+            }
+        } catch (error) {
+            // 错误已自动处理
+        }
+    }
+
+    // 停止监控
+    async function stopMonitor() {
+        if (!currentTaskId) {
+            toast.warning('没有运行中的监控任务');
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.post('/log_monitor/api/stop', {
+                task_id: currentTaskId
+            });
+            
+            if (result.success || result.ok) {
+                toast.info('监控已停止');
+                stopEventSource();
+                stopAlertSource();
+                $('#btnStartMonitor').show();
+                $('#btnStopMonitor').hide();
+                currentTaskId = null;
+            }
+        } catch (error) {
+            // 错误已自动处理
+        }
+    }
+
+    // 启动 EventSource
+    function startEventSource() {
+        if (currentEventSource) {
+            currentEventSource.close();
+        }
+        
+        currentEventSource = new EventSource(`/log_monitor/stream_logs?task_id=${currentTaskId}`);
+        
+        currentEventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.error) {
+                    toast.error(data.error);
+                    stopEventSource();
+                    return;
+                }
+                
+                if (data.done) {
+                    stopEventSource();
+                    return;
+                }
+                
+                // 添加日志
+                if (data.log) {
+                    const voiceOnlyMode = $('#voiceOnlyMode').is(':checked');
+                    if (!voiceOnlyMode) {
+                        addLogLine(data.log, data.analysis);
+                    }
+                    recentLogBuffer.push(data.log);
+                    if (recentLogBuffer.length > 200) recentLogBuffer.shift();
+                }
+            } catch (error) {
+                console.error('解析日志数据失败:', error);
+            }
+        };
+        
+        currentEventSource.onerror = function(event) {
+            console.error('EventSource 错误:', event);
+            stopEventSource();
+            toast.error('日志流连接中断');
+        };
+    }
+
+    // 停止 EventSource
+    function stopEventSource() {
+        if (currentEventSource) {
+            currentEventSource.close();
+            currentEventSource = null;
+        }
+    }
+    
+    // 添加日志行
+    function addLogLine(logLine, analysis) {
+        const logArea = $('#logArea');
+        const rawKeyword = $('#filterKeyword').val();
+        
+        // 关键词过滤（处理带空格和 | 的完整匹配）
+        if (rawKeyword) {
+            const text = logLine.toLowerCase().replace(/\s+/g, ' ');
+            const keywords = rawKeyword.toLowerCase().split('|').map(k => k.replace(/\s+/g, ' ').trim()).filter(Boolean);
+            const isMatch = keywords.some(k => text.includes(k));
+            if (!isMatch) {
+                return;
+            }
+        }
+        
+        // 判断日志级别和类型
+        let className = '';
+        let icon = '';
+        
+        if (analysis) {
+            className = 'text-danger fw-bold';
+            icon = '<i class="fas fa-exclamation-triangle"></i> ';
+            errorCount++;
+        } else if (logLine.includes(' E/') || logLine.includes(' F/')) {
+            className = 'text-danger';
+            errorCount++;
+        } else if (logLine.includes(' W/')) {
+            className = 'text-warning';
+        } else if (logLine.includes(' I/')) {
+            className = 'text-info';
+        } else if (logLine.includes(' D/')) {
+            className = 'text-secondary';
+        }
+        
+        const logDiv = $(`<div class="${className}">${icon}${escapeHtml(logLine)}</div>`);
+        logArea.append(logDiv);
+        
+        logCount++;
+        updateStats();
+        
+        // 自动滚动到底部
+        logArea.scrollTop(logArea[0].scrollHeight);
+        
+        // 限制日志数量（保留最后 5000 条）
+        if (logCount > 5000) {
+            logArea.children().first().remove();
+            logCount--;
+        }
+    }
+
+    // 更新统计信息
+    function updateStats() {
+        $('#logCount').text(`${logCount} 条`);
+        $('#errorCount').text(`错误: ${errorCount}`);
+    }
+
+    let voiceTrackerInterval = null;
+
+    function showVoiceTrackerModal() {
+        if (!currentTaskId) {
+            toast.warning('请先开始监控');
+            return;
+        }
+        
+        const modalId = 'voiceTrackerModal';
+        let existing = document.getElementById(modalId);
+        
+        if (!existing) {
+            const div = document.createElement('div');
+            div.className = 'modal fade';
+            div.id = modalId;
+            div.innerHTML = `
+                <div class="modal-dialog modal-fullscreen">
+                    <div class="modal-content bg-dark text-light">
+                        <div class="modal-header border-secondary bg-black">
+                            <h4 class="modal-title"><i class="fas fa-microphone-alt me-2 text-warning"></i> 语音指令调试控制台</h4>
+                            <div class="ms-auto d-flex align-items-center">
+                                <span class="badge bg-success me-3" id="voiceTrackerStatus"><i class="fas fa-sync fa-spin"></i> 实时监听中</span>
+                                <button class="btn btn-outline-info me-2 btn-sm" onclick="exportVoiceTrackerHistory()"><i class="fas fa-download"></i> 导出报告</button>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                        </div>
+                        <div class="modal-body p-0" style="background-color: #1e1e1e !important;">
+                            <div class="row h-100 g-0">
+                                <!-- 左侧：指令流列表 -->
+                                <div class="col-md-4 col-lg-3 border-end border-secondary h-100 d-flex flex-column">
+                                    <div class="p-2 bg-black border-bottom border-secondary text-muted small fw-bold">
+                                        指令时间线
+                                    </div>
+                                    <div id="voiceCommandList" class="flex-grow-1 overflow-auto p-2">
+                                        <div class="text-center text-muted mt-5"><i class="fas fa-circle-notch fa-spin"></i> 加载中...</div>
+                                    </div>
+                                </div>
+                                <!-- 右侧：详情视图 -->
+                                <div class="col-md-8 col-lg-9 h-100 d-flex flex-column bg-black">
+                                    <div id="voiceCommandDetail" class="flex-grow-1 p-4 overflow-auto">
+                                        <div class="text-center text-muted mt-5" style="padding-top: 100px;">
+                                            <i class="fas fa-hand-pointer fa-3x mb-3 opacity-50"></i>
+                                            <h5>在左侧选择一条指令查看详情</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(div);
+            
+            const modal = new bootstrap.Modal(div);
+            
+            div.addEventListener('hidden.bs.modal', () => {
+                if (voiceTrackerInterval) clearInterval(voiceTrackerInterval);
+                div.remove();
+            });
+            
+            modal.show();
+        }
+        
+        // 刷新数据的核心逻辑
+        const refreshData = () => {
+            ApiClient.get(`/log_monitor/api/voice_tracker/history?task_id=${currentTaskId}`, { showLoading: false })
+                .then(data => {
+                    const history = data.data || [];
+                    const listContainer = document.getElementById('voiceCommandList');
+                    if (!listContainer) return; // 弹窗可能已关闭
+                    
+                    if (history.length === 0) {
+                        listContainer.innerHTML = '<div class="text-center text-muted mt-5">暂无指令</div>';
+                        return;
+                    }
+                    
+                    // 存储到全局供点击查看详情时使用
+                    window.currentVoiceHistory = history;
+                    
+                    let html = '';
+                    history.forEach((item, index) => {
+                        let statusIcon = '';
+                        let colorClass = '';
+                        if (item.status === 'executed') { statusIcon = '<i class="fas fa-check-circle"></i>'; colorClass = 'text-success'; }
+                        else if (item.status === 'ignored') { statusIcon = '<i class="fas fa-times-circle"></i>'; colorClass = 'text-warning'; }
+                        else { statusIcon = '<i class="fas fa-spinner fa-spin"></i>'; colorClass = 'text-secondary'; }
+                        
+                        html += `
+                        <div class="card mb-2 bg-dark border-secondary cursor-pointer voice-cmd-item" onclick="showVoiceDetail(${index})" style="cursor: pointer; transition: all 0.2s;">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold fs-6 ${colorClass}">${statusIcon} ${escapeHtml(item.command)}</span>
+                                    <small class="text-muted" style="font-size: 11px;">${item.timestamp.split(' ')[1]}</small>
+                                </div>
+                                <div class="text-truncate text-muted small" style="max-width: 100%;">
+                                    ${item.response ? escapeHtml(item.response) : '...'}
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+                    
+                    listContainer.innerHTML = html;
+                })
+                .catch(err => console.error("Refresh voice tracker failed", err));
+        };
+
+        // 立即执行一次
+        refreshData();
+        
+        // 开启轮询（每 2 秒刷新一次）
+        if (voiceTrackerInterval) clearInterval(voiceTrackerInterval);
+        voiceTrackerInterval = setInterval(refreshData, 2000);
+    }
+    
+    // 显示右侧详情
+    window.showVoiceDetail = function(index) {
+        // 高亮左侧选中项
+        document.querySelectorAll('.voice-cmd-item').forEach(el => el.classList.remove('border-info', 'bg-gradient'));
+        const items = document.querySelectorAll('.voice-cmd-item');
+        if (items[index]) {
+            items[index].classList.add('border-info', 'bg-gradient');
+        }
+
+        const item = window.currentVoiceHistory[index];
+        const detailContainer = document.getElementById('voiceCommandDetail');
+        
+        let statusBadge = '';
+        if (item.status === 'executed') statusBadge = '<span class="badge bg-success fs-6"><i class="fas fa-check"></i> 已执行</span>';
+        else if (item.status === 'ignored') statusBadge = '<span class="badge bg-warning text-dark fs-6"><i class="fas fa-ban"></i> 被忽略</span>';
+        else statusBadge = '<span class="badge bg-secondary fs-6"><i class="fas fa-spinner fa-spin"></i> 处理中</span>';
+        
+        let songInfo = '<span class="text-muted fst-italic">未匹配到播放信息</span>';
+        if (item.song) {
+            songInfo = `<div class="d-flex align-items-center">
+                            <i class="fas fa-compact-disc fa-2x text-info me-3"></i>
+                            <div>
+                                <div class="fw-bold text-light">歌曲 ID: ${item.song.id}</div>
+                                <div class="text-muted small">分类: <span class="badge bg-dark border border-secondary">${item.song.category}</span></div>
+                            </div>
+                        </div>`;
+        }
+
+        detailContainer.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+                <h2 class="mb-0 text-info"><i class="fas fa-comment-dots me-2"></i>"${escapeHtml(item.command)}"</h2>
+                <div>${statusBadge}</div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-header bg-black border-secondary text-muted small fw-bold">执行反馈 (Response)</div>
+                        <div class="card-body text-light fs-5">
+                            ${item.response ? escapeHtml(item.response) : '<span class="text-muted fs-6 fst-italic">无反馈信息</span>'}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-header bg-black border-secondary text-muted small fw-bold">当时播放上下文</div>
+                        <div class="card-body">
+                            ${songInfo}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card bg-dark border-secondary flex-grow-1">
+                <div class="card-header bg-black border-secondary d-flex justify-content-between align-items-center">
+                    <span class="text-muted small fw-bold">底层链路追踪日志 (Logcat)</span>
+                    <span class="badge bg-secondary">${item.timestamp}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="bg-black p-3" style="font-family: 'Consolas', monospace; font-size: 13px; color: #a8b2b9; height: 350px; overflow-y: auto;">
+                        ${item.raw_logs.map(l => `<div class="mb-1 pb-1 border-bottom border-dark" style="word-break: break-all;">${escapeHtml(l)}</div>`).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    // 导出语音追踪历史为 JSON/文本
+    window.exportVoiceTrackerHistory = function() {
+        if (!currentTaskId) {
+            toast.warning('没有运行中的监控任务');
+            return;
+        }
+        
+        ApiClient.get(`/log_monitor/api/voice_tracker/history?task_id=${currentTaskId}`)
+            .then(data => {
+                const history = data.data || [];
+                if (history.length === 0) {
+                    toast.warning('暂无追踪记录可导出');
+                    return;
+                }
+                
+                // 构建纯文本报告
+                let textContent = "==== 语音指令状态追踪报告 ====\n";
+                textContent += `导出时间: ${new Date().toLocaleString()}\n`;
+                textContent += "================================\n\n";
+                
+                history.forEach(item => {
+                    textContent += `[时间] ${item.timestamp}\n`;
+                    textContent += `[指令] ${item.command}\n`;
+                    textContent += `[状态] ${item.status === 'executed' ? '已执行' : item.status === 'ignored' ? '被忽略' : '处理中'}\n`;
+                    textContent += `[反馈] ${item.response || '无'}\n`;
+                    textContent += `[上下文] ${item.song ? `歌曲ID: ${item.song.id} (${item.song.category})` : '未知/未播放'}\n`;
+                    textContent += `[链路日志]:\n`;
+                    item.raw_logs.forEach(log => {
+                        textContent += `  ${log}\n`;
+                    });
+                    textContent += "\n--------------------------------\n\n";
+                });
+                
+                const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                a.href = url;
+                a.download = `voice_tracker_report_${timestamp}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                toast.success('语音追踪报告已导出');
+            })
+            .catch(err => {
+                toast.error('导出失败: ' + err.message);
+            });
+    };
+
+    // 清空日志
+    function clearLogs() {
+        $('#logArea').html('<div class="text-muted">日志已清空...</div>');
+        logCount = 0;
+        errorCount = 0;
+        recentLogBuffer = [];
+        updateStats();
+    }
+
+    // 导出当前日志面板内容
+    function exportCurrentLogs() {
+        const logArea = document.getElementById('logArea');
+        if (!logArea) return;
+        
+        let logsText = '';
+        const children = logArea.children;
+        for (let i = 0; i < children.length; i++) {
+            const text = children[i].innerText.trim();
+            if (text && text !== '等待开始监控...' && text !== '日志已清空...') {
+                logsText += text + '\n';
+            }
+        }
+        
+        if (!logsText) {
+            toast.warning('当前没有可导出的日志');
+            return;
+        }
+        
+        const blob = new Blob([logsText], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        a.href = url;
+        a.download = `trae_monitor_logs_${timestamp}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast.success('日志导出成功');
+    }
+
+    // 过滤日志
+    function filterLogs(keyword) {
+        const logArea = $('#logArea');
+        const children = logArea.children();
+        
+        if (!keyword) {
+            children.show();
+            return;
+        }
+        
+        // 预处理搜索关键字：支持 | (OR) 逻辑
+        const keywords = keyword.toLowerCase().split('|').map(k => k.replace(/\s+/g, ' ').trim()).filter(Boolean);
+        
+        children.each(function() {
+            // 预处理日志文本：全部转小写，并将换行和多个连续空格替换为单空格，以便进行跨空格匹配
+            const text = $(this).text().toLowerCase().replace(/\s+/g, ' ');
+            // 只要匹配任意一个以 | 分隔的关键词，就显示
+            const isMatch = keywords.some(k => text.includes(k));
+            if (isMatch) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    }
+
+    // HTML 转义
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // 检查运行中的任务（切换页面返回时自动恢复，无需用户确认）
+    async function checkRunningTasks() {
+        try {
+            const result = await ApiClient.get('/log_monitor/api/status', { showLoading: false });
+            if (result && result.data && result.data.has_running_task && result.data.tasks.length > 0) {
+                const task = result.data.tasks[0];
+                currentTaskId = task.task_id;
+                $('#btnStartMonitor').hide();
+                $('#btnStopMonitor').show();
+                startEventSource();
+                startAlertSource();
+                toast.info(`已恢复监控（设备: ${task.device_id}，已运行 ${Math.floor(task.running_time / 60)} 分 ${task.running_time % 60} 秒）`);
+            }
+        } catch (error) {
+            // 静默失败
+        }
+    }
+
+    // 清理遮罩
+    function clearAllOverlays() {
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.querySelectorAll('.loading-overlay').forEach(el => el.remove());
+    }
+    
+    // ========== 告警相关功能 ==========
+    
+    // 启动告警 EventSource
+    function startAlertSource() {
+        if (!currentTaskId) return;
+        
+        if (currentAlertSource) {
+            currentAlertSource.close();
+        }
+        
+        currentAlertSource = new EventSource(`/log_monitor/stream_alerts?task_id=${currentTaskId}`);
+        
+        currentAlertSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.error) {
+                    console.error('告警流错误:', data.error);
+                    return;
+                }
+                
+                if (data.done) {
+                    stopAlertSource();
+                    return;
+                }
+                
+                if (data.type === 'alert' && data.data) {
+                    addAlert(data.data);
+                }
+            } catch (error) {
+                console.error('解析告警数据失败:', error);
+            }
+        };
+        
+        currentAlertSource.onerror = function(event) {
+            console.error('告警流错误:', event);
+            stopAlertSource();
+        };
+    }
+    
+    // 停止告警 EventSource
+    function stopAlertSource() {
+        if (currentAlertSource) {
+            currentAlertSource.close();
+            currentAlertSource = null;
+        }
+    }
+    
+    // 添加告警
+    let lastToastAlerts = {}; // 记录最近展示过的告警类型和时间，用于防抖
+    
+    function addAlert(alertData) {
+        alerts.push(alertData);
+        alertCount++;
+        updateAlertPanel();
+        updateAlertCount();
+        
+        // 防抖逻辑：相同 rule_name 的告警，在 3 秒内只弹一次 Toast
+        const now = Date.now();
+        const ruleName = alertData.rule_name || 'unknown';
+        const lastTime = lastToastAlerts[ruleName] || 0;
+        
+        if (now - lastTime > 3000) {
+            lastToastAlerts[ruleName] = now;
+            
+            // 显示通知
+            const severityColors = {
+                'high': 'danger',
+                'medium': 'warning',
+                'low': 'info'
+            };
+            toast[severityColors[alertData.severity] || 'warning'](
+                `[${alertData.rule_name}] ${alertData.message.substring(0, 50)}...`,
+                { duration: 5000 }
+            );
+        }
+    }
+    
+    // 更新告警面板
+    function updateAlertPanel() {
+        const panel = $('#alertPanel');
+        
+        if (alerts.length === 0) {
+            panel.html('<div class="text-muted text-center py-3">暂无告警</div>');
+            return;
+        }
+        
+        // 只显示最近10条告警
+        const recentAlerts = alerts.slice(-10).reverse();
+        
+        let html = '<div class="list-group list-group-flush">';
+        recentAlerts.forEach(alert => {
+            const severityBadge = {
+                'high': 'danger',
+                'medium': 'warning',
+                'low': 'info'
+            }[alert.severity] || 'secondary';
+            
+            const timeStr = new Date(alert.timestamp).toLocaleTimeString();
+            
+            html += `
+                <div class="list-group-item list-group-item-action ${alert.acknowledged ? 'opacity-50' : ''}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="badge bg-${severityBadge} me-2">${alert.severity}</span>
+                                <strong>${escapeHtml(alert.rule_name)}</strong>
+                                <small class="text-muted ms-2">${timeStr}</small>
+                            </div>
+                            <div class="text-muted small" style="max-height: 40px; overflow: hidden; font-family: monospace;">
+                                ${escapeHtml(alert.log_line.substring(0, 150))}${alert.log_line.length > 150 ? '...' : ''}
+                            </div>
+                        </div>
+                        <div class="btn-group btn-group-sm ms-2 flex-shrink-0">
+                            <button class="btn btn-outline-secondary" onclick="viewAlertRawLog('${alert.id}')" title="查看原始日志上下文">
+                                <i class="fas fa-file-alt"></i> 原文
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="analyzeAlertWithAI('${alert.id}')" title="AI 分析">
+                                <i class="fas fa-robot"></i> AI
+                            </button>
+                            <button class="btn btn-outline-info" onclick="generateRunbookForAlert('${alert.id}')" title="生成排查 Runbook">
+                                <i class="fas fa-book"></i> Runbook
+                            </button>
+                            ${!alert.acknowledged ? `
+                                <button class="btn btn-outline-secondary" onclick="acknowledgeAlert('${alert.id}')" title="确认告警">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            ` : '<span class="badge bg-success">已确认</span>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        panel.html(html);
+    }
+    
+    // 更新告警计数
+    function updateAlertCount() {
+        $('#alertCount').text(alertCount);
+    }
+    
+    // 确认告警
+    async function acknowledgeAlert(alertId) {
+        if (!currentTaskId) return;
+        
+        try {
+            const result = await ApiClient.post(`/log_monitor/api/alerts/${alertId}/acknowledge?task_id=${currentTaskId}`, {
+                user: 'web_user'
+            });
+            
+            if (result.success || result.ok) {
+                // 更新本地告警状态
+                const alert = alerts.find(a => a.id === alertId);
+                if (alert) {
+                    alert.acknowledged = true;
+                    updateAlertPanel();
+                }
+                toast.success('告警已确认');
+            }
+        } catch (error) {
+            // 错误已自动处理
+        }
+    }
+    
+    // 显示告警规则管理
+    async function showAlertRulesModal() {
+        if (!currentTaskId) {
+            toast.warning('请先启动监控');
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.get(`/log_monitor/api/alert-rules?task_id=${currentTaskId}`);
+            const rules = result.data?.rules || [];
+            
+            let html = `
+                <div class="modal fade" id="alertRulesModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">告警规则管理</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <button class="btn btn-sm btn-primary" onclick="showCreateAlertRuleForm()">
+                                        <i class="fas fa-plus"></i> 添加规则
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>名称</th>
+                                                <th>类型</th>
+                                                <th>模式</th>
+                                                <th>严重程度</th>
+                                                <th>动作</th>
+                                                <th>状态</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="alertRulesTableBody">
+            `;
+            
+            rules.forEach(rule => {
+                html += `
+                    <tr>
+                        <td>${escapeHtml(rule.name)}</td>
+                        <td><span class="badge bg-info">${rule.type}</span></td>
+                        <td><code>${escapeHtml(rule.pattern.substring(0, 30))}${rule.pattern.length > 30 ? '...' : ''}</code></td>
+                        <td><span class="badge bg-${rule.severity === 'high' ? 'danger' : rule.severity === 'medium' ? 'warning' : 'info'}">${rule.severity}</span></td>
+                        <td><small class="text-muted">${escapeHtml(rule.action || '-')}</small></td>
+                        <td>${rule.enabled ? '<span class="badge bg-success">启用</span>' : '<span class="badge bg-secondary">禁用</span>'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary me-1" onclick="showEditAlertRuleForm('${rule.id}', '${escapeHtml(rule.name)}', '${rule.type}', '${escapeHtml(rule.pattern)}', '${rule.severity}', '${escapeHtml(rule.action || '')}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteAlertRule('${rule.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 移除旧的modal
+            $('#alertRulesModal').remove();
+            $('body').append(html);
+            
+            const modal = new bootstrap.Modal(document.getElementById('alertRulesModal'));
+            modal.show();
+        } catch (error) {
+            console.error('获取告警规则失败:', error);
+        }
+    }
+    
+    // 显示告警历史
+    async function showAlertsHistory() {
+        if (!currentTaskId) {
+            toast.warning('请先启动监控');
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.get(`/log_monitor/api/alerts?task_id=${currentTaskId}&limit=100`);
+            const alertList = result.data?.alerts || [];
+            
+            let html = `
+                <div class="modal fade" id="alertsHistoryModal" tabindex="-1">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">告警历史 (${alertList.length} 条)</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" style="max-height: 600px; overflow-y: auto;">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>时间</th>
+                                                <th>规则</th>
+                                                <th>严重程度</th>
+                                                <th>日志内容</th>
+                                                <th>动作</th>
+                                                <th>状态</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+            `;
+            
+            alertList.forEach(alert => {
+                const severityBadge = {
+                    'high': 'danger',
+                    'medium': 'warning',
+                    'low': 'info'
+                }[alert.severity] || 'secondary';
+                
+                const timeStr = new Date(alert.timestamp).toLocaleString();
+                const actionTaken = alert.action_taken ? `<small class="text-success" title="${escapeHtml(alert.action_taken)}">${escapeHtml(alert.action_taken.length > 20 ? alert.action_taken.substring(0, 20) + '...' : alert.action_taken)}</small>` : '<span class="text-muted">-</span>';
+                
+                html += `
+                    <tr class="${alert.acknowledged ? 'table-secondary' : ''}">
+                        <td><small>${timeStr}</small></td>
+                        <td>${escapeHtml(alert.rule_name)}</td>
+                        <td><span class="badge bg-${severityBadge}">${alert.severity}</span></td>
+                        <td><code style="font-size: 11px;">${escapeHtml(alert.log_line.substring(0, 80))}${alert.log_line.length > 80 ? '...' : ''}</code></td>
+                        <td>${actionTaken}</td>
+                        <td>${alert.acknowledged ? '<span class="badge bg-success">已确认</span>' : '<span class="badge bg-warning">未确认</span>'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="analyzeAlertWithAI('${alert.id}')" title="AI 分析">
+                                <i class="fas fa-robot"></i> AI
+                            </button>
+                            ${!alert.acknowledged ? `
+                                <button class="btn btn-sm btn-outline-secondary" onclick="acknowledgeAlert('${alert.id}'); $('#alertsHistoryModal').modal('hide');">
+                                    <i class="fas fa-check"></i> 确认
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 移除旧的modal
+            $('#alertsHistoryModal').remove();
+            $('body').append(html);
+            
+            const modal = new bootstrap.Modal(document.getElementById('alertsHistoryModal'));
+            modal.show();
+        } catch (error) {
+            console.error('获取告警历史失败:', error);
+        }
+    }
+    
+    // 智能摘要：对最近日志进行智能分析
+    async function analyzeRecentLogsWithAI() {
+        if (recentLogBuffer.length === 0) {
+            toast.warning('暂无日志可分析，请先开始监控');
+            return;
+        }
+        
+        try {
+            const logsToSend = recentLogBuffer.slice(-50);
+            const result = await ApiClient.post('/log_monitor/api/analyze', {
+                log_lines: logsToSend
+            }, { timeout: 35000, loadingMessage: '智能摘要中...' });
+            
+            if (result.success || result.ok) {
+                const data = result.data || {};
+                showAIAnalysisModal({
+                    root_cause: data.root_cause || '',
+                    suggestions: data.suggestions || [],
+                    summary: data.summary || ''
+                });
+            }
+        } catch (error) {
+            toast.error(error.message || 'LLM 未配置，请先在 用例管理 → 全局配置 中配置 API Key');
+        }
+    }
+
+    // 上传日志文件并进行分析
+    async function handleLogFileUpload(input) {
+        const file = input.files && input.files[0];
+        if (!file) {
+            return;
+        }
+        try {
+            const text = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result || '');
+                reader.onerror = e => reject(e);
+                reader.readAsText(file, 'utf-8');
+            });
+            let lines = (text || '').split(/\r?\n/);
+            // 清理空行并限制行数，避免请求过大
+            lines = lines.map(l => l.trimEnd()).filter(l => l).slice(-200);
+            if (lines.length === 0) {
+                toast.warning('日志文件为空或无法解析');
+                input.value = '';
+                return;
+            }
+            const result = await ApiClient.post('/log_monitor/api/analyze', {
+                log_lines: lines
+            }, { timeout: 35000, loadingMessage: '正在分析上传的日志...' });
+            if (result.success || result.ok) {
+                const data = result.data || {};
+                showAIAnalysisModal({
+                    root_cause: data.root_cause || '',
+                    suggestions: data.suggestions || [],
+                    summary: data.summary || ''
+                });
+            }
+        } catch (error) {
+            console.error('分析日志文件失败:', error);
+            toast.error(error.message || '分析日志文件失败，请稍后重试');
+        } finally {
+            // 允许再次选择同一个文件
+            input.value = '';
+        }
+    }
+    
+    // 日志分析（针对告警）
+    async function analyzeAlertWithAI(alertId) {
+        if (!currentTaskId) {
+            toast.warning('请先启动监控');
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.post('/log_monitor/api/analyze', {
+                task_id: currentTaskId,
+                alert_id: alertId
+            }, { timeout: 35000, loadingMessage: '分析中...' });
+            
+            if (result.success || result.ok) {
+                const data = result.data || {};
+                showAIAnalysisModal({
+                    root_cause: data.root_cause || '',
+                    suggestions: data.suggestions || [],
+                    summary: data.summary || ''
+                });
+            }
+        } catch (error) {
+            toast.error(error.message || 'LLM 未配置，请先在 用例管理 → 全局配置 中配置 API Key');
+        }
+    }
+    
+    // 生成 Runbook（按告警类型生成 3～5 步排查指引）
+    async function generateRunbookForAlert(alertId, alertType) {
+        if (!currentTaskId) {
+            toast.warning('请先启动监控');
+            return;
+        }
+        try {
+            const result = await ApiClient.post('/log_monitor/api/runbook', {
+                task_id: currentTaskId,
+                alert_id: alertId
+            }, { timeout: 35000, loadingMessage: '生成 Runbook...' });
+            if (result.success || result.ok) {
+                const runbook = result.data?.runbook || '';
+                showRunbookModal(runbook);
+            }
+        } catch (error) {
+            toast.error(error.message || '生成失败');
+        }
+    }
+    
+    function showRunbookModal(runbookText) {
+        const modalId = 'runbookModal';
+        let existing = document.getElementById(modalId);
+        if (existing) existing.remove();
+        const div = document.createElement('div');
+        div.className = 'modal fade';
+        div.id = modalId;
+        div.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title"><i class="fas fa-book me-2"></i>排查 Runbook</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <pre class="mb-0 small bg-light p-3 rounded" style="white-space: pre-wrap;">${escapeHtml(runbookText)}</pre>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(div);
+        const modal = new bootstrap.Modal(div);
+        modal.show();
+        div.addEventListener('hidden.bs.modal', () => div.remove());
+    }
+    
+    // 显示分析结果弹窗
+    function showAIAnalysisModal(data) {
+        let suggestionsHtml = '';
+        if (data.suggestions && data.suggestions.length > 0) {
+            suggestionsHtml = '<ul class="mb-0">';
+            data.suggestions.forEach(s => {
+                suggestionsHtml += `<li class="mb-1">${escapeHtml(s)}</li>`;
+            });
+            suggestionsHtml += '</ul>';
+        } else {
+            suggestionsHtml = '<p class="text-muted mb-0">暂无建议</p>';
+        }
+        
+        const html = `
+            <div class="modal fade" id="aiAnalysisModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title"><i class="fas fa-robot me-2"></i>日志分析</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <h6 class="text-primary"><i class="fas fa-lightbulb me-1"></i> 根因分析</h6>
+                                <p class="mb-0">${escapeHtml(data.root_cause || '无')}</p>
+                            </div>
+                            <div class="mb-3">
+                                <h6 class="text-primary"><i class="fas fa-tasks me-1"></i> 排查建议</h6>
+                                ${suggestionsHtml}
+                            </div>
+                            <div>
+                                <h6 class="text-primary"><i class="fas fa-quote-right me-1"></i> 总结</h6>
+                                <p class="mb-0 fst-italic">${escapeHtml(data.summary || '无')}</p>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyAIAnalysisText('full')">
+                                <i class="fas fa-copy me-1"></i>复制全文
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyAIAnalysisText('suggestions')">
+                                <i class="fas fa-list me-1"></i>复制排查建议
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $('#aiAnalysisModal').remove();
+        $('body').append(html);
+        document.getElementById('aiAnalysisModal').dataset.aiData = JSON.stringify(data);
+        const modal = new bootstrap.Modal(document.getElementById('aiAnalysisModal'));
+        modal.show();
+    }
+    
+    function copyAIAnalysisText(scope) {
+        const el = document.getElementById('aiAnalysisModal');
+        if (!el || !el.dataset.aiData) return;
+        let data;
+        try { data = JSON.parse(el.dataset.aiData); } catch (e) { return; }
+        let text = '';
+        if (scope === 'full') {
+            text = `【根因分析】\n${data.root_cause || '无'}\n\n【排查建议】\n${(data.suggestions || []).join('\n')}\n\n【总结】\n${data.summary || '无'}`;
+        } else {
+            text = (data.suggestions || []).join('\n');
+        }
+        navigator.clipboard.writeText(text).then(() => toast.success('已复制到剪贴板')).catch(() => toast.error('复制失败'));
+    }
+    
+    // 查看告警原始日志上下文
+    function viewAlertRawLog(alertId) {
+        const alert = alerts.find(a => a.id === alertId);
+        if (!alert) return;
+        
+        // 从 recentLogBuffer 中查找该日志及其上下文
+        let contextLogs = [];
+        if (recentLogBuffer && recentLogBuffer.length > 0) {
+            const targetLine = alert.log_line;
+            const targetIndex = recentLogBuffer.findIndex(l => l.includes(targetLine));
+            
+            if (targetIndex !== -1) {
+                const startIdx = Math.max(0, targetIndex - 20);
+                const endIdx = Math.min(recentLogBuffer.length - 1, targetIndex + 20);
+                contextLogs = recentLogBuffer.slice(startIdx, endIdx + 1);
+            } else {
+                // 如果在缓冲区没找到，就只显示当前行
+                contextLogs = [alert.log_line];
+            }
+        } else {
+            contextLogs = [alert.log_line];
+        }
+        
+        let logHtml = '';
+        contextLogs.forEach(line => {
+            const isTarget = line.includes(alert.log_line);
+            const style = isTarget ? 'background-color: #ffeeba; font-weight: bold; padding: 2px;' : '';
+            logHtml += `<div style="${style}">${escapeHtml(line)}</div>`;
+        });
+        
+        const modalId = 'rawLogModal';
+        let existing = document.getElementById(modalId);
+        if (existing) existing.remove();
+        const div = document.createElement('div');
+        div.className = 'modal fade';
+        div.id = modalId;
+        div.innerHTML = `
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title"><i class="fas fa-file-alt me-2"></i>告警原始日志上下文</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body bg-dark text-light p-3" style="max-height: 600px; overflow-y: auto; font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all;">${logHtml}</div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-primary" onclick="navigator.clipboard.writeText('${escapeHtml(contextLogs.join('\\n')).replace(/'/g, "\\'")}').then(()=>toast.success('已复制')).catch(()=>toast.error('复制失败'))">
+                            <i class="fas fa-copy me-1"></i>复制全部
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(div);
+        const modal = new bootstrap.Modal(div);
+        modal.show();
+        div.addEventListener('hidden.bs.modal', () => div.remove());
+    }
+    
+    // 删除告警规则
+    async function deleteAlertRule(ruleId) {
+        if (!currentTaskId) return;
+        
+        if (!confirm('确定要删除这个告警规则吗？')) {
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.delete(`/log_monitor/api/alert-rules/${ruleId}?task_id=${currentTaskId}`);
+            
+            if (result.success || result.ok) {
+                toast.success('告警规则已删除');
+                showAlertRulesModal(); // 刷新列表
+            }
+        } catch (error) {
+            // 错误已自动处理
+        }
+    }
+
+    // 显示创建告警规则表单
+    function showCreateAlertRuleForm() {
+        // 先关闭列表modal
+        $('#alertRulesModal').modal('hide');
+        
+        const html = `
+            <div class="modal fade" id="createAlertRuleModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">添加告警规则</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="createAlertRuleForm">
+                                <div class="mb-3">
+                                    <label class="form-label">规则名称</label>
+                                    <input type="text" class="form-control" name="name" required placeholder="例如：NullPointerException">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">匹配类型</label>
+                                    <select class="form-select" name="type">
+                                        <option value="keyword">关键词</option>
+                                        <option value="regex">正则表达式</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">匹配模式</label>
+                                    <input type="text" class="form-control" name="pattern" required placeholder="例如：NullPointerException">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">严重程度</label>
+                                    <select class="form-select" name="severity">
+                                        <option value="high">High (高)</option>
+                                        <option value="medium" selected>Medium (中)</option>
+                                        <option value="low">Low (低)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">自动化动作</label>
+                                    <select class="form-select" name="action">
+                                        <option value="">无动作</option>
+                                        <option value="screenshot">截图 (Screenshot)</option>
+                                        <option value="shell:dumpsys meminfo">Shell: dumpsys meminfo</option>
+                                        <option value="shell:dumpsys activity top">Shell: dumpsys activity top</option>
+                                        <option value="custom_shell">自定义 Shell 命令...</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="customShellDiv" style="display: none;">
+                                    <label class="form-label">Shell 命令</label>
+                                    <input type="text" class="form-control" name="custom_shell_cmd" placeholder="例如：input keyevent 26">
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-primary" onclick="createAlertRule()">保存</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $('#createAlertRuleModal').remove();
+        $('body').append(html);
+        
+        const modal = new bootstrap.Modal(document.getElementById('createAlertRuleModal'));
+        modal.show();
+        
+        // 监听动作选择
+        $('select[name="action"]').change(function() {
+            if ($(this).val() === 'custom_shell') {
+                $('#customShellDiv').show();
+            } else {
+                $('#customShellDiv').hide();
+            }
+        });
+        
+        // 监听modal关闭，重新打开列表modal
+        document.getElementById('createAlertRuleModal').addEventListener('hidden.bs.modal', function () {
+            showAlertRulesModal();
+        });
+    }
+
+    // 创建告警规则
+    async function createAlertRule() {
+        if (!currentTaskId) return;
+        
+        const form = $('#createAlertRuleForm');
+        const name = form.find('input[name="name"]').val();
+        const type = form.find('select[name="type"]').val();
+        const pattern = form.find('input[name="pattern"]').val();
+        const severity = form.find('select[name="severity"]').val();
+        let action = form.find('select[name="action"]').val();
+        
+        if (action === 'custom_shell') {
+            const cmd = form.find('input[name="custom_shell_cmd"]').val();
+            if (cmd) {
+                action = 'shell:' + cmd;
+            } else {
+                action = '';
+            }
+        }
+        
+        if (!name || !pattern) {
+            toast.warning('请填写完整信息');
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.post(`/log_monitor/api/alert-rules?task_id=${currentTaskId}`, {
+                name, type, pattern, severity, action
+            });
+            
+            if (result.success || result.ok) {
+                toast.success('告警规则已添加');
+                $('#createAlertRuleModal').modal('hide');
+                // showAlertRulesModal will be called by hidden event
+            }
+        } catch (error) {
+            // error handled
+        }
+    }
+
+    // 显示编辑告警规则表单
+    function showEditAlertRuleForm(id, name, type, pattern, severity, action) {
+        $('#alertRulesModal').modal('hide');
+        
+        // Parse action for custom shell
+        let actionVal = action;
+        let customShellCmd = '';
+        if (action && action.startsWith('shell:') && 
+            action !== 'shell:dumpsys meminfo' && 
+            action !== 'shell:dumpsys activity top') {
+            actionVal = 'custom_shell';
+            customShellCmd = action.substring(6);
+        }
+        
+        const html = `
+            <div class="modal fade" id="editAlertRuleModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">编辑告警规则</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="editAlertRuleForm">
+                                <input type="hidden" name="id" value="${id}">
+                                <div class="mb-3">
+                                    <label class="form-label">规则名称</label>
+                                    <input type="text" class="form-control" name="name" value="${escapeHtml(name)}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">规则类型</label>
+                                    <select class="form-select" name="type">
+                                        <option value="keyword" ${type === 'keyword' ? 'selected' : ''}>关键词</option>
+                                        <option value="regex" ${type === 'regex' ? 'selected' : ''}>正则表达式</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">匹配模式</label>
+                                    <input type="text" class="form-control" name="pattern" value="${escapeHtml(pattern)}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">严重程度</label>
+                                    <select class="form-select" name="severity">
+                                        <option value="high" ${severity === 'high' ? 'selected' : ''}>High (高)</option>
+                                        <option value="medium" ${severity === 'medium' ? 'selected' : ''}>Medium (中)</option>
+                                        <option value="low" ${severity === 'low' ? 'selected' : ''}>Low (低)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">自动化动作</label>
+                                    <select class="form-select" name="action">
+                                        <option value="" ${!action ? 'selected' : ''}>无动作</option>
+                                        <option value="screenshot" ${action === 'screenshot' ? 'selected' : ''}>截图 (Screenshot)</option>
+                                        <option value="shell:dumpsys meminfo" ${action === 'shell:dumpsys meminfo' ? 'selected' : ''}>Shell: dumpsys meminfo</option>
+                                        <option value="shell:dumpsys activity top" ${action === 'shell:dumpsys activity top' ? 'selected' : ''}>Shell: dumpsys activity top</option>
+                                        <option value="custom_shell" ${actionVal === 'custom_shell' ? 'selected' : ''}>自定义 Shell 命令...</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="editCustomShellDiv" style="display: ${actionVal === 'custom_shell' ? 'block' : 'none'};">
+                                    <label class="form-label">Shell 命令</label>
+                                    <input type="text" class="form-control" name="custom_shell_cmd" value="${escapeHtml(customShellCmd)}" placeholder="例如：input keyevent 26">
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-primary" onclick="updateAlertRule()">更新</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $('#editAlertRuleModal').remove();
+        $('body').append(html);
+        
+        const modal = new bootstrap.Modal(document.getElementById('editAlertRuleModal'));
+        modal.show();
+        
+        // 监听动作选择
+        $('#editAlertRuleForm select[name="action"]').change(function() {
+            if ($(this).val() === 'custom_shell') {
+                $('#editCustomShellDiv').show();
+            } else {
+                $('#editCustomShellDiv').hide();
+            }
+        });
+        
+        // 监听modal关闭，重新打开列表modal
+        document.getElementById('editAlertRuleModal').addEventListener('hidden.bs.modal', function () {
+            showAlertRulesModal();
+        });
+    }
+
+    // 更新告警规则
+    async function updateAlertRule() {
+        if (!currentTaskId) return;
+        
+        const form = $('#editAlertRuleForm');
+        const id = form.find('input[name="id"]').val();
+        const name = form.find('input[name="name"]').val();
+        const type = form.find('select[name="type"]').val();
+        const pattern = form.find('input[name="pattern"]').val();
+        const severity = form.find('select[name="severity"]').val();
+        let action = form.find('select[name="action"]').val();
+        
+        if (action === 'custom_shell') {
+            const cmd = form.find('input[name="custom_shell_cmd"]').val();
+            if (cmd) {
+                action = 'shell:' + cmd;
+            } else {
+                action = '';
+            }
+        }
+        
+        if (!name || !pattern) {
+            toast.warning('请填写完整信息');
+            return;
+        }
+        
+        try {
+            // Check if put method exists, otherwise assume request method or use jquery
+            let result;
+            if (typeof ApiClient.put === 'function') {
+                result = await ApiClient.put(`/log_monitor/api/alert-rules/${id}?task_id=${currentTaskId}`, {
+                    name, type, pattern, severity, action
+                });
+            } else {
+                // Fallback if ApiClient.put is not defined
+                result = await ApiClient.post(`/log_monitor/api/alert-rules/${id}?task_id=${currentTaskId}&_method=PUT`, {
+                    name, type, pattern, severity, action
+                });
+            }
+            
+            if (result.success || result.ok) {
+                toast.success('告警规则已更新');
+                $('#editAlertRuleModal').modal('hide');
+                // showAlertRulesModal will be called by hidden event
+            }
+        } catch (error) {
+            // error handled
+        }
+    }
+</script>
+{% endblock %}

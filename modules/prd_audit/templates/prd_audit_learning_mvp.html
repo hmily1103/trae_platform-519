@@ -1,0 +1,426 @@
+{% extends "prd_audit_base.html" %}
+
+{% block module_content %}
+<div class="card prd-card">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-muted"><i class="fas fa-brain me-2"></i>本地学习 MVP</h5>
+        <a class="btn btn-sm btn-outline-secondary" href="/prd_audit/">返回PRD审计</a>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 mb-3">
+            <div class="col-md-8">
+                <div class="small text-muted mb-2" id="learningStatusText">加载中...</div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <label class="small text-muted">最小命中次数</label>
+                    <input type="number" class="form-control form-control-sm" id="learningMinCount" value="2" min="1" style="width:110px;">
+                    <label class="small text-muted">最大新增规则</label>
+                    <input type="number" class="form-control form-control-sm" id="learningMaxNewRules" value="30" min="1" style="width:120px;">
+                </div>
+            </div>
+            <div class="col-md-4 d-flex flex-column align-items-md-end justify-content-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnLearningRefresh">刷新状态</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnLearningBuildDraft">生成草案</button>
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="border rounded p-2 h-100">
+                    <div class="small text-muted mb-2">分轨统计</div>
+                    <div id="learningLaneSummary" class="small text-muted">加载中...</div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="border rounded p-2 h-100">
+                    <div class="small text-muted mb-2">学习质量 KPI</div>
+                    <div id="learningKpiSummary" class="small text-muted">加载中...</div>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive mb-3">
+            <table class="table table-sm table-striped extra-table">
+                <thead>
+                    <tr>
+                        <th style="min-width:180px;">高频缺陷类型</th>
+                        <th style="width:80px;">总数</th>
+                        <th style="width:80px;">Rule</th>
+                        <th style="width:80px;">LLM</th>
+                        <th style="width:80px;">Other</th>
+                    </tr>
+                </thead>
+                <tbody id="learningTopDefectsTbody">
+                    <tr><td colspan="5" class="text-muted small">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="table-responsive mb-3">
+            <table class="table table-sm table-striped extra-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;"><input type="checkbox" id="learningSelectAll"></th>
+                        <th style="min-width:180px;">规则名</th>
+                        <th style="min-width:120px;">类别</th>
+                        <th style="min-width:70px;">等级</th>
+                        <th style="min-width:100px;">命中次数</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody id="learningCandidatesTbody">
+                    <tr><td colspan="6" class="text-muted small">暂无候选规则</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex align-items-center justify-content-end gap-2 mb-4">
+            <span class="text-muted small me-auto" id="learningActionStatus"></span>
+            <button type="button" class="btn btn-sm btn-danger" id="btnLearningPublishApplied">发布为正式规则</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLearningApplySelected">应用勾选规则</button>
+            <button type="button" class="btn btn-sm btn-success" id="btnLearningApplyAll">应用全部候选</button>
+        </div>
+
+        <hr class="my-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <div class="small text-muted fw-bold">规则库备份（用于回滚）</div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLearningRefreshBackups">刷新备份列表</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped extra-table">
+                <thead>
+                    <tr>
+                        <th style="min-width:260px;">备份文件</th>
+                        <th style="min-width:90px;">规则数</th>
+                        <th style="width:120px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="learningBackupsTbody">
+                    <tr><td colspan="3" class="text-muted small">暂无备份</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-2">
+            <div id="learningOpAlert" class="alert alert-secondary py-2 mb-0 d-none"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    var baseUrl = '/prd_audit';
+    var learningStatusText = document.getElementById('learningStatusText');
+    var learningActionStatus = document.getElementById('learningActionStatus');
+    var learningMinCountInput = document.getElementById('learningMinCount');
+    var learningMaxNewRulesInput = document.getElementById('learningMaxNewRules');
+    var learningCandidatesTbody = document.getElementById('learningCandidatesTbody');
+    var learningSelectAll = document.getElementById('learningSelectAll');
+    var btnLearningRefresh = document.getElementById('btnLearningRefresh');
+    var btnLearningBuildDraft = document.getElementById('btnLearningBuildDraft');
+    var btnLearningApplySelected = document.getElementById('btnLearningApplySelected');
+    var btnLearningApplyAll = document.getElementById('btnLearningApplyAll');
+    var btnLearningPublishApplied = document.getElementById('btnLearningPublishApplied');
+    var btnLearningRefreshBackups = document.getElementById('btnLearningRefreshBackups');
+    var learningBackupsTbody = document.getElementById('learningBackupsTbody');
+    var learningLaneSummary = document.getElementById('learningLaneSummary');
+    var learningKpiSummary = document.getElementById('learningKpiSummary');
+    var learningTopDefectsTbody = document.getElementById('learningTopDefectsTbody');
+    var learningOpAlert = document.getElementById('learningOpAlert');
+
+    function apiJson(url, options) {
+        return fetch(url, options || {})
+            .then(function(r) { return r.json().then(function(d){ return { ok: r.ok, body: d }; }); })
+            .then(function(resp) {
+                if (!resp.ok || !resp.body || !resp.body.success) {
+                    throw new Error((resp.body && resp.body.message) || '请求失败');
+                }
+                return resp.body.data || {};
+            });
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+    }
+
+    function setLearningOpAlert(kind, text) {
+        if (!learningOpAlert) return;
+        var t = String(text || '').trim();
+        if (!t) {
+            learningOpAlert.classList.add('d-none');
+            learningOpAlert.textContent = '';
+            learningOpAlert.className = 'alert alert-secondary py-2 mb-0 d-none';
+            return;
+        }
+        var k = String(kind || 'secondary');
+        learningOpAlert.className = 'alert alert-' + k + ' py-2 mb-0';
+        learningOpAlert.textContent = t;
+    }
+
+    function refreshLearningStatus() {
+        if (!learningStatusText) return Promise.resolve();
+        learningStatusText.textContent = '学习仓库状态加载中...';
+        return apiJson(baseUrl + '/api/learning/status', { method: 'GET' })
+            .then(function(data) {
+                var latest = data.latest_snapshot || {};
+                learningStatusText.textContent =
+                    '样本数: ' + (data.snapshot_count || 0) +
+                    '，累计风险 P0=' + ((data.risk_count && data.risk_count.p0) || 0) +
+                    ' / P1=' + ((data.risk_count && data.risk_count.p1) || 0) +
+                    ' / P2=' + ((data.risk_count && data.risk_count.p2) || 0) +
+                    (latest.snapshot_id ? ('，最近快照: ' + latest.snapshot_id) : '');
+            })
+            .catch(function(err) {
+                learningStatusText.textContent = '学习仓库状态加载失败：' + (err.message || String(err));
+            });
+    }
+
+    function formatRate(v) {
+        var n = Number(v || 0);
+        if (!Number.isFinite(n)) n = 0;
+        return (n * 100).toFixed(2) + '%';
+    }
+
+    function refreshLearningDashboard() {
+        if (!learningLaneSummary || !learningKpiSummary || !learningTopDefectsTbody) return Promise.resolve();
+        learningLaneSummary.textContent = '加载中...';
+        learningKpiSummary.textContent = '加载中...';
+        learningTopDefectsTbody.innerHTML = '<tr><td colspan="5" class="text-muted small">加载中...</td></tr>';
+        
+        var p1 = apiJson(baseUrl + '/api/learning/lane_stats', { method: 'GET' })
+            .then(function(data) {
+                var l = data.lanes || {};
+                var total = data.total_snapshots || 0;
+                var text = '总计: ' + total + ' | ';
+                var arr = [];
+                ['local_only', 'llm_only', 'hybrid', 'none'].forEach(function(k) {
+                    if (l[k] && l[k].count > 0) arr.push(k + ': ' + l[k].count);
+                });
+                learningLaneSummary.textContent = text + (arr.join(', ') || '暂无数据');
+            })
+            .catch(function(err) { learningLaneSummary.textContent = '加载失败: ' + err.message; });
+            
+        var p2 = apiJson(baseUrl + '/api/learning/quality_dashboard', { method: 'GET' })
+            .then(function(data) {
+                var kpi = data.kpi || {};
+                var text = '应用率: ' + formatRate(kpi.apply_rate) +
+                           ' | 采纳率: ' + formatRate(kpi.adoption_rate) +
+                           ' | 发布率: ' + formatRate(kpi.publish_rate) +
+                           ' | 回滚率: ' + formatRate(kpi.rollback_rate);
+                learningKpiSummary.textContent = text;
+                
+                var defects = Array.isArray(data.top_defects) ? data.top_defects : [];
+                if (!defects.length) {
+                    learningTopDefectsTbody.innerHTML = '<tr><td colspan="5" class="text-muted small">暂无缺陷数据</td></tr>';
+                    return;
+                }
+                learningTopDefectsTbody.innerHTML = defects.slice(0, 10).map(function(d) {
+                    var s = d.sources || {};
+                    return '<tr>' +
+                        '<td>' + escapeHtml(d.type) + '</td>' +
+                        '<td>' + escapeHtml(String(d.count)) + '</td>' +
+                        '<td>' + escapeHtml(String(s.rule || 0)) + '</td>' +
+                        '<td>' + escapeHtml(String(s.llm || 0)) + '</td>' +
+                        '<td>' + escapeHtml(String(s.other || 0)) + '</td>' +
+                    '</tr>';
+                }).join('');
+            })
+            .catch(function(err) {
+                learningKpiSummary.textContent = '加载失败: ' + err.message;
+                learningTopDefectsTbody.innerHTML = '<tr><td colspan="5" class="text-danger small">加载失败</td></tr>';
+            });
+            
+        return Promise.all([p1, p2]);
+    }
+
+    function refreshRuleCandidates() {
+        if (!learningCandidatesTbody) return Promise.resolve();
+        learningCandidatesTbody.innerHTML = '<tr><td colspan="6" class="text-muted small">加载中...</td></tr>';
+        return apiJson(baseUrl + '/api/learning/candidates', { method: 'GET' })
+            .then(function(data) {
+                var items = Array.isArray(data.items) ? data.items : [];
+                if (!items.length) {
+                    learningCandidatesTbody.innerHTML = '<tr><td colspan="6" class="text-muted small">暂无候选规则</td></tr>';
+                    return;
+                }
+                learningCandidatesTbody.innerHTML = items.map(function(it) {
+                    var name = escapeHtml(it.rule_name || '');
+                    var cat = escapeHtml(it.category || '');
+                    var severity = escapeHtml(it.severity || '');
+                    var count = escapeHtml(String(it.hit_count || 0));
+                    var desc = escapeHtml(it.description || '');
+                    return '<tr>' +
+                        '<td><input type="checkbox" class="learning-rule-check" data-rule-name="' + name + '"></td>' +
+                        '<td>' + name + '</td>' +
+                        '<td>' + cat + '</td>' +
+                        '<td>' + severity + '</td>' +
+                        '<td>' + count + '</td>' +
+                        '<td>' + desc + '</td>' +
+                    '</tr>';
+                }).join('');
+            })
+            .catch(function(err) {
+                learningCandidatesTbody.innerHTML = '<tr><td colspan="6" class="text-danger small">加载失败：' + escapeHtml(err.message || String(err)) + '</td></tr>';
+            });
+    }
+
+    function buildLearningDraft() {
+        if (!learningActionStatus) return;
+        learningActionStatus.textContent = '生成草案中...';
+        var minCount = parseInt((learningMinCountInput && learningMinCountInput.value) || '2', 10);
+        var maxNewRules = parseInt((learningMaxNewRulesInput && learningMaxNewRulesInput.value) || '30', 10);
+        if (!Number.isFinite(minCount) || minCount < 1) minCount = 1;
+        if (!Number.isFinite(maxNewRules) || maxNewRules < 1) maxNewRules = 1;
+        apiJson(baseUrl + '/api/learning/build_rule_draft', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ min_count: minCount, max_new_rules: maxNewRules })
+        })
+        .then(function(data) {
+            learningActionStatus.textContent = '草案已生成：候选 ' + (data.candidate_count || 0) + '，新增 ' + (data.new_rules_count || 0);
+            refreshLearningStatus();
+            refreshRuleCandidates();
+            refreshLearningDashboard();
+        })
+        .catch(function(err) {
+            learningActionStatus.textContent = '生成失败：' + (err.message || String(err));
+        });
+    }
+
+    function applyLearningCandidates(applyAll) {
+        if (!learningActionStatus) return;
+        learningActionStatus.textContent = '生成可应用规则文件中...';
+        var selected = [];
+        if (!applyAll) {
+            document.querySelectorAll('.learning-rule-check:checked').forEach(function(el) {
+                var name = el.getAttribute('data-rule-name');
+                if (name) selected.push(name);
+            });
+            if (!selected.length) {
+                learningActionStatus.textContent = '请先勾选候选规则';
+                return;
+            }
+        }
+        var maxNewRules = parseInt((learningMaxNewRulesInput && learningMaxNewRulesInput.value) || '30', 10);
+        if (!Number.isFinite(maxNewRules) || maxNewRules < 1) maxNewRules = 1;
+        apiJson(baseUrl + '/api/learning/apply_candidates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selected_rule_names: selected, max_new_rules: maxNewRules })
+        })
+        .then(function(data) {
+            learningActionStatus.textContent = '已生成可应用规则文件：新增 ' + (data.applied_new_rules || 0) + ' 条';
+            setLearningOpAlert('success', '应用成功：新增 ' + (data.applied_new_rules || 0) + ' 条规则（待发布）。');
+            refreshLearningDashboard();
+        })
+        .catch(function(err) {
+            learningActionStatus.textContent = '应用失败：' + (err.message || String(err));
+            setLearningOpAlert('danger', '应用失败：' + (err.message || String(err)));
+        });
+    }
+
+    function publishLearningApplied() {
+        if (!learningActionStatus) return;
+        if (!confirm('确定要把已应用的规则发布到正式规则库吗？发布前会自动备份当前正式库。')) return;
+        learningActionStatus.textContent = '发布中...';
+        if (btnLearningPublishApplied) btnLearningPublishApplied.disabled = true;
+        apiJson(baseUrl + '/api/learning/publish_applied', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ create_backup: true })
+        })
+        .then(function(data) {
+            learningActionStatus.textContent = '发布成功！备份文件：' + (data.backup_file || '无') + '，当前规则数：' + (data.total_rules || 0);
+            setLearningOpAlert('success', '发布成功！当前正式库共 ' + (data.total_rules || 0) + ' 条规则。');
+            refreshLearningBackups();
+            refreshLearningStatus();
+            refreshLearningDashboard();
+        })
+        .catch(function(err) {
+            learningActionStatus.textContent = '发布失败：' + (err.message || String(err));
+            setLearningOpAlert('danger', '发布失败：' + (err.message || String(err)));
+        })
+        .finally(function() {
+            if (btnLearningPublishApplied) btnLearningPublishApplied.disabled = false;
+        });
+    }
+
+    function refreshLearningBackups() {
+        if (!learningBackupsTbody) return Promise.resolve();
+        learningBackupsTbody.innerHTML = '<tr><td colspan="3" class="text-muted small">加载中...</td></tr>';
+        return apiJson(baseUrl + '/api/learning/backups?limit=20', { method: 'GET' })
+            .then(function(data) {
+                var items = Array.isArray(data.items) ? data.items : [];
+                if (!items.length) {
+                    learningBackupsTbody.innerHTML = '<tr><td colspan="3" class="text-muted small">暂无备份</td></tr>';
+                    return;
+                }
+                learningBackupsTbody.innerHTML = items.map(function(it) {
+                    var name = escapeHtml(it.file_name || '');
+                    var count = escapeHtml(String(it.rule_count == null ? '' : it.rule_count));
+                    return '<tr>' +
+                        '<td>' + name + '</td>' +
+                        '<td>' + count + '</td>' +
+                        '<td><button class="btn btn-sm btn-outline-danger learning-rollback-btn" data-file="' + name + '">回滚</button></td>' +
+                    '</tr>';
+                }).join('');
+            })
+            .catch(function(err) {
+                learningBackupsTbody.innerHTML = '<tr><td colspan="3" class="text-danger small">加载失败：' + escapeHtml(err.message || String(err)) + '</td></tr>';
+            });
+    }
+
+    function rollbackLearningBackup(fileName) {
+        if (!fileName) return;
+        if (!confirm('确定要回滚到备份文件 ' + fileName + ' 吗？当前正式库将被覆盖！')) return;
+        if (learningActionStatus) learningActionStatus.textContent = '回滚中...';
+        apiJson(baseUrl + '/api/learning/rollback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ backup_file: fileName })
+        })
+        .then(function(data) {
+            if (learningActionStatus) learningActionStatus.textContent = '回滚成功！当前规则数：' + (data.total_rules || 0);
+            setLearningOpAlert('success', '回滚成功：已恢复到 ' + fileName + '。');
+            refreshLearningBackups();
+            refreshLearningDashboard();
+        })
+        .catch(function(err) {
+            if (learningActionStatus) learningActionStatus.textContent = '回滚失败：' + (err.message || String(err));
+            setLearningOpAlert('danger', '回滚失败：' + (err.message || String(err)));
+        });
+    }
+
+    if (learningSelectAll) {
+        learningSelectAll.addEventListener('change', function() {
+            var st = this.checked;
+            document.querySelectorAll('.learning-rule-check').forEach(function(el) { el.checked = st; });
+        });
+    }
+
+    if (btnLearningRefresh) btnLearningRefresh.addEventListener('click', function() { refreshLearningStatus(); refreshRuleCandidates(); refreshLearningDashboard(); });
+    if (btnLearningBuildDraft) btnLearningBuildDraft.addEventListener('click', buildLearningDraft);
+    if (btnLearningApplySelected) btnLearningApplySelected.addEventListener('click', function() { applyLearningCandidates(false); });
+    if (btnLearningApplyAll) btnLearningApplyAll.addEventListener('click', function() { applyLearningCandidates(true); });
+    if (btnLearningPublishApplied) btnLearningPublishApplied.addEventListener('click', publishLearningApplied);
+    if (btnLearningRefreshBackups) btnLearningRefreshBackups.addEventListener('click', refreshLearningBackups);
+    
+    if (learningBackupsTbody) {
+        learningBackupsTbody.addEventListener('click', function(e) {
+            var target = e.target;
+            if (!target || !target.classList || !target.classList.contains('learning-rollback-btn')) return;
+            var file = target.getAttribute('data-file');
+            if (file) rollbackLearningBackup(file);
+        });
+    }
+
+    // Initialize on load
+    refreshLearningStatus();
+    refreshRuleCandidates();
+    refreshLearningBackups();
+    refreshLearningDashboard();
+
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,519 @@
+{% extends "prd_audit_base.html" %}
+
+{% block module_content %}
+<div class="card prd-card mb-3">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-muted"><i class="fas fa-bug me-2"></i>Bug模式库</h5>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-dark" id="btnTopPatternSuggest">生成模式建议</button>
+            <button class="btn btn-sm btn-outline-primary" id="btnBugPatternRefresh">刷新</button>
+            <button class="btn btn-sm btn-outline-dark" id="btnBugQuickImport">导入Bug(CSV/TXT)</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btnBugPatternImport">导入模式(JSON)</button>
+            <button class="btn btn-sm btn-outline-success" id="btnBugPatternExport">导出</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <input type="file" id="bugPatternImportInput" accept="application/json,.json" class="d-none">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th style="width:80px;">模式ID</th>
+                        <th style="width:240px;">分类</th>
+                        <th style="width:360px;">关键词</th>
+                        <th style="width:320px;">设计缺口</th>
+                        <th>规则</th>
+                        <th style="width:60px;">权重</th>
+                        <th style="width:60px;">启用</th>
+                    </tr>
+                </thead>
+                <tbody id="bugPatternTbody"><tr><td colspan="7" class="text-muted small">加载中...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<div class="card prd-card">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-muted"><i class="fas fa-list me-2"></i>Bug原始库</h5>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary" id="btnBugRawRefresh">刷新</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btnBugRawImport">导入</button>
+            <button class="btn btn-sm btn-outline-success" id="btnBugRawExport">导出</button>
+            <a class="btn btn-sm btn-outline-dark" href="/prd_audit_clone/api/bug/import_template_csv">CSV模板</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <input type="file" id="bugRawImportInput" accept="application/json,.json,.csv,.txt" class="d-none">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+                <thead><tr><th style="width:120px;">ID</th><th style="width:80px;">等级</th><th style="width:80px;">频度</th><th>Bug描述</th></tr></thead>
+                <tbody id="bugRawTbody"><tr><td colspan="4" class="text-muted small">加载中...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- AI Bug Import Preview Modal -->
+<div class="modal fade" id="bugPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-robot me-2"></i>AI Bug 导入预审</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info py-2 small mb-3">
+                    <strong>预审说明：</strong>系统已自动使用大模型（或本地规则）对您上传的 Bug 进行了价值评估。<br>
+                    <span class="badge bg-success">推荐导入</span> 代表该 Bug 有助于丰富 PRD 规则；
+                    <span class="badge bg-warning text-dark">建议修正</span> 代表描述略简略，建议后续补充；
+                    <span class="badge bg-secondary">建议废弃</span> 代表可能是纯UI/环境问题，价值不高。
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;"><input type="checkbox" id="bugPreviewSelectAll" checked></th>
+                                <th style="width:100px;">评估状态</th>
+                                <th>评估理由</th>
+                                <th>Bug 描述</th>
+                                <th style="width:80px;">严重度</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bugPreviewTbody">
+                            <tr><td colspan="5" class="text-muted small">预审加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted small me-auto" id="bugPreviewStatusText"></span>
+                <button type="button" class="btn btn-sm btn-outline-dark" id="btnApplyPatternSuggestions">生成模式建议</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnConfirmImport">确认导入选中的 Bug</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var bugPatternTbody = document.getElementById('bugPatternTbody');
+    var bugRawTbody = document.getElementById('bugRawTbody');
+    var btnTopPatternSuggest = document.getElementById('btnTopPatternSuggest');
+    var btnPatternRefresh = document.getElementById('btnBugPatternRefresh');
+    var btnRawRefresh = document.getElementById('btnBugRawRefresh');
+    var btnBugQuickImport = document.getElementById('btnBugQuickImport');
+    var btnPatternImport = document.getElementById('btnBugPatternImport');
+    var btnPatternExport = document.getElementById('btnBugPatternExport');
+    var btnRawImport = document.getElementById('btnBugRawImport');
+    var btnRawExport = document.getElementById('btnBugRawExport');
+    var patternImportInput = document.getElementById('bugPatternImportInput');
+    var rawImportInput = document.getElementById('bugRawImportInput');
+    function loadPatterns() {
+        bugPatternTbody.innerHTML = '<tr><td colspan="7" class="text-muted small">加载中...</td></tr>';
+        fetch('/prd_audit_clone/api/bug/patterns', { method: 'GET' })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if (!res || !res.success) throw new Error((res && res.message) || '加载失败');
+                var items = (res.data && res.data.items) || [];
+                if (!items.length) {
+                    bugPatternTbody.innerHTML = '<tr><td colspan="7" class="text-muted small">暂无模式</td></tr>';
+                    return;
+                }
+                bugPatternTbody.innerHTML = items.map(function(it){
+                    return '<tr>' +
+                        '<td>' + (it.pattern_id || '-') + '</td>' +
+                        '<td>' + (it.category || '-') + '</td>' +
+                        '<td>' + ((it.keywords || []).join('、') || '-') + '</td>' +
+                        '<td>' + ((it.design_gap || []).join('、') || '-') + '</td>' +
+                        '<td>' + (it.rule || '-') + '</td>' +
+                        '<td>' + (it.weight || '-') + '</td>' +
+                        '<td>' + (it.enabled === false ? '否' : '是') + '</td>' +
+                    '</tr>';
+                }).join('');
+            })
+            .catch(function(err){ bugPatternTbody.innerHTML = '<tr><td colspan="7" class="text-danger small">加载失败：' + (err.message || String(err)) + '</td></tr>'; });
+    }
+    function loadRaw() {
+        bugRawTbody.innerHTML = '<tr><td colspan="4" class="text-muted small">加载中...</td></tr>';
+        fetch('/prd_audit_clone/api/bug/raw', { method: 'GET' })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if (!res || !res.success) throw new Error((res && res.message) || '加载失败');
+                var items = (res.data && res.data.items) || [];
+                if (!items.length) {
+                    bugRawTbody.innerHTML = '<tr><td colspan="4" class="text-muted small">暂无Bug数据</td></tr>';
+                    return;
+                }
+                bugRawTbody.innerHTML = items.slice().reverse().map(function(it){
+                    return '<tr><td>' + (it.id || '-') + '</td><td>' + (it.severity || '-') + '</td><td>' + (it.frequency || '-') + '</td><td>' + (it.bug_desc || '-') + '</td></tr>';
+                }).join('');
+            })
+            .catch(function(err){ bugRawTbody.innerHTML = '<tr><td colspan="4" class="text-danger small">加载失败：' + (err.message || String(err)) + '</td></tr>'; });
+    }
+    btnPatternRefresh.addEventListener('click', loadPatterns);
+    btnRawRefresh.addEventListener('click', loadRaw);
+    if (btnPatternExport) {
+        btnPatternExport.addEventListener('click', function() {
+            window.location.href = '/prd_audit_clone/api/bug/patterns/export';
+        });
+    }
+    if (btnRawExport) {
+        btnRawExport.addEventListener('click', function() {
+            window.location.href = '/prd_audit_clone/api/bug/raw/export';
+        });
+    }
+    if (btnBugQuickImport && rawImportInput) {
+        btnBugQuickImport.addEventListener('click', function() { rawImportInput.click(); });
+    }
+    if (btnPatternImport && patternImportInput) {
+        btnPatternImport.addEventListener('click', function() { patternImportInput.click(); });
+        patternImportInput.addEventListener('change', function(e) {
+            var file = e.target.files && e.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.toLowerCase().endsWith('.json')) {
+                alert('该入口仅支持模式JSON。导入CSV/TXT请使用“导入Bug(CSV/TXT)”按钮。');
+                e.target.value = '';
+                return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function() {
+                var payload;
+                try { payload = JSON.parse(String(reader.result || '{}')); } catch (err) { alert('模式库导入失败：JSON格式错误'); return; }
+                fetch('/prd_audit_clone/api/bug/patterns', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if (!res || !res.success) throw new Error((res && res.message) || '导入失败');
+                    alert('导入成功');
+                    loadPatterns();
+                })
+                .catch(function(err){ alert('模式库导入失败：' + (err.message || String(err))); });
+            };
+            reader.readAsText(file, 'utf-8');
+            e.target.value = '';
+        });
+    }
+    function buildLocalSuggestions(rawItems, existingPatterns) {
+        function isNoiseKeyword(w) {
+            var s = String(w || '').trim();
+            if (!s) return true;
+            var low = s.toLowerCase();
+            if (['pk','x9','vx','bug','p0','p1','p2'].indexOf(low) >= 0) return true;
+            if (/^[a-z]{1,3}\d{1,4}$/i.test(low)) return true;
+            if (/^[a-z]{1,4}-\d{1,6}$/i.test(low)) return true;
+            if (/^p\d{1,2}$/i.test(low)) return true;
+            if (/^[a-z]{1,2}$/i.test(low)) return true;
+            var stop = ['问题','这个','那个','出现','导致','时候','之后','过程','进行','相关','功能','页面','系统','当前','仍然','展示','可以','用户','场景','流程','逻辑','状态','操作','投屏','广告','语音','自助','商k','k歌','导唱','打分','录音','量贩','第三屏','竖版'];
+            if (stop.indexOf(s) >= 0) return true;
+            var risks = ['异常','失败','报错','崩溃','闪退','卡死','无响应','黑屏','不一致','不同步','错乱','冲突','越权','超时','丢失','重叠','不消失','不能','无法','无反馈','无应答'];
+            var hasRisk = false;
+            for (var i = 0; i < risks.length; i++) {
+                if (s.indexOf(risks[i]) >= 0) { hasRisk = true; break; }
+            }
+            if (!hasRisk) return true;
+            return false;
+        }
+        var used = {};
+        var maxPid = 0;
+        (existingPatterns || []).forEach(function(p) {
+            var pid = String((p && p.pattern_id) || '');
+            var m = /^P(\d+)$/.exec(pid);
+            if (m) maxPid = Math.max(maxPid, parseInt(m[1], 10) || 0);
+            var kws = (p && Array.isArray(p.keywords)) ? p.keywords : [];
+            kws.forEach(function(k){ if (String(k || '').trim()) used[String(k).trim()] = true; });
+        });
+        var score = {};
+        (rawItems || []).forEach(function(it) {
+            var d = String((it && it.bug_desc) || '');
+            d.split(/[，,。；;、\s]+/).forEach(function(part) {
+                var w = String(part || '').trim();
+                if (!w || w.length < 2 || w.length > 12) return;
+                if (isNoiseKeyword(w)) return;
+                score[w] = (score[w] || 0) + 1;
+            });
+        });
+        var keys = Object.keys(score).sort(function(a, b){ return (score[b] || 0) - (score[a] || 0); });
+        var added = [];
+        for (var i = 0; i < keys.length; i++) {
+            var kw = keys[i];
+            if (used[kw]) continue;
+            maxPid += 1;
+            added.push({
+                pattern_id: 'P' + String(maxPid).padStart(3, '0'),
+                keywords: [kw],
+                category: '通用缺陷',
+                design_gap: ['异常处理缺失'],
+                rule: '关键流程必须定义异常处理与回退策略',
+                weight: 0.72,
+                enabled: true
+            });
+            used[kw] = true;
+            if (added.length >= 12) break;
+        }
+        return added;
+    }
+
+    function applyLocalPatternSuggestions(rawItems) {
+        return fetch('/prd_audit_clone/api/bug/patterns', { method: 'GET' })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if (!res || !res.success) throw new Error((res && res.message) || '读取模式库失败');
+                var existing = (res.data && res.data.items) || [];
+                var added = buildLocalSuggestions(rawItems, existing);
+                var merged = existing.concat(added);
+                return fetch('/prd_audit_clone/api/bug/patterns', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: merged })
+                }).then(function(r2){ return r2.json(); }).then(function(res2){
+                    if (!res2 || !res2.success) throw new Error((res2 && res2.message) || '写入模式库失败');
+                    return { added_count: added.length };
+                });
+            });
+    }
+
+    if (btnTopPatternSuggest) {
+        btnTopPatternSuggest.addEventListener('click', function() {
+            btnTopPatternSuggest.disabled = true;
+            var rawItems = [];
+            fetch('/prd_audit_clone/api/bug/raw', { method: 'GET' })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if (!res || !res.success) throw new Error((res && res.message) || '读取Bug原始库失败');
+                    rawItems = (res.data && res.data.items) || [];
+                    if (!rawItems.length) throw new Error('Bug原始库暂无数据，请先导入Bug');
+                    return fetch('/prd_audit_clone/api/bug/patterns/auto_from_bugs', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items: rawItems })
+                    }).then(function(r){ return r.json(); });
+                })
+                .then(function(res){
+                    if (res && res.success) {
+                        return { added_count: (res.data && res.data.added_count) || 0 };
+                    }
+                    var msg = String((res && res.message) || '');
+                    if (msg.indexOf('资源不存在') >= 0 || msg.indexOf('not_found') >= 0) {
+                        return applyLocalPatternSuggestions(rawItems);
+                    }
+                    throw new Error(msg || '生成失败');
+                })
+                .then(function(ret){
+                    alert('模式建议生成完成：新增 ' + (ret.added_count || 0) + ' 条');
+                    loadPatterns();
+                })
+                .catch(function(err){ alert('生成模式建议失败：' + (err.message || String(err))); })
+                .finally(function(){ btnTopPatternSuggest.disabled = false; });
+        });
+    }
+    if (btnRawImport && rawImportInput) {
+        var bugPreviewModal = new bootstrap.Modal(document.getElementById('bugPreviewModal'));
+        var bugPreviewTbody = document.getElementById('bugPreviewTbody');
+        var bugPreviewStatusText = document.getElementById('bugPreviewStatusText');
+        var btnConfirmImport = document.getElementById('btnConfirmImport');
+        var btnApplyPatternSuggestions = document.getElementById('btnApplyPatternSuggestions');
+        var bugPreviewSelectAll = document.getElementById('bugPreviewSelectAll');
+        var currentPreviewItems = [];
+
+        btnRawImport.addEventListener('click', function() { rawImportInput.click(); });
+        
+        rawImportInput.addEventListener('change', function(e) {
+            var file = e.target.files && e.target.files[0];
+            if (!file) return;
+            
+            // 如果文件名以 .json 结尾，尝试走 JSON 解析
+            // 否则（.csv, .txt 或其他）走后端文件上传预审
+            var isJson = file.name.toLowerCase().endsWith('.json');
+            
+            if (!isJson) {
+                var form = new FormData();
+                form.append('file', file);
+                
+                bugPreviewTbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div><span class="text-muted">AI 正在评估 Bug 价值中，请稍候...</span></td></tr>';
+                bugPreviewStatusText.textContent = '评估中...';
+                btnConfirmImport.disabled = true;
+                bugPreviewModal.show();
+
+                fetch('/prd_audit_clone/api/bug/import?preview=true', {
+                    method: 'POST',
+                    body: form
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if (!res || !res.success) throw new Error((res && res.message) || '预审失败');
+                    currentPreviewItems = (res.data && res.data.items) || [];
+                    renderPreviewTable();
+                    bugPreviewStatusText.textContent = '评估完成，共 ' + currentPreviewItems.length + ' 条';
+                    btnConfirmImport.disabled = false;
+                })
+                .catch(function(err){ 
+                    bugPreviewTbody.innerHTML = '<tr><td colspan="5" class="text-danger small">预审失败：' + (err.message || String(err)) + '</td></tr>';
+                    bugPreviewStatusText.textContent = '预审失败';
+                })
+                .finally(function() {
+                    e.target.value = '';
+                });
+            } else {
+                // 原有的 JSON 导入逻辑
+                var reader = new FileReader();
+                reader.onload = function() {
+                    var payload;
+                    try { payload = JSON.parse(String(reader.result || '{}')); } catch (err) { alert('Bug库导入失败：JSON格式错误'); return; }
+                    
+                    bugPreviewTbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div><span class="text-muted">AI 正在评估 JSON 数据中，请稍候...</span></td></tr>';
+                    bugPreviewStatusText.textContent = '评估中...';
+                    btnConfirmImport.disabled = true;
+                    bugPreviewModal.show();
+                    
+                    fetch('/prd_audit_clone/api/bug/import?preview=true', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){
+                        if (!res || !res.success) throw new Error((res && res.message) || '预审失败');
+                        currentPreviewItems = (res.data && res.data.items) || [];
+                        renderPreviewTable();
+                        bugPreviewStatusText.textContent = '评估完成，共 ' + currentPreviewItems.length + ' 条';
+                        btnConfirmImport.disabled = false;
+                    })
+                    .catch(function(err){ 
+                        bugPreviewTbody.innerHTML = '<tr><td colspan="5" class="text-danger small">预审失败：' + (err.message || String(err)) + '</td></tr>';
+                        bugPreviewStatusText.textContent = '预审失败';
+                    });
+                };
+                reader.readAsText(file, 'utf-8');
+                e.target.value = '';
+            }
+        });
+
+        function renderPreviewTable() {
+            if (!currentPreviewItems.length) {
+                bugPreviewTbody.innerHTML = '<tr><td colspan="5" class="text-muted small">没有解析到有效 Bug</td></tr>';
+                return;
+            }
+            
+            var html = '';
+            currentPreviewItems.forEach(function(it, idx) {
+                var st = it.ai_status || '';
+                var stBadge = 'bg-secondary';
+                var defaultChecked = '';
+                if (st === '推荐导入') { stBadge = 'bg-success'; defaultChecked = 'checked'; }
+                else if (st === '建议修正') { stBadge = 'bg-warning text-dark'; defaultChecked = 'checked'; }
+                else if (st === '建议废弃') { stBadge = 'bg-secondary'; defaultChecked = ''; }
+                
+                html += '<tr>';
+                html += '<td><input type="checkbox" class="bug-preview-check" data-idx="' + idx + '" ' + defaultChecked + '></td>';
+                html += '<td><span class="badge ' + stBadge + '">' + escapeHtml(st) + '</span></td>';
+                html += '<td class="small text-muted">' + escapeHtml(it.ai_reason || '-') + '</td>';
+                html += '<td class="small">' + escapeHtml(it.bug_desc || '-') + '</td>';
+                html += '<td>' + escapeHtml(it.severity || '-') + '</td>';
+                html += '</tr>';
+            });
+            bugPreviewTbody.innerHTML = html;
+        }
+
+        if (bugPreviewSelectAll) {
+            bugPreviewSelectAll.addEventListener('change', function() {
+                var checked = this.checked;
+                document.querySelectorAll('.bug-preview-check').forEach(function(el) {
+                    el.checked = checked;
+                });
+            });
+        }
+
+        function getSelectedPreviewItems() {
+            var selectedItems = [];
+            document.querySelectorAll('.bug-preview-check:checked').forEach(function(el) {
+                var idx = parseInt(el.getAttribute('data-idx'), 10);
+                if (!isNaN(idx) && currentPreviewItems[idx]) {
+                    selectedItems.push(currentPreviewItems[idx]);
+                }
+            });
+            return selectedItems;
+        }
+
+        if (btnApplyPatternSuggestions) {
+            btnApplyPatternSuggestions.addEventListener('click', function() {
+                var selectedItems = getSelectedPreviewItems();
+                if (!selectedItems.length) {
+                    alert('请先勾选要生成模式建议的 Bug');
+                    return;
+                }
+                bugPreviewStatusText.textContent = '正在生成模式建议...';
+                btnApplyPatternSuggestions.disabled = true;
+                fetch('/prd_audit_clone/api/bug/patterns/auto_from_bugs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: selectedItems })
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if (!res || !res.success) throw new Error((res && res.message) || '生成失败');
+                    var added = (res.data && res.data.added_count) || 0;
+                    bugPreviewStatusText.textContent = '模式建议生成完成：新增 ' + added + ' 条';
+                    loadPatterns();
+                })
+                .catch(function(err){
+                    alert('生成模式建议失败：' + (err.message || String(err)));
+                    bugPreviewStatusText.textContent = '模式建议生成失败';
+                })
+                .finally(function() {
+                    btnApplyPatternSuggestions.disabled = false;
+                });
+            });
+        }
+
+        btnConfirmImport.addEventListener('click', function() {
+            var selectedItems = getSelectedPreviewItems();
+            
+            if (!selectedItems.length) {
+                alert('请至少勾选一条要导入的 Bug');
+                return;
+            }
+
+            bugPreviewStatusText.textContent = '正在导入...';
+            btnConfirmImport.disabled = true;
+
+            fetch('/prd_audit_clone/api/bug/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: selectedItems })
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if (!res || !res.success) throw new Error((res && res.message) || '导入失败');
+                bugPreviewModal.hide();
+                loadRaw();
+            })
+            .catch(function(err){ 
+                alert('导入失败：' + (err.message || String(err)));
+                bugPreviewStatusText.textContent = '导入失败';
+                btnConfirmImport.disabled = false;
+            });
+        });
+        
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
+        }
+    }
+    loadPatterns();
+    loadRaw();
+})();
+</script>
+{% endblock %}

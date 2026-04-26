@@ -1,0 +1,620 @@
+{
+  "items": [
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 10,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 7,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 10,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 4,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 11,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 8,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 8,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 8,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 8,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 8,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 8,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 8,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 3,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 4,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 3,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 8,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 8,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 10,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 13,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 3,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 3,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 9,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "match_score": 6,
+      "enabled_rule_count": 30,
+      "system_type": "scheduling_system"
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{% extends "prd_audit_base.html" %}
+
+{% block module_content %}
+<div class="card prd-card mb-3">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 text-muted"><i class="fas fa-cubes me-2"></i>审计资产中心</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-6 col-xl-2">
+                <div class="border rounded p-3 h-100">
+                    <div class="small text-muted">知识卡片</div>
+                    <div class="fs-4 fw-semibold">{{ asset_summary.knowledge_count or 0 }}</div>
+                    <div class="small text-muted">业务认知底座</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-2">
+                <div class="border rounded p-3 h-100">
+                    <div class="small text-muted">正式规则</div>
+                    <div class="fs-4 fw-semibold">{{ asset_summary.published_rule_count or 0 }}</div>
+                    <div class="small text-muted">参与正式审计命中</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-2">
+                <div class="border rounded p-3 h-100">
+                    <div class="small text-muted">Bug模式</div>
+                    <div class="fs-4 fw-semibold">{{ asset_summary.bug_pattern_count or 0 }}</div>
+                    <div class="small text-muted">历史缺陷抽象</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-2">
+                <div class="border rounded p-3 h-100">
+                    <div class="small text-muted">历史快照</div>
+                    <div class="fs-4 fw-semibold">{{ asset_summary.snapshot_count or 0 }}</div>
+                    <div class="small text-muted">学习与回放数据底座</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-2">
+                <div class="border rounded p-3 h-100">
+                    <div class="small text-muted">候选规则</div>
+                    <div class="fs-4 fw-semibold">{{ asset_summary.candidate_count or 0 }}</div>
+                    <div class="small text-muted">等待人工筛选</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-2">
+                <div class="border rounded p-3 h-100">
+                    <div class="small text-muted">待发布规则</div>
+                    <div class="fs-4 fw-semibold">{{ asset_summary.applied_count or 0 }}</div>
+                    <div class="small text-muted">等待进入正式环境</div>
+                </div>
+            </div>
+        </div>
+        <div class="small text-muted">
+            统一心智：知识库回答“这类需求应该长什么样”，规则库回答“系统会自动卡什么问题”，Bug资产回答“以前死在哪里”，学习MVP负责“从历史中长出新规则”。
+            {% if asset_summary.latest_snapshot and asset_summary.latest_snapshot.snapshot_id %}
+            最近一次快照：{{ asset_summary.latest_snapshot.snapshot_id }}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for group in asset_groups %}
+    <div class="col-12 col-xl-6">
+        <div class="card prd-card h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 text-muted"><i class="fas {{ group['icon'] }} me-2"></i>{{ group['title'] }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="small text-muted mb-3">{{ group['summary'] }}</div>
+                {% for item in group['items'] %}
+                <div class="border rounded p-3 {% if not loop.last %}mb-3{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ item['name'] }}</div>
+                            <div class="small text-muted">{{ item['meta'] }}</div>
+                        </div>
+                        <span class="badge bg-light text-dark border">{{ item['count'] }}</span>
+                    </div>
+                    <div class="small mt-2">{{ item['desc'] }}</div>
+                    {% if item['href'] %}
+                    <div class="mt-3">
+                        <a class="btn btn-sm btn-outline-primary" href="{{ item['href'] }}">{{ item['action'] }}</a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card prd-card mb-3">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 text-muted"><i class="fas fa-sitemap me-2"></i>推荐资产模型</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="border rounded p-3 h-100">
+                    <div class="fw-semibold">知识库</div>
+                    <div class="small text-muted mt-2">沉淀业务能力、角色、前置条件、异常处理和反模式，优先解决“系统理解业务语境”的问题。</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="border rounded p-3 h-100">
+                    <div class="fw-semibold">规则库</div>
+                    <div class="small text-muted mt-2">沉淀正式审计规则，决定扫描时会命中哪些问题、以什么风险等级输出给用户。</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="border rounded p-3 h-100">
+                    <div class="fw-semibold">Bug资产</div>
+                    <div class="small text-muted mt-2">用原始缺陷样本和模式化经验反哺规则，避免“历史踩过的坑再来一遍”。</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="border rounded p-3 h-100">
+                    <div class="fw-semibold">学习MVP</div>
+                    <div class="small text-muted mt-2">从历史快照中列出候选规则，由人工审核后再发布，确保系统持续生长但不失控。</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mb-2 small text-muted">下面是平台配置能力，用于维护插件、Prompt 与 Gate 评估，不直接替代上面的审计资产。</div>
+<div class="row g-3">
+    <div class="col-12 col-xl-6">
+        <div class="card prd-card h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-muted"><i class="fas fa-puzzle-piece me-2"></i>平台配置：规则插件中心</h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" id="btnPluginRefresh">刷新</button>
+                    <button class="btn btn-sm btn-outline-success" id="btnPluginSave">保存</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <textarea id="pluginJson" class="form-control" rows="14" spellcheck="false"></textarea>
+                <div class="small text-muted mt-2" id="pluginStatus"></div>
+                <div class="small mt-3" id="pluginStats"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-xl-6">
+        <div class="card prd-card h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-muted"><i class="fas fa-comment-dots me-2"></i>平台配置：Prompt Center</h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" id="btnPromptRefresh">刷新</button>
+                    <button class="btn btn-sm btn-outline-success" id="btnPromptSave">保存</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <textarea id="promptJson" class="form-control" rows="14" spellcheck="false"></textarea>
+                <div class="small text-muted mt-2" id="promptStatus"></div>
+                <div class="small mt-3" id="promptStats"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card prd-card mt-3">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-muted"><i class="fas fa-traffic-light me-2"></i>平台配置：Gate评估</h5>
+        <button class="btn btn-sm btn-outline-danger" id="btnGateEval">运行评估</button>
+    </div>
+    <div class="card-body">
+        <textarea id="gateText" class="form-control mb-2" rows="5" placeholder="输入PRD文本用于门禁评估"></textarea>
+        <pre id="gateResult" class="small bg-light border rounded p-2 mb-0"></pre>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var pluginJson = document.getElementById('pluginJson');
+    var pluginStatus = document.getElementById('pluginStatus');
+    var pluginStats = document.getElementById('pluginStats');
+    var promptJson = document.getElementById('promptJson');
+    var promptStatus = document.getElementById('promptStatus');
+    var promptStats = document.getElementById('promptStats');
+    var gateText = document.getElementById('gateText');
+    var gateResult = document.getElementById('gateResult');
+    function pretty(v) {
+        try { return JSON.stringify(v, null, 2); } catch (e) { return String(v || ''); }
+    }
+    function setStatus(el, t, bad) {
+        el.textContent = t || '';
+        el.className = 'small mt-2 ' + (bad ? 'text-danger' : 'text-muted');
+    }
+    function loadPlugins() {
+        fetch('/prd_audit/api/rule_plugins').then(function(r){ return r.json(); }).then(function(res){
+            if (!res || !res.success) throw new Error((res && res.message) || '加载失败');
+            pluginJson.value = pretty(res.data || {});
+            setStatus(pluginStatus, '插件配置已加载', false);
+        }).catch(function(err){ setStatus(pluginStatus, '插件配置加载失败：' + (err.message || String(err)), true); });
+        fetch('/prd_audit/api/rule_plugins/stats').then(function(r){ return r.json(); }).then(function(res){
+            if (!res || !res.success) throw new Error((res && res.message) || '统计加载失败');
+            var d = res.data || {};
+            var top = (d.plugin_hits || []).slice(0, 5).map(function(x){ return (x.plugin_id || '-') + ':' + (x.count || 0); }).join('，');
+            pluginStats.textContent = '总运行次数：' + String(d.total_runs || 0) + '；Top插件：' + (top || '-');
+        }).catch(function(){ pluginStats.textContent = ''; });
+    }
+    function savePlugins() {
+        var payload;
+        try { payload = JSON.parse(String(pluginJson.value || '{}')); } catch (e) { setStatus(pluginStatus, '插件配置JSON格式错误', true); return; }
+        fetch('/prd_audit/api/rule_plugins', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+            .then(function(r){ return r.json(); }).then(function(res){
+                if (!res || !res.success) throw new Error((res && res.message) || '保存失败');
+                setStatus(pluginStatus, '插件配置已保存', false);
+                loadPlugins();
+            }).catch(function(err){ setStatus(pluginStatus, '插件配置保存失败：' + (err.message || String(err)), true); });
+    }
+    function loadPrompts() {
+        fetch('/prd_audit/api/prompt_center').then(function(r){ return r.json(); }).then(function(res){
+            if (!res || !res.success) throw new Error((res && res.message) || '加载失败');
+            promptJson.value = pretty(res.data || {});
+            setStatus(promptStatus, 'Prompt配置已加载', false);
+        }).catch(function(err){ setStatus(promptStatus, 'Prompt配置加载失败：' + (err.message || String(err)), true); });
+        fetch('/prd_audit/api/prompt_center/stats').then(function(r){ return r.json(); }).then(function(res){
+            if (!res || !res.success) throw new Error((res && res.message) || '统计加载失败');
+            var d = res.data || {};
+            promptStats.textContent = '总评估次数：' + String(d.total_runs || 0) + '；通过率：' + String(d.pass_rate || 0);
+        }).catch(function(){ promptStats.textContent = ''; });
+    }
+    function savePrompts() {
+        var payload;
+        try { payload = JSON.parse(String(promptJson.value || '{}')); } catch (e) { setStatus(promptStatus, 'Prompt配置JSON格式错误', true); return; }
+        fetch('/prd_audit/api/prompt_center', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+            .then(function(r){ return r.json(); }).then(function(res){
+                if (!res || !res.success) throw new Error((res && res.message) || '保存失败');
+                setStatus(promptStatus, 'Prompt配置已保存', false);
+                loadPrompts();
+            }).catch(function(err){ setStatus(promptStatus, 'Prompt配置保存失败：' + (err.message || String(err)), true); });
+    }
+    function evalGate() {
+        var text = String(gateText.value || '').trim();
+        if (!text) { gateResult.textContent = '请输入PRD文本'; return; }
+        gateResult.textContent = '评估中...';
+        fetch('/prd_audit/api/gate/evaluate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prd_text: text }) })
+            .then(function(r){ return r.json(); }).then(function(res){
+                if (!res || !res.success) throw new Error((res && res.message) || '评估失败');
+                gateResult.textContent = pretty(res.data || {});
+            }).catch(function(err){ gateResult.textContent = '评估失败：' + (err.message || String(err)); });
+    }
+    document.getElementById('btnPluginRefresh').addEventListener('click', loadPlugins);
+    document.getElementById('btnPluginSave').addEventListener('click', savePlugins);
+    document.getElementById('btnPromptRefresh').addEventListener('click', loadPrompts);
+    document.getElementById('btnPromptSave').addEventListener('click', savePrompts);
+    document.getElementById('btnGateEval').addEventListener('click', evalGate);
+    gateText.value = '投屏 > 游戏 > 广告。高优先级可打断低优先级。';
+    loadPlugins();
+    loadPrompts();
+})();
+</script>
+{% endblock %}

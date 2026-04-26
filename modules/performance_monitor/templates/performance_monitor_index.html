@@ -1,0 +1,1911 @@
+{% extends "base.html" %}
+
+{% block title %}性能监控 - Trae Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-card {
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: scale(1.05);
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .session-item {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .session-item:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4"><i class="fas fa-chart-line"></i> Android 性能监控</h2>
+    
+    <!-- 设备连接区域 -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-mobile-alt"></i> 设备连接</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">设备 IP</label>
+                    <input type="text" class="form-control" id="deviceIp" placeholder="例如: 192.168.1.100">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">端口</label>
+                    <input type="number" class="form-control" id="devicePort" value="8787">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button class="btn btn-primary" onclick="connectDevice()">
+                            <i class="fas fa-link"></i> 连接设备
+                        </button>
+                        <button class="btn btn-secondary" onclick="refreshDevices()">
+                            <i class="fas fa-sync-alt"></i> 刷新列表
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 设备列表 -->
+            <div id="deviceList" class="mt-3">
+                <div class="text-muted">点击"刷新列表"加载设备...</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 监控控制区域 -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-play-circle"></i> 监控控制</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">选择设备</label>
+                    <select class="form-select" id="monitorDeviceSelect">
+                        <option value="">请先连接设备...</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">应用包名</label>
+                    <input type="text" class="form-control" id="targetPackage" value="com.thunder.ktv" placeholder="com.thunder.ktv">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Display ID</label>
+                    <select class="form-select" id="displayId">
+                        <option value="0">0</option>
+                        <option value="1" selected>1</option>
+                        <option value="2">2</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">监控类型</label>
+                    <select class="form-select" id="monitorType">
+                        <option value="video" selected>视频播放卡顿</option>
+                        <option value="ui">UI界面卡顿</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">轮询间隔 (秒)</label>
+                    <input type="number" class="form-control" id="pollingInterval" value="3.0" step="0.5" min="0.5">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">监控时长 (分钟)</label>
+                    <input type="number" class="form-control" id="monitorDuration" value="0" step="1" min="0">
+                    <div class="form-text small text-muted">0 表示不限时，需手动停止</div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">描述</label>
+                    <input type="text" class="form-control" id="monitorDescription" placeholder="监控描述">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">日志保存</label>
+                    <div class="form-check mb-1">
+                        <input class="form-check-input" type="checkbox" id="saveMatchedLogs">
+                        <label class="form-check-label small" for="saveMatchedLogs">
+                            保存命中关键字的 Android 日志
+                        </label>
+                    </div>
+                    <input type="text" class="form-control form-control-sm" id="logKeywords" placeholder="关键字，多个用逗号分隔">
+                    <div class="form-text small text-muted">仅在勾选后生效，命中日志会随当前监控会话一起保存。</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">全量日志</label>
+                    <div class="form-check mb-1">
+                        <input class="form-check-input" type="checkbox" id="saveFullLogs">
+                        <label class="form-check-label small" for="saveFullLogs">
+                            开启全量分片保存
+                        </label>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">单分片</span>
+                        <input type="number" class="form-control" id="fullLogRotateSizeMb" value="20" min="1" max="200" step="1">
+                        <span class="input-group-text">MB</span>
+                    </div>
+                    <div class="form-text small text-muted">按大小自动切分，避免单个日志文件过大。</div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">图表模式</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="continuousMode">
+                        <label class="form-check-label small" for="continuousMode">
+                            连续监控（不清空图表）
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button class="btn btn-success" id="btnStartMonitor" onclick="startMonitor()">
+                            <i class="fas fa-play"></i> 开始监控
+                        </button>
+                        <button class="btn btn-danger" id="btnStopMonitor" onclick="stopMonitor()" style="display: none;">
+                            <i class="fas fa-stop"></i> 停止监控
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 内存泄漏检测（不改 App） -->
+    <div class="card mb-4 border-warning">
+        <div class="card-header bg-warning bg-opacity-25">
+            <h5 class="mb-0"><i class="fas fa-vial me-2"></i>内存泄漏检测（不改 App）</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                无需修改应用，通过 ADB 抓取堆转储；或对历史监控会话做内存趋势分析，判断是否疑似泄漏。
+            </p>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">设备</label>
+                    <select class="form-select" id="heapDumpDevice">
+                        <option value="">请选择设备...</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">应用包名</label>
+                    <input type="text" class="form-control" id="heapDumpPackage" value="com.thunder.ktv" placeholder="com.xxx.xxx">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button class="btn btn-warning w-100" id="btnHeapDump" onclick="captureHeapDump()">
+                        <i class="fas fa-download me-1"></i> 抓取堆转储
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button class="btn btn-outline-warning w-100" id="btnMeminfoAnalyze" onclick="analyzeMeminfo()">
+                        <i class="fas fa-search me-1"></i> 内存分析
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <div id="heapDumpResult" class="small"></div>
+                </div>
+            </div>
+            <div id="meminfoAnalyzeResult" class="mt-3" style="display:none;">
+                <div class="card bg-light">
+                    <div class="card-body small">
+                        <h6 class="card-title"><i class="fas fa-chart-line me-1"></i>内存分析结果</h6>
+                        <div id="meminfoAnalyzeContent"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-2 small text-muted">
+                <strong>堆转储</strong>：应用需处于运行状态。抓取后可下载 .hprof 文件，用 Android Studio → Profiler → Memory → Load 打开分析。<br>
+                <strong>内存分析</strong>：基于 dumpsys meminfo 由 LLM 直接给出分析结论，无需下载文件。<br>
+                <strong>内存趋势</strong>：在下方「历史会话」中点击会话查看详情，若内存持续上升会显示「疑似内存泄漏」提示。
+            </div>
+        </div>
+    </div>
+    
+    <!-- 实时性能指标 -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-tachometer-alt"></i> 实时性能指标</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-2 mb-3">
+                    <div class="card metric-card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">CPU 使用率</h6>
+                            <h3 id="cpuUsage">0%</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card metric-card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">内存 (PSS)</h6>
+                            <h3 id="memoryUsage">0 MB</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card metric-card bg-warning text-dark">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">FPS</h6>
+                            <h3 id="fpsValue">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card metric-card bg-danger text-white">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">网络速度</h6>
+                            <h3 id="networkSpeed">0 KB/s</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card metric-card bg-secondary text-white">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">标准 Jank</h6>
+                            <h3 id="jankCount">0</h3>
+                            <small id="jankPercent">0%</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card metric-card" id="stallCard" style="background-color: #6c757d; color: white;">
+                        <div class="card-body text-center">
+                            <h6 class="card-title" id="stallTitle">人眼感知卡顿</h6>
+                            <h3 id="stallScore">0.0</h3>
+                            <small id="stallStatus">正常</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 卡顿详细信息 -->
+            <div class="row mt-2" id="stallDetails" style="display: none;">
+                <div class="col-12">
+                    <div class="alert alert-info mb-0">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>卡顿事件数：</strong><span id="stallEvents">0</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>总卡顿时长：</strong><span id="stallDuration">0</span> ms
+                            </div>
+                            <div class="col-md-3">
+                                <strong>严重程度：</strong><span id="stallSeverity">-</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>帧时间方差：</strong><span id="frameVariance">0.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 性能图表 -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-chart-area"></i> 性能趋势图</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <canvas id="memoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <canvas id="fpsChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <canvas id="networkChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <canvas id="jankChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <canvas id="stallChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 历史会话和基线管理 -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> 历史会话</h5>
+                    <button class="btn btn-sm btn-primary" onclick="refreshSessions()">
+                        <i class="fas fa-sync-alt"></i> 刷新
+                    </button>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    <div id="sessionList">
+                        <div class="text-muted text-center py-3">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-bullseye"></i> 性能基线</h5>
+                    <button class="btn btn-sm btn-success" onclick="showCreateBaselineModal()">
+                        <i class="fas fa-plus"></i> 创建基线
+                    </button>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    <div id="baselineList">
+                        <div class="text-muted text-center py-3">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 会话详情模态框 -->
+<div class="modal fade" id="sessionDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-info-circle"></i> 会话详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="sessionDetailContent">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="exportSessionData()">
+                    <i class="fas fa-download"></i> 导出数据
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建基线模态框 -->
+<div class="modal fade" id="createBaselineModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">创建性能基线</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">基线名称</label>
+                    <input type="text" class="form-control" id="baselineName" placeholder="例如: v1.0.0 基准">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">选择会话</label>
+                    <select class="form-select" id="baselineSessionSelect">
+                        <option value="">请选择会话...</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">快照索引</label>
+                    <input type="number" class="form-control" id="baselineSnapshotIndex" value="0" min="0">
+                    <small class="text-muted">选择会话中的第几个快照作为基线（从0开始）</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">描述</label>
+                    <textarea class="form-control" id="baselineDescription" rows="3" placeholder="基线描述..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="createBaseline()">创建</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    let currentTaskId = null;
+    let currentEventSource = null;
+    let connectedDevices = [];
+    let performanceCharts = {};
+    let performanceData = {
+        labels: [],
+        cpu: [],
+        memory: [],
+        fps: [],
+        network_rx: [],
+        network_tx: [],
+        jank: [],
+        stall_score: []
+    };
+    const MAX_DATA_POINTS = 100;
+
+    // 重置实时曲线（用于开启新一轮监控时清空图表）
+    function resetRealtimeCharts() {
+        Object.keys(performanceCharts).forEach(name => {
+            const chart = performanceCharts[name];
+            if (!chart) return;
+            chart.data.labels = [];
+            chart.data.datasets.forEach(ds => {
+                ds.data = [];
+            });
+            chart.update('none');
+        });
+        performanceData = {
+            labels: [],
+            cpu: [],
+            memory: [],
+            fps: [],
+            network_rx: [],
+            network_tx: [],
+            jank: [],
+            stall_score: []
+        };
+        // 重置顶部指标显示
+        $('#cpuUsage').text('0%');
+        $('#memoryUsage').text('0 MB');
+    }
+    
+    // 页面加载时初始化（优化：分批加载）
+    $(document).ready(function() {
+        // 第一阶段：关键功能（立即加载）
+        refreshDevices();
+        checkRunningTasks();
+        
+        // 第二阶段：图表初始化（延迟50ms，避免阻塞）
+        setTimeout(() => {
+            initCharts();
+        }, 50);
+        
+        // 第三阶段：非关键数据（延迟500ms，提升首屏加载速度）
+        setTimeout(() => {
+            refreshSessions();
+            refreshBaselines();
+        }, 500);
+    });
+    
+    // 初始化图表（优化：使用 requestAnimationFrame 和优化配置）
+    function initCharts() {
+        // 使用 requestAnimationFrame 确保在下一帧渲染
+        requestAnimationFrame(() => {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 0  // 禁用动画，提升性能
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        ticks: {
+                            maxTicksLimit: 10  // 限制标签数量
+                        }
+                    },
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true
+                    },
+                    tooltip: {
+                        enabled: true
+                    }
+                }
+            };
+            
+            // CPU 图表
+            const cpuCtx = document.getElementById('cpuChart');
+            if (cpuCtx) {
+                performanceCharts.cpu = new Chart(cpuCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'CPU (%)',
+                            data: [],
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            tension: 0.1,
+                            pointRadius: 0,  // 不显示点，提升性能
+                            borderWidth: 1
+                        }]
+                    },
+                    options: chartOptions
+                });
+            }
+            
+            // 内存图表
+            const memoryCtx = document.getElementById('memoryChart');
+            if (memoryCtx) {
+                performanceCharts.memory = new Chart(memoryCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Memory (MB)',
+                            data: [],
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: chartOptions
+                });
+            }
+            
+            // FPS 图表
+            const fpsCtx = document.getElementById('fpsChart');
+            if (fpsCtx) {
+                performanceCharts.fps = new Chart(fpsCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'FPS',
+                            data: [],
+                            borderColor: 'rgb(255, 206, 86)',
+                            backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: chartOptions
+                });
+            }
+            
+            // 网络图表
+            const networkCtx = document.getElementById('networkChart');
+            if (networkCtx) {
+                performanceCharts.network = new Chart(networkCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'RX (KB/s)',
+                            data: [],
+                            borderColor: 'rgb(54, 162, 235)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        }, {
+                            label: 'TX (KB/s)',
+                            data: [],
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: chartOptions
+                });
+            }
+            
+            // Jank 图表（标准卡帧数据）
+            const jankCtx = document.getElementById('jankChart');
+            if (jankCtx) {
+                performanceCharts.jank = new Chart(jankCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Jank 数量',
+                            data: [],
+                            borderColor: 'rgb(255, 159, 64)',
+                            backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        plugins: {
+                            ...chartOptions.plugins,
+                            title: {
+                                display: true,
+                                text: '标准卡帧数据 (Jank)'
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 人眼感知卡顿图表
+            const stallCtx = document.getElementById('stallChart');
+            if (stallCtx) {
+                performanceCharts.stall = new Chart(stallCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: '卡顿评分',
+                            data: [],
+                            borderColor: 'rgb(220, 53, 69)',
+                            backgroundColor: 'rgba(220, 53, 69, 0.2)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        plugins: {
+                            ...chartOptions.plugins,
+                            title: {
+                                display: true,
+                                text: '人眼感知卡顿评分'
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
+    
+    // 更新图表数据（优化：批量更新和节流）
+    let chartUpdateQueue = {};
+    let chartUpdateTimer = null;
+    
+    function updateChart(chartName, value, label = null) {
+        const chart = performanceCharts[chartName];
+        if (!chart) return;
+        
+        const now = label || new Date().toLocaleTimeString();
+        
+        // 将更新加入队列
+        if (!chartUpdateQueue[chartName]) {
+            chartUpdateQueue[chartName] = { values: [], labels: [] };
+        }
+        chartUpdateQueue[chartName].values.push(value);
+        chartUpdateQueue[chartName].labels.push(now);
+        
+        // 节流：每100ms批量更新一次
+        if (!chartUpdateTimer) {
+            chartUpdateTimer = setTimeout(() => {
+                flushChartUpdates();
+                chartUpdateTimer = null;
+            }, 100);
+        }
+    }
+    
+    function flushChartUpdates() {
+        Object.keys(chartUpdateQueue).forEach(chartName => {
+            const chart = performanceCharts[chartName];
+            if (!chart) return;
+            
+            const queue = chartUpdateQueue[chartName];
+            if (queue.values.length === 0) return;
+            
+            // 批量添加数据
+            queue.labels.forEach(label => {
+                chart.data.labels.push(label);
+            });
+            
+            queue.values.forEach(value => {
+                if (Array.isArray(value)) {
+                    value.forEach((v, i) => {
+                        if (chart.data.datasets[i]) {
+                            chart.data.datasets[i].data.push(v);
+                        }
+                    });
+                } else {
+                    chart.data.datasets[0].data.push(value);
+                }
+            });
+            
+            // 限制数据点数量
+            while (chart.data.labels.length > MAX_DATA_POINTS) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(dataset => {
+                    dataset.data.shift();
+                });
+            }
+            
+            // 使用 'none' 模式更新，禁用动画
+            chart.update('none');
+            
+            // 清空队列
+            chartUpdateQueue[chartName] = { values: [], labels: [] };
+        });
+    }
+    
+    // 刷新设备列表
+    async function refreshDevices() {
+        try {
+            const result = await ApiClient.get('/performance_monitor/api/devices', { showLoading: false });
+            if (result && result.data && result.data.devices) {
+                connectedDevices = result.data.devices;
+                updateDeviceList();
+                updateMonitorDeviceSelect();
+            }
+        } catch (error) {
+            console.error('获取设备列表失败:', error);
+        }
+    }
+    
+    // 更新设备列表显示
+    function updateDeviceList() {
+        const deviceListEl = $('#deviceList');
+        if (connectedDevices.length === 0) {
+            deviceListEl.html('<div class="text-muted">未发现已连接设备</div>');
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+        connectedDevices.forEach(device => {
+            html += `<div class="list-group-item">
+                <i class="fas fa-mobile-alt me-2"></i> ${device}
+            </div>`;
+        });
+        html += '</div>';
+        deviceListEl.html(html);
+    }
+    
+    // 更新监控设备选择框（同时更新堆转储设备选择）
+    function updateMonitorDeviceSelect() {
+        const selects = ['monitorDeviceSelect', 'heapDumpDevice'];
+        selects.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            select.innerHTML = '';
+            if (connectedDevices.length === 0) {
+                select.appendChild(new Option('请先连接设备...', ''));
+            } else {
+                connectedDevices.forEach(device => {
+                    select.appendChild(new Option(device, device));
+                });
+            }
+        });
+    }
+    
+    // 连接设备
+    async function connectDevice() {
+        const ip = $('#deviceIp').val();
+        const port = parseInt($('#devicePort').val()) || 8787;
+        
+        if (!ip) {
+            alert('请输入设备IP');
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.post('/performance_monitor/api/connect', {
+                ip: ip,
+                port: port
+            });
+            
+            if (result && result.success) {
+                alert('设备连接成功');
+                refreshDevices();
+            } else {
+                alert('设备连接失败: ' + (result.message || '未知错误'));
+            }
+        } catch (error) {
+            alert('连接设备失败: ' + error.message);
+        }
+    }
+    
+    // 抓取堆转储（不改 App）
+    async function captureHeapDump() {
+        const deviceId = document.getElementById('heapDumpDevice')?.value;
+        const packageName = document.getElementById('heapDumpPackage')?.value?.trim();
+        const resultEl = document.getElementById('heapDumpResult');
+        const btn = document.getElementById('btnHeapDump');
+        if (!deviceId || !packageName) {
+            if (window.toast) toast.warning('请选择设备并输入包名');
+            return;
+        }
+        if (btn) btn.disabled = true;
+        if (resultEl) resultEl.innerHTML = '<span class="text-muted">抓取中...</span>';
+        try {
+            const result = await ApiClient.post('/performance_monitor/api/heap_dump', {
+                device_id: deviceId,
+                package_name: packageName
+            }, { timeout: 120000, loadingMessage: '正在抓取堆转储，请稍候...' });
+            if (result && (result.success || result.ok) && result.data) {
+                const url = result.data.download_url;
+                const filename = result.data.filename || 'heap.hprof';
+                const size = result.data.size_bytes ? (result.data.size_bytes / 1024 / 1024).toFixed(2) + ' MB' : '';
+                if (resultEl) resultEl.innerHTML = '<a href="' + url + '" class="text-success" download><i class="fas fa-download me-1"></i>下载 ' + filename + '</a>' + (size ? ' (' + size + ')' : '');
+                if (window.toast) toast.success('堆转储已抓取');
+            }
+        } catch (err) {
+            if (resultEl) resultEl.innerHTML = '<span class="text-danger">' + (err.message || '抓取失败') + '</span>';
+            if (window.toast) toast.error(err.message || '抓取失败');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+    
+    // 内存分析（dumpsys meminfo + LLM）
+    async function analyzeMeminfo() {
+        const deviceId = document.getElementById('heapDumpDevice')?.value;
+        const packageName = document.getElementById('heapDumpPackage')?.value?.trim();
+        const resultBox = document.getElementById('meminfoAnalyzeResult');
+        const contentEl = document.getElementById('meminfoAnalyzeContent');
+        const btn = document.getElementById('btnMeminfoAnalyze');
+        if (!deviceId || !packageName) {
+            if (window.toast) toast.warning('请选择设备并输入包名');
+            return;
+        }
+        if (btn) btn.disabled = true;
+        if (resultBox) resultBox.style.display = 'block';
+        if (contentEl) contentEl.innerHTML = '<span class="text-muted">分析中，请稍候...</span>';
+        try {
+            const result = await ApiClient.post('/performance_monitor/api/meminfo_analyze', {
+                device_id: deviceId,
+                package_name: packageName
+            }, { timeout: 90000, loadingMessage: '正在分析内存，请稍候...' });
+            if (result && (result.success || result.ok) && result.data) {
+                const d = result.data;
+                let html = '';
+                if (d.suspected_leak) {
+                    html += '<p class="text-danger mb-2"><i class="fas fa-exclamation-triangle me-1"></i><strong>疑似存在内存泄漏</strong></p>';
+                } else {
+                    html += '<p class="text-success mb-2"><i class="fas fa-check-circle me-1"></i><strong>内存趋势正常</strong></p>';
+                }
+                html += '<p class="mb-2">' + (d.summary || '') + '</p>';
+                if (d.findings && d.findings.length) {
+                    html += '<p class="mb-1"><strong>发现：</strong></p><ul class="mb-2">';
+                    d.findings.forEach(f => { html += '<li>' + f + '</li>'; });
+                    html += '</ul>';
+                }
+                if (d.suggestions && d.suggestions.length) {
+                    html += '<p class="mb-1"><strong>建议：</strong></p><ul>';
+                    d.suggestions.forEach(s => { html += '<li>' + s + '</li>'; });
+                    html += '</ul>';
+                }
+                if (contentEl) contentEl.innerHTML = html;
+                if (window.toast) toast.success('内存分析完成');
+            }
+        } catch (err) {
+            if (contentEl) contentEl.innerHTML = '<span class="text-danger">' + (err.message || '分析失败') + '</span>';
+            if (window.toast) toast.error(err.message || '分析失败');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+    
+    // 开始监控
+    async function startMonitor() {
+        const deviceId = $('#monitorDeviceSelect').val();
+        const packageName = $('#targetPackage').val();
+        const pollingInterval = parseFloat($('#pollingInterval').val()) || 3.0;
+        const description = $('#monitorDescription').val() || '';
+        const monitorType = $('#monitorType').val() || 'video';
+        const displayId = parseInt($('#displayId').val() || '1', 10);
+        const durationMinutes = parseFloat($('#monitorDuration').val()) || 0;
+        const continuousMode = document.getElementById('continuousMode')?.checked;
+        const saveMatchedLogs = document.getElementById('saveMatchedLogs')?.checked;
+        const saveFullLogs = document.getElementById('saveFullLogs')?.checked;
+        const fullLogRotateSizeMb = Math.max(1, Math.min(200, parseFloat($('#fullLogRotateSizeMb').val()) || 20));
+        const logKeywords = ($('#logKeywords').val() || '')
+            .split(/[\n,]/)
+            .map(item => item.trim())
+            .filter(Boolean);
+        
+        if (!deviceId) {
+            alert('请选择设备');
+            return;
+        }
+        if (!packageName) {
+            alert('请输入应用包名');
+            return;
+        }
+        if (saveMatchedLogs && !logKeywords.length) {
+            alert('已勾选日志保存，请至少输入一个关键字');
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.post('/performance_monitor/api/start', {
+                device_id: deviceId,
+                package_name: packageName,
+                polling_interval: pollingInterval,
+                description: description,
+                display_id: isNaN(displayId) ? 1 : displayId,
+                monitor_type: monitorType,
+                duration_minutes: durationMinutes > 0 ? durationMinutes : 0,
+                save_matched_logs: !!saveMatchedLogs,
+                log_keywords: logKeywords,
+                save_full_logs: !!saveFullLogs,
+                full_log_rotate_size_mb: fullLogRotateSizeMb
+            });
+            
+            if (result && result.success) {
+                // 若未开启连续模式，则在新一轮监控开始前清空图表
+                if (!continuousMode) {
+                    resetRealtimeCharts();
+                }
+                currentTaskId = result.data.task_id;
+                $('#btnStartMonitor').hide();
+                $('#btnStopMonitor').show();
+                
+                // 更新卡顿标题显示
+                const monitorType = $('#monitorType').val();
+                if (monitorType === 'video') {
+                    $('#stallTitle').text('视频播放卡顿');
+                } else {
+                    $('#stallTitle').text('UI界面卡顿');
+                }
+                
+                // 启动 SSE 流
+                startPerformanceStream();
+                
+                const typeText = monitorType === 'video' ? '视频播放卡顿' : 'UI界面卡顿';
+                const saveHints = [];
+                if (saveMatchedLogs) saveHints.push(`命中日志按关键字保存（${logKeywords.join('、')}）`);
+                if (saveFullLogs) saveHints.push(`全量日志按 ${fullLogRotateSizeMb}MB 分片保存`);
+                alert(`${typeText}监控已启动${saveHints.length ? '，' + saveHints.join('；') : ''}`);
+            } else {
+                alert('启动监控失败: ' + (result.message || '未知错误'));
+            }
+        } catch (error) {
+            alert('启动监控失败: ' + error.message);
+        }
+    }
+    
+    // 停止监控
+    async function stopMonitor() {
+        if (!currentTaskId) return;
+        
+        try {
+            const result = await ApiClient.post('/performance_monitor/api/stop', {
+                task_id: currentTaskId
+            });
+            
+            if (result && result.success) {
+                // 关闭 SSE 流
+                if (currentEventSource) {
+                    currentEventSource.close();
+                    currentEventSource = null;
+                }
+                
+                currentTaskId = null;
+                $('#btnStartMonitor').show();
+                $('#btnStopMonitor').hide();
+                
+                alert('性能监控已停止');
+                refreshSessions();
+            } else {
+                alert('停止监控失败: ' + (result.message || '未知错误'));
+            }
+        } catch (error) {
+            alert('停止监控失败: ' + error.message);
+        }
+    }
+    
+    // 启动性能数据流
+    function startPerformanceStream() {
+        if (currentEventSource) {
+            currentEventSource.close();
+        }
+        
+        currentEventSource = new EventSource(`/performance_monitor/stream_performance?task_id=${currentTaskId}`);
+        
+        currentEventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.done) {
+                currentEventSource.close();
+                currentEventSource = null;
+                return;
+            }
+            
+            if (data.type === 'performance' && data.data) {
+                updatePerformanceData(data.data);
+            }
+        };
+        
+        currentEventSource.onerror = function(error) {
+            console.error('SSE 连接错误:', error);
+        };
+    }
+    
+    // 更新性能数据
+    function updatePerformanceData(data) {
+        const timestamp = new Date(data.timestamp).toLocaleTimeString();
+        const cpu = data.cpu_usage || 0;
+        const memory = (data.total_pss || 0) / 1024; // KB to MB
+        const fps = data.fps || 0;
+        const networkRx = data.network_rx_kb || 0;
+        const networkTx = data.network_tx_kb || 0;
+        const jank = data.jank_count || 0;
+        
+        // 人眼感知卡顿数据
+        const stallScore = data.perceptual_stall_score || 0;
+        const stallEvents = data.perceptual_stall_events || 0;
+        const stallDuration = data.perceptual_stall_duration_ms || 0;
+        const isStalling = data.is_perceptual_stalling || false;
+        const stallSeverity = data.perceptual_stall_severity || '';
+        const frameVariance = data.frame_time_variance || 0;
+        
+        // 更新指标卡片
+        $('#cpuUsage').text(cpu.toFixed(1) + '%');
+        $('#memoryUsage').text(memory.toFixed(1) + ' MB');
+        $('#fpsValue').text(fps);
+        $('#networkSpeed').text((networkRx + networkTx).toFixed(1) + ' KB/s');
+        $('#jankCount').text(jank);
+        
+        // 计算 Jank 百分比（如果有总帧数）
+        const totalFrames = jank + (fps > 0 ? Math.max(1, fps * 3) : 1); // 估算总帧数
+        const jankPercent = totalFrames > 0 ? (jank / totalFrames * 100).toFixed(1) : 0;
+        $('#jankPercent').text(jankPercent + '%');
+        
+        // 更新人眼感知卡顿指标
+        $('#stallScore').text(stallScore.toFixed(1));
+        $('#stallEvents').text(stallEvents);
+        $('#stallDuration').text(stallDuration.toFixed(0));
+        $('#stallSeverity').text(getSeverityText(stallSeverity));
+        $('#frameVariance').text(frameVariance.toFixed(2));
+        
+        // 更新卡顿状态和颜色
+        const stallCard = $('#stallCard');
+        if (isStalling) {
+            $('#stallStatus').text('卡顿中');
+            if (stallSeverity === 'severe') {
+                stallCard.css('background-color', '#dc3545'); // 红色
+            } else if (stallSeverity === 'moderate') {
+                stallCard.css('background-color', '#fd7e14'); // 橙色
+            } else {
+                stallCard.css('background-color', '#ffc107'); // 黄色
+            }
+            $('#stallDetails').show();
+        } else {
+            $('#stallStatus').text('正常');
+            stallCard.css('background-color', '#28a745'); // 绿色
+            if (stallScore > 0) {
+                $('#stallDetails').show();
+            } else {
+                $('#stallDetails').hide();
+            }
+        }
+        
+        // 更新图表
+        updateChart('cpu', cpu, timestamp);
+        updateChart('memory', memory, timestamp);
+        updateChart('fps', fps, timestamp);
+        updateChart('network', [networkRx, networkTx], timestamp);
+        updateChart('jank', jank, timestamp);
+        updateChart('stall', stallScore, timestamp);
+    }
+    
+    // 获取严重程度文本
+    function getSeverityText(severity) {
+        const severityMap = {
+            'mild': '轻微',
+            'moderate': '中等',
+            'severe': '严重',
+            '': '-'
+        };
+        return severityMap[severity] || '-';
+    }
+    
+    // 检查运行中的任务
+    async function checkRunningTasks() {
+        try {
+            const result = await ApiClient.get('/performance_monitor/api/status', { showLoading: false });
+            if (result && result.data && result.data.tasks && result.data.tasks.length > 0) {
+                const task = result.data.tasks[0];
+                currentTaskId = task.task_id;
+                $('#btnStartMonitor').hide();
+                $('#btnStopMonitor').show();
+                startPerformanceStream();
+            }
+        } catch (error) {
+            console.error('检查任务状态失败:', error);
+        }
+    }
+    
+    // 刷新会话列表（优化：显示加载状态，限制显示数量）
+    async function refreshSessions() {
+        const sessionListEl = $('#sessionList');
+        sessionListEl.html('<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> <span class="text-muted ms-2">加载中...</span></div>');
+        
+        try {
+            const result = await ApiClient.get('/performance_monitor/api/sessions', { showLoading: false });
+            if (result && result.data && result.data.sessions) {
+                const sessions = result.data.sessions;
+                
+                if (sessions.length === 0) {
+                    sessionListEl.html('<div class="text-muted text-center py-3">暂无会话记录</div>');
+                    return;
+                }
+                
+                // 限制显示最近50条，提升性能
+                const displaySessions = sessions.slice(0, 50);
+                
+                // 使用 DocumentFragment 优化 DOM 操作
+                const fragment = document.createDocumentFragment();
+                const container = document.createElement('div');
+                container.className = 'list-group';
+                
+                displaySessions.forEach(session => {
+                    const startTime = new Date(session.start_time).toLocaleString();
+                    const item = document.createElement('div');
+                    item.className = 'list-group-item session-item';
+                    item.onclick = () => viewSession(session.session_id);
+                    item.innerHTML = `
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <strong>${session.package_name || '未知'}</strong>
+                                <br>
+                                <small class="text-muted">${session.device_id || '未知设备'}</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted">${startTime}</small>
+                                <br>
+                                <span class="badge bg-info">${session.snapshot_count || 0} 个快照</span>
+                            </div>
+                        </div>
+                        ${session.description ? `<div class="mt-2"><small>${session.description}</small></div>` : ''}
+                    `;
+                    container.appendChild(item);
+                });
+                
+                if (sessions.length > 50) {
+                    const moreItem = document.createElement('div');
+                    moreItem.className = 'list-group-item text-center text-muted';
+                    moreItem.textContent = `还有 ${sessions.length - 50} 条记录未显示`;
+                    container.appendChild(moreItem);
+                }
+                
+                fragment.appendChild(container);
+                sessionListEl.empty().append(fragment);
+            }
+        } catch (error) {
+            console.error('获取会话列表失败:', error);
+            sessionListEl.html('<div class="text-danger text-center py-3">加载失败，请重试</div>');
+        }
+    }
+    
+    let currentSessionId = null;
+    let sessionDetailCharts = {};
+    
+    // 查看会话详情
+    async function viewSession(sessionId) {
+        currentSessionId = sessionId;
+        const modalEl = document.getElementById('sessionDetailModal');
+        if (modalEl && window.bootstrap && bootstrap.Modal) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+        
+        // 重置内容
+        $('#sessionDetailContent').html(`
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+            </div>
+        `);
+        
+        try {
+            // 获取会话详情
+            const result = await ApiClient.get(`/performance_monitor/api/sessions/${sessionId}`);
+            
+            if (result && result.success && result.data) {
+                displaySessionDetail(result.data);
+            } else {
+                $('#sessionDetailContent').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> 获取会话详情失败: ${result.message || '未知错误'}
+                    </div>
+                `);
+            }
+        } catch (error) {
+            $('#sessionDetailContent').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> 获取会话详情失败: ${error.message}
+                </div>
+            `);
+        }
+    }
+    
+    // 显示会话详情
+    function displaySessionDetail(data) {
+        const session = data.session;
+        const statistics = data.statistics || {};
+        const memoryTrend = data.memory_trend || {};
+        const metadata = session.metadata || {};
+        const snapshots = session.snapshots || [];
+        const matchedLogs = session.matched_logs || [];
+        const fullLogPreview = session.full_log_preview || [];
+        const alertHistory = session.alert_history || [];
+        const escapeText = (value) => String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        const matchedLogItems = matchedLogs.slice(-20).reverse().map(item => {
+            const keywords = Array.isArray(item.matched_keywords) ? item.matched_keywords.join('、') : '';
+            const timeText = item.timestamp ? new Date(item.timestamp).toLocaleString() : '';
+            return `
+                <div class="border rounded p-2 mb-2">
+                    <div class="small text-muted mb-1">${escapeText(timeText)}${keywords ? ` · 命中：${escapeText(keywords)}` : ''}</div>
+                    <div class="small font-monospace">${escapeText(item.log_line || '')}</div>
+                </div>
+            `;
+        }).join('') || '<div class="text-muted small">暂无保存的命中日志</div>';
+        const fullLogPreviewItems = fullLogPreview.slice(-20).reverse().map(item => {
+            const timeText = item.timestamp ? new Date(item.timestamp).toLocaleString() : '';
+            const level = item.level || '';
+            const levelBadge = level === 'error'
+                ? '<span class="badge bg-danger me-2">error</span>'
+                : (level === 'warning' ? '<span class="badge bg-warning text-dark me-2">warning</span>' : '');
+            return `
+                <div class="border rounded p-2 mb-2">
+                    <div class="small text-muted mb-1">${levelBadge}${escapeText(timeText)}</div>
+                    <div class="small font-monospace">${escapeText(item.log_line || '')}</div>
+                </div>
+            `;
+        }).join('') || '<div class="text-muted small">暂无全量日志预览</div>';
+        const alertHistoryItems = alertHistory.slice(-20).reverse().map(item => {
+            const timeText = item.timestamp ? new Date(item.timestamp).toLocaleString() : '';
+            const level = item.level || item.severity || 'info';
+            const levelClass = level === 'critical' || level === 'error' ? 'bg-danger' : (level === 'warning' ? 'bg-warning text-dark' : 'bg-info');
+            return `
+                <div class="border rounded p-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="badge ${levelClass}">${escapeText(level)}</span>
+                        <span class="small text-muted">${escapeText(timeText)}</span>
+                    </div>
+                    <div class="small">${escapeText(item.message || item.title || item.metric_name || '性能告警')}</div>
+                </div>
+            `;
+        }).join('') || '<div class="text-muted small">暂无告警历史</div>';
+        const fullLogParts = Array.isArray(metadata.full_log_parts) ? metadata.full_log_parts : [];
+        const fullLogPartsHtml = fullLogParts.length ? `
+            <div class="table-responsive mt-3">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>分片</th>
+                            <th>大小</th>
+                            <th>行数</th>
+                            <th>error/warn</th>
+                            <th>时间范围</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${fullLogParts.map(part => `
+                            <tr>
+                                <td>${escapeText(part.file_name || ('part_' + part.part_index))}</td>
+                                <td>${((part.size_bytes || 0) / 1024 / 1024).toFixed(2)} MB</td>
+                                <td>${part.line_count || 0}</td>
+                                <td><span class="badge bg-danger-subtle text-danger-emphasis border me-1">E ${part.error_count || 0}</span><span class="badge bg-warning-subtle text-warning-emphasis border">W ${part.warning_count || 0}</span></td>
+                                <td>${part.start_time ? new Date(part.start_time).toLocaleString() : '-'} ~ ${part.end_time ? new Date(part.end_time).toLocaleString() : '-'}</td>
+                                <td><a class="btn btn-sm btn-outline-primary" href="/performance_monitor/api/sessions/${encodeURIComponent(metadata.session_id || '')}/full-logs/${part.part_index}" target="_blank">下载</a></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        ` : '<div class="text-muted small mt-2">暂无全量日志分片</div>';
+        
+        const trendHtml = memoryTrend.suspected_leak
+            ? `<div class="alert alert-warning mb-3"><i class="fas fa-exclamation-triangle me-2"></i><strong>疑似内存泄漏</strong>：${memoryTrend.reason || ''}</div>`
+            : (memoryTrend.reason ? `<div class="alert alert-light border mb-3"><i class="fas fa-check-circle text-success me-2"></i>${memoryTrend.reason}</div>` : '');
+        
+        let html = trendHtml + `
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5><i class="fas fa-info-circle"></i> 基本信息</h5>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th width="150">会话ID</th>
+                            <td>${metadata.session_id || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <th>设备ID</th>
+                            <td>${metadata.device_id || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <th>应用包名</th>
+                            <td>${metadata.package_name || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <th>监控类型</th>
+                            <td>
+                                <span class="badge ${metadata.monitor_type === 'video' ? 'bg-danger' : 'bg-info'}">
+                                    ${metadata.monitor_type === 'video' ? '视频播放卡顿' : 'UI界面卡顿'}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Display ID</th>
+                            <td>${typeof metadata.display_id === 'number' ? metadata.display_id : (metadata.display_id || '默认')}</td>
+                        </tr>
+                        <tr>
+                            <th>描述</th>
+                            <td>${metadata.description || '无'}</td>
+                        </tr>
+                        <tr>
+                            <th>开始时间</th>
+                            <td>${metadata.start_time ? new Date(metadata.start_time).toLocaleString() : 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <th>结束时间</th>
+                            <td>${metadata.end_time ? new Date(metadata.end_time).toLocaleString() : '进行中'}</td>
+                        </tr>
+                        <tr>
+                            <th>快照数量</th>
+                            <td>${metadata.snapshot_count || snapshots.length}</td>
+                        </tr>
+                        <tr>
+                            <th>日志保存</th>
+                            <td>
+                                ${metadata.matched_log_saving_enabled ? '<span class="badge bg-success">已开启</span>' : '<span class="badge bg-secondary">未开启</span>'}
+                                ${metadata.matched_log_keywords && metadata.matched_log_keywords.length ? `<div class="small text-muted mt-1">关键字：${metadata.matched_log_keywords.join('、')}</div>` : ''}
+                                ${metadata.matched_log_file ? `<div class="small text-muted">文件：${metadata.matched_log_file}</div>` : ''}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>全量日志分片</th>
+                            <td>
+                                ${metadata.full_log_saving_enabled ? '<span class="badge bg-success">已开启</span>' : '<span class="badge bg-secondary">未开启</span>'}
+                                ${metadata.full_log_saving_enabled ? `<div class="small text-muted mt-1">分片大小：${metadata.full_log_rotate_size_mb || 20} MB</div>` : ''}
+                                ${metadata.full_log_saving_enabled ? `<div class="small text-muted">总量：${metadata.full_log_total_lines || 0} 行 / ${((metadata.full_log_total_bytes || 0) / 1024 / 1024).toFixed(2)} MB / ${metadata.full_log_part_count || 0} 个分片</div>` : ''}
+                                ${metadata.full_log_saving_enabled ? `<div class="small text-muted">摘要：error ${metadata.full_log_error_count || 0} / warn ${metadata.full_log_warning_count || 0}</div>` : ''}
+                                ${metadata.full_log_part_count ? `<div class="mt-2"><a class="btn btn-sm btn-outline-secondary" href="/performance_monitor/api/sessions/${encodeURIComponent(metadata.session_id || '')}/full-logs/export" target="_blank">下载全部 ZIP</a></div>` : ''}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>命中日志 / 告警历史</th>
+                            <td>${metadata.matched_log_count || matchedLogs.length} 条 / ${metadata.alert_history_count || alertHistory.length} 条</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5><i class="fas fa-chart-bar"></i> 统计信息</h5>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h6>CPU 平均</h6>
+                                    <h4>${statistics.cpu ? statistics.cpu.avg.toFixed(2) : '0.00'}%</h4>
+                                    <small>最大: ${statistics.cpu ? statistics.cpu.max.toFixed(2) : '0.00'}%</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h6>内存 平均</h6>
+                                    <h4>${statistics.memory ? statistics.memory.avg_mb.toFixed(2) : '0.00'} MB</h4>
+                                    <small>最大: ${statistics.memory ? statistics.memory.max_mb.toFixed(2) : '0.00'} MB</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h6>FPS 平均</h6>
+                                    <h4>${statistics.fps ? statistics.fps.avg.toFixed(1) : '0'}</h4>
+                                    <small>最大: ${statistics.fps ? statistics.fps.max.toFixed(1) : '0'}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body text-center">
+                                    <h6>标准 Jank</h6>
+                                    <h4>${statistics.jank ? statistics.jank.total : '0'}</h4>
+                                    <small>最大: ${statistics.jank ? statistics.jank.max : '0'}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-3">
+                            <div class="card bg-secondary text-white">
+                                <div class="card-body text-center">
+                                    <h6>人眼感知卡顿评分</h6>
+                                    <h4>${statistics.perceptual_stall ? statistics.perceptual_stall.total_score.toFixed(1) : '0.0'}</h4>
+                                    <small>事件数: ${statistics.perceptual_stall ? statistics.perceptual_stall.events : '0'}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h6>总卡顿时长</h6>
+                                    <h4>${statistics.perceptual_stall ? (statistics.perceptual_stall.total_duration_ms / 1000).toFixed(1) : '0.0'}s</h4>
+                                    <small>${statistics.perceptual_stall ? statistics.perceptual_stall.severe_count : '0'} 次严重</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h6>中等卡顿</h6>
+                                    <h4>${statistics.perceptual_stall ? statistics.perceptual_stall.moderate_count : '0'}</h4>
+                                    <small>次</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card" style="background-color: #6c757d; color: white;">
+                                <div class="card-body text-center">
+                                    <h6>轻微卡顿</h6>
+                                    <h4>${statistics.perceptual_stall ? statistics.perceptual_stall.mild_count : '0'}</h4>
+                                    <small>次</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5><i class="fas fa-chart-line"></i> 性能趋势</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="sessionCpuChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="sessionMemoryChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="sessionFpsChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="sessionNetworkChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <h5><i class="fas fa-file-lines"></i> 命中日志（最近20条）</h5>
+                    <div style="max-height: 300px; overflow-y: auto;">${matchedLogItems}</div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <h5><i class="fas fa-bell"></i> 告警历史（最近20条）</h5>
+                    <div style="max-height: 300px; overflow-y: auto;">${alertHistoryItems}</div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-12 mb-4">
+                    <h5><i class="fas fa-box-archive"></i> 全量日志分片与预览</h5>
+                    <div class="small text-muted mb-2">页面只展示最近20条预览，完整原始日志请下载分片或 ZIP。</div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div style="max-height: 300px; overflow-y: auto;">${fullLogPreviewItems}</div>
+                        </div>
+                        <div class="col-md-6">
+                            ${fullLogPartsHtml}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-12">
+                    <h5><i class="fas fa-table"></i> 快照列表（最近100条）</h5>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-striped">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>时间</th>
+                                    <th>CPU (%)</th>
+                                    <th>内存 (MB)</th>
+                                    <th>FPS</th>
+                                    <th>Jank</th>
+                                    <th>网络 (KB/s)</th>
+                                    <th>进程</th>
+                                </tr>
+                            </thead>
+                            <tbody id="snapshotTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $('#sessionDetailContent').html(html);
+        
+        // 渲染图表
+        renderSessionCharts(snapshots);
+        
+        // 渲染快照表格
+        renderSnapshotTable(snapshots.slice(-100)); // 只显示最近100条
+    }
+    
+    // 渲染会话图表
+    function renderSessionCharts(snapshots) {
+        if (!snapshots || snapshots.length === 0) {
+            return;
+        }
+        
+        // 准备数据
+        const labels = snapshots.map(s => new Date(s.timestamp).toLocaleTimeString());
+        const cpuData = snapshots.map(s => s.cpu_usage || 0);
+        const memoryData = snapshots.map(s => (s.total_pss || 0) / 1024); // KB to MB
+        const fpsData = snapshots.map(s => s.fps || 0);
+        const networkRxData = snapshots.map(s => s.network_rx_kb || 0);
+        const networkTxData = snapshots.map(s => s.network_tx_kb || 0);
+        
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    display: true,
+                    ticks: {
+                        maxTicksLimit: 10
+                    }
+                },
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true
+                }
+            }
+        };
+        
+        // 销毁旧图表
+        Object.values(sessionDetailCharts).forEach(chart => {
+            if (chart) chart.destroy();
+        });
+        sessionDetailCharts = {};
+        
+        // CPU 图表
+        const cpuCtx = document.getElementById('sessionCpuChart');
+        if (cpuCtx) {
+            sessionDetailCharts.cpu = new Chart(cpuCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'CPU (%)',
+                        data: cpuData,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: chartOptions
+            });
+        }
+        
+        // 内存图表
+        const memoryCtx = document.getElementById('sessionMemoryChart');
+        if (memoryCtx) {
+            sessionDetailCharts.memory = new Chart(memoryCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Memory (MB)',
+                        data: memoryData,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: chartOptions
+            });
+        }
+        
+        // FPS 图表
+        const fpsCtx = document.getElementById('sessionFpsChart');
+        if (fpsCtx) {
+            sessionDetailCharts.fps = new Chart(fpsCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'FPS',
+                        data: fpsData,
+                        borderColor: 'rgb(255, 206, 86)',
+                        backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: chartOptions
+            });
+        }
+        
+        // 网络图表
+        const networkCtx = document.getElementById('sessionNetworkChart');
+        if (networkCtx) {
+            sessionDetailCharts.network = new Chart(networkCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'RX (KB/s)',
+                        data: networkRxData,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        tension: 0.1
+                    }, {
+                        label: 'TX (KB/s)',
+                        data: networkTxData,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: chartOptions
+            });
+        }
+    }
+    
+    // 渲染快照表格（含目标应用进程 + 系统 Top10 进程）
+    function buildProcessDetailHtml(snap) {
+        const processes = snap.processes || [];
+        const systemTop10 = snap.system_top10 || [];
+        let appHtml = '';
+        if (processes.length) {
+            appHtml = '<table class="table table-sm table-bordered mb-2"><thead><tr><th>进程名</th><th>PID</th><th>CPU%</th><th>PSS (KB)</th></tr></thead><tbody>';
+            processes.forEach(p => {
+                appHtml += '<tr><td>' + (p.process_name || '-') + '</td><td>' + (p.pid || '-') + '</td><td>' + (p.cpu_usage != null ? p.cpu_usage.toFixed(2) : '-') + '</td><td>' + (p.pss_kb != null ? p.pss_kb : '-') + '</td></tr>';
+            });
+            appHtml += '</tbody></table>';
+        } else {
+            appHtml = '<p class="small text-muted mb-2">无目标应用进程数据</p>';
+        }
+        let sysHtml = '';
+        if (systemTop10.length) {
+            sysHtml = '<table class="table table-sm table-bordered"><thead><tr><th>进程名</th><th>PID</th><th>CPU%</th><th>RSS (KB)</th></tr></thead><tbody>';
+            systemTop10.forEach(p => {
+                sysHtml += '<tr><td>' + (p.process_name || '-') + '</td><td>' + (p.pid || '-') + '</td><td>' + (p.cpu_usage != null ? p.cpu_usage.toFixed(2) : '-') + '</td><td>' + (p.rss_kb != null ? p.rss_kb : '-') + '</td></tr>';
+            });
+            sysHtml += '</tbody></table>';
+        } else {
+            sysHtml = '<p class="small text-muted">无系统 Top10 数据（旧会话或未采集）</p>';
+        }
+        return '<div class="p-2 bg-light small"><strong>目标应用进程：</strong>' + appHtml + '<strong>系统 Top10 进程（按 CPU）：</strong>' + sysHtml + '</div>';
+    }
+
+    function toggleSnapDetail(idx) {
+        const el = document.getElementById('snap-detail-' + idx);
+        if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+    }
+
+    function renderSnapshotTable(snapshots) {
+        const tbody = document.getElementById('snapshotTableBody');
+        if (!tbody) return;
+        
+        if (snapshots.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无快照数据</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        snapshots.forEach((snap, idx) => {
+            const time = new Date(snap.timestamp).toLocaleTimeString();
+            const cpu = (snap.cpu_usage || 0).toFixed(2);
+            const memory = ((snap.total_pss || 0) / 1024).toFixed(2);
+            const fps = snap.fps || 0;
+            const jank = snap.jank_count || 0;
+            const network = ((snap.network_rx_kb || 0) + (snap.network_tx_kb || 0)).toFixed(2);
+            const detailHtml = buildProcessDetailHtml(snap);
+            html += `
+                <tr>
+                    <td>${time}</td>
+                    <td>${cpu}</td>
+                    <td>${memory}</td>
+                    <td>${fps}</td>
+                    <td>${jank}</td>
+                    <td>${network}</td>
+                    <td><button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleSnapDetail(${idx})">查看进程</button></td>
+                </tr>
+                <tr id="snap-detail-${idx}" class="snap-detail-row" style="display:none"><td colspan="7" class="p-0">${detailHtml}</td></tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+    }
+    
+    // 导出会话数据
+    async function exportSessionData() {
+        if (!currentSessionId) {
+            alert('请先选择会话');
+            return;
+        }
+        
+        // 询问导出格式
+        const format = confirm('选择导出格式：\n确定 = CSV\n取消 = JSON') ? 'csv' : 'json';
+        
+        try {
+            // 直接下载文件
+            window.location.href = `/performance_monitor/api/sessions/${currentSessionId}/export?format=${format}`;
+        } catch (error) {
+            alert('导出失败: ' + error.message);
+        }
+    }
+    
+    // 刷新基线列表（优化：显示加载状态，优化DOM操作）
+    async function refreshBaselines() {
+        const baselineListEl = $('#baselineList');
+        baselineListEl.html('<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> <span class="text-muted ms-2">加载中...</span></div>');
+        
+        try {
+            const result = await ApiClient.get('/performance_monitor/api/baselines', { showLoading: false });
+            if (result && result.data && result.data.baselines) {
+                const baselines = result.data.baselines;
+                
+                if (baselines.length === 0) {
+                    baselineListEl.html('<div class="text-muted text-center py-3">暂无基线</div>');
+                    return;
+                }
+                
+                // 使用 DocumentFragment 优化 DOM 操作
+                const fragment = document.createDocumentFragment();
+                const container = document.createElement('div');
+                container.className = 'list-group';
+                
+                baselines.forEach(baseline => {
+                    const timestamp = new Date(baseline.timestamp).toLocaleString();
+                    const item = document.createElement('div');
+                    item.className = 'list-group-item';
+                    item.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${baseline.name}</strong>
+                                <br>
+                                <small class="text-muted">${baseline.description || '无描述'}</small>
+                                <br>
+                                <small class="text-muted">${timestamp}</small>
+                            </div>
+                            <button class="btn btn-sm btn-danger" onclick="deleteBaseline('${baseline.name}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+                
+                fragment.appendChild(container);
+                baselineListEl.empty().append(fragment);
+            }
+        } catch (error) {
+            console.error('获取基线列表失败:', error);
+            baselineListEl.html('<div class="text-danger text-center py-3">加载失败，请重试</div>');
+        }
+    }
+    
+    // 显示创建基线模态框
+    async function showCreateBaselineModal() {
+        await refreshSessions();
+        const sessions = await ApiClient.get('/performance_monitor/api/sessions', { showLoading: false });
+        if (sessions && sessions.data && sessions.data.sessions) {
+            const select = $('#baselineSessionSelect');
+            select.empty();
+            select.append('<option value="">请选择会话...</option>');
+            sessions.data.sessions.forEach(session => {
+                select.append(`<option value="${session.session_id}">${session.package_name} - ${new Date(session.start_time).toLocaleString()}</option>`);
+            });
+        }
+        $('#createBaselineModal').modal('show');
+    }
+    
+    // 创建基线
+    async function createBaseline() {
+        const name = $('#baselineName').val();
+        const sessionId = $('#baselineSessionSelect').val();
+        const snapshotIndex = parseInt($('#baselineSnapshotIndex').val()) || 0;
+        const description = $('#baselineDescription').val() || '';
+        
+        if (!name) {
+            alert('请输入基线名称');
+            return;
+        }
+        if (!sessionId) {
+            alert('请选择会话');
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.post('/performance_monitor/api/baselines', {
+                name: name,
+                session_id: sessionId,
+                snapshot_index: snapshotIndex,
+                description: description
+            });
+            
+            if (result && result.success) {
+                alert('基线创建成功');
+                $('#createBaselineModal').modal('hide');
+                refreshBaselines();
+            } else {
+                alert('创建基线失败: ' + (result.message || '未知错误'));
+            }
+        } catch (error) {
+            alert('创建基线失败: ' + error.message);
+        }
+    }
+    
+    // 删除基线
+    async function deleteBaseline(name) {
+        if (!confirm('确定要删除基线 "' + name + '" 吗？')) {
+            return;
+        }
+        
+        try {
+            const result = await ApiClient.delete(`/performance_monitor/api/baselines/${name}`);
+            if (result && result.success) {
+                alert('基线已删除');
+                refreshBaselines();
+            } else {
+                alert('删除基线失败: ' + (result.message || '未知错误'));
+            }
+        } catch (error) {
+            alert('删除基线失败: ' + error.message);
+        }
+    }
+</script>
+{% endblock %}

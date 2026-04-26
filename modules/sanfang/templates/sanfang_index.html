@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .app-card {
+        margin-bottom: 20px;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+    }
+    .app-header {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .rule-item {
+        border-bottom: 1px solid #eee;
+        padding: 15px;
+        transition: background-color 0.2s;
+    }
+    .rule-item:last-child {
+        border-bottom: none;
+    }
+    .rule-item:hover {
+        background-color: #f8f9fa;
+    }
+    .badge-field {
+        font-size: 0.85em;
+        margin-right: 5px;
+    }
+    .field-label {
+        font-weight: 600;
+        color: #666;
+        font-size: 0.9em;
+    }
+    .field-value {
+        color: #333;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-file-code me-2"></i>第三方规则配置</h2>
+        <div>
+            <button class="btn btn-success" onclick="showAddAppModal()">
+                <i class="fas fa-plus"></i> 新增应用
+            </button>
+            <button class="btn btn-primary" onclick="saveConfig()">
+                <i class="fas fa-save"></i> 保存全部配置
+            </button>
+            <button class="btn btn-secondary" onclick="loadConfig()">
+                <i class="fas fa-sync"></i> 刷新
+            </button>
+        </div>
+    </div>
+
+    <!-- 基础配置卡片 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">基础配置</h5>
+        </div>
+        <div class="card-body">
+            <form id="baseConfigForm">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Base URL</label>
+                        <input type="text" class="form-control" id="baseUrl" placeholder="https://mcms.ktvsky.com">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password">
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 应用列表容器 -->
+    <div id="appsContainer"></div>
+</div>
+
+<!-- 编辑规则模态框 -->
+<div class="modal fade" id="ruleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ruleModalTitle">编辑规则</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="ruleForm">
+                    <input type="hidden" id="ruleIndex">
+                    <input type="hidden" id="appIndex">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Rule ID</label>
+                            <input type="text" class="form-control" id="ruleId" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Theme ID</label>
+                            <input type="text" class="form-control" id="themeId" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">备注 (Remark)</label>
+                        <input type="text" class="form-control" id="remark">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Type</label>
+                            <select class="form-select" id="ruleType">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">TP</label>
+                            <select class="form-select" id="ruleTp">
+                                <option value="1">1 (版本推送)</option>
+                                <option value="2">2 (门店推送)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Scope (门店范围)</label>
+                        <input type="text" class="form-control" id="scope" placeholder="例如: ,92889,101911,">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">SP List</label>
+                        <input type="text" class="form-control" id="spList" placeholder="例如: ,92889,101911,">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Version</label>
+                        <input type="text" class="form-control" id="version" placeholder="例如: ,-1, 或 ,5.1.1.6322-release,">
+                    </div>
+                    
+                    <div class="mb-3">
+                         <label class="form-label">Blacklist</label>
+                         <input type="text" class="form-control" id="blacklist" placeholder="0">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveRule()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增/编辑应用模态框 -->
+<div class="modal fade" id="appModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="appModalTitle">应用配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="appForm">
+                    <input type="hidden" id="editAppIndex">
+                    <div class="mb-3">
+                        <label class="form-label">应用名称 (Name)</label>
+                        <input type="text" class="form-control" id="appName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveApp()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let globalConfig = null;
+    const ruleModal = new bootstrap.Modal(document.getElementById('ruleModal'));
+    const appModal = new bootstrap.Modal(document.getElementById('appModal'));
+
+    // 初始化加载
+    $(document).ready(function() {
+        loadConfig();
+    });
+
+    async function loadConfig() {
+        try {
+            const data = await ApiClient.get('/sanfang/api/config', {
+                showLoading: true,
+                loadingMessage: '正在加载配置...'
+            });
+            
+            if (data.error) {
+                toast.error('加载失败: ' + data.error);
+            } else {
+                globalConfig = data.data || data;
+                renderConfig();
+                toast.success('配置加载成功');
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    function renderConfig() {
+        if (!globalConfig) return;
+
+        // 渲染基础配置
+        $('#baseUrl').val(globalConfig.base_url || '');
+        if (globalConfig.credentials) {
+            $('#username').val(globalConfig.credentials.username || '');
+            $('#password').val(globalConfig.credentials.password || '');
+        }
+
+        // 渲染应用列表
+        const container = $('#appsContainer');
+        container.empty();
+
+        if (globalConfig.apps && Array.isArray(globalConfig.apps)) {
+            globalConfig.apps.forEach((app, appIndex) => {
+                const appCard = $(`
+                    <div class="app-card">
+                        <div class="app-header">
+                            <h5 class="mb-0 text-primary">
+                                <i class="fas fa-cube me-2"></i>${escapeHtml(app.name)}
+                            </h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-2" onclick="editApp(${appIndex})">
+                                    <i class="fas fa-edit"></i> 修改名称
+                                </button>
+                                <button class="btn btn-sm btn-outline-success me-2" onclick="addRule(${appIndex})">
+                                    <i class="fas fa-plus"></i> 新增规则
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteApp(${appIndex})">
+                                    <i class="fas fa-trash"></i> 删除应用
+                                </button>
+                            </div>
+                        </div>
+                        <div class="app-body">
+                            ${renderRules(app.rules, appIndex)}
+                        </div>
+                    </div>
+                `);
+                container.append(appCard);
+            });
+        }
+    }
+
+    function renderRules(rules, appIndex) {
+        if (!rules || rules.length === 0) {
+            return '<div class="p-3 text-muted text-center">暂无规则</div>';
+        }
+
+        let html = '<div class="list-group list-group-flush">';
+        rules.forEach((rule, ruleIndex) => {
+            html += `
+                <div class="rule-item">
+                    <div class="d-flex justify-content-between">
+                        <div class="flex-grow-1">
+                            <div class="mb-2">
+                                <span class="badge bg-primary badge-field">ID: ${escapeHtml(rule.id)}</span>
+                                <span class="badge bg-info badge-field">Theme: ${escapeHtml(rule.theme_id)}</span>
+                                <span class="badge bg-secondary badge-field">Type: ${escapeHtml(rule.type)}</span>
+                                <span class="badge bg-secondary badge-field">TP: ${escapeHtml(rule.tp)}</span>
+                                ${rule.remark ? `<span class="text-muted ms-2"><i class="fas fa-comment-alt me-1"></i>${escapeHtml(rule.remark)}</span>` : ''}
+                            </div>
+                            <div class="row g-2 font-monospace" style="font-size: 0.9em;">
+                                <div class="col-md-12">
+                                    <span class="field-label">Scope:</span> <span class="field-value">${escapeHtml(rule.scope || 'ALL')}</span>
+                                </div>
+                                <div class="col-md-12">
+                                    <span class="field-label">SP List:</span> <span class="field-value">${escapeHtml(rule.sp_list || 'ALL')}</span>
+                                </div>
+                                <div class="col-md-12">
+                                    <span class="field-label">Version:</span> <span class="field-value">${escapeHtml(rule.version || 'ALL')}</span>
+                                </div>
+                                ${rule.blacklist ? `
+                                <div class="col-md-12">
+                                    <span class="field-label">Blacklist:</span> <span class="field-value">${escapeHtml(rule.blacklist)}</span>
+                                </div>` : ''}
+                            </div>
+                        </div>
+                        <div class="ms-3 d-flex flex-column justify-content-center">
+                            <button class="btn btn-sm btn-outline-primary mb-2" onclick="editRule(${appIndex}, ${ruleIndex})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteRule(${appIndex}, ${ruleIndex})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        return html;
+    }
+
+    // App 操作
+    function showAddAppModal() {
+        $('#appModalTitle').text('新增应用');
+        $('#editAppIndex').val('-1');
+        $('#appName').val('');
+        appModal.show();
+    }
+
+    function editApp(index) {
+        $('#appModalTitle').text('编辑应用');
+        $('#editAppIndex').val(index);
+        $('#appName').val(globalConfig.apps[index].name);
+        appModal.show();
+    }
+
+    function saveApp() {
+        const index = parseInt($('#editAppIndex').val());
+        const name = $('#appName').val().trim();
+        
+        if (!name) {
+            toast.warning('应用名称不能为空');
+            return;
+        }
+
+        if (index === -1) {
+            if (!globalConfig.apps) globalConfig.apps = [];
+            globalConfig.apps.push({
+                name: name,
+                rules: []
+            });
+        } else {
+            globalConfig.apps[index].name = name;
+        }
+
+        appModal.hide();
+        renderConfig();
+    }
+
+    function deleteApp(index) {
+        if (confirm('确定要删除这个应用及其所有规则吗？')) {
+            globalConfig.apps.splice(index, 1);
+            renderConfig();
+        }
+    }
+
+    // Rule 操作
+    function addRule(appIndex) {
+        $('#ruleModalTitle').text('新增规则');
+        $('#appIndex').val(appIndex);
+        $('#ruleIndex').val('-1');
+        
+        // 清空表单
+        $('#ruleForm')[0].reset();
+        
+        // 设置默认值
+        $('#ruleType').val('1');
+        $('#ruleTp').val('1');
+        
+        ruleModal.show();
+    }
+
+    function editRule(appIndex, ruleIndex) {
+        $('#ruleModalTitle').text('编辑规则');
+        $('#appIndex').val(appIndex);
+        $('#ruleIndex').val(ruleIndex);
+        
+        const rule = globalConfig.apps[appIndex].rules[ruleIndex];
+        
+        $('#ruleId').val(rule.id);
+        $('#themeId').val(rule.theme_id);
+        $('#remark').val(rule.remark || '');
+        $('#ruleType').val(rule.type);
+        $('#ruleTp').val(rule.tp);
+        $('#scope').val(rule.scope);
+        $('#spList').val(rule.sp_list);
+        $('#version').val(rule.version);
+        $('#blacklist').val(rule.blacklist || '');
+        
+        ruleModal.show();
+    }
+
+    function saveRule() {
+        const appIndex = parseInt($('#appIndex').val());
+        const ruleIndex = parseInt($('#ruleIndex').val());
+        
+        const ruleData = {
+            id: $('#ruleId').val(),
+            theme_id: $('#themeId').val(),
+            remark: $('#remark').val(),
+            type: $('#ruleType').val(),
+            tp: $('#ruleTp').val(),
+            scope: $('#scope').val(),
+            sp_list: $('#spList').val(),
+            version: $('#version').val(),
+            blacklist: $('#blacklist').val()
+        };
+
+        if (!ruleData.id || !ruleData.theme_id) {
+            toast.warning('Rule ID 和 Theme ID 不能为空');
+            return;
+        }
+
+        // 清理空字段
+        if (!ruleData.blacklist) delete ruleData.blacklist;
+
+        if (ruleIndex === -1) {
+            if (!globalConfig.apps[appIndex].rules) globalConfig.apps[appIndex].rules = [];
+            globalConfig.apps[appIndex].rules.push(ruleData);
+        } else {
+            globalConfig.apps[appIndex].rules[ruleIndex] = ruleData;
+        }
+
+        ruleModal.hide();
+        renderConfig();
+    }
+
+    function deleteRule(appIndex, ruleIndex) {
+        if (confirm('确定要删除这条规则吗？')) {
+            globalConfig.apps[appIndex].rules.splice(ruleIndex, 1);
+            renderConfig();
+        }
+    }
+
+    // 保存到服务器
+    async function saveConfig() {
+        try {
+            // 更新基础配置
+            globalConfig.base_url = $('#baseUrl').val();
+            if (!globalConfig.credentials) globalConfig.credentials = {};
+            globalConfig.credentials.username = $('#username').val();
+            globalConfig.credentials.password = $('#password').val();
+
+            const result = await ApiClient.post('/sanfang/api/config', globalConfig, {
+                showLoading: true,
+                loadingMessage: '正在保存配置...'
+            });
+            
+            if (result.success || result.ok) {
+                toast.success(result.message || '配置保存成功');
+            }
+        } catch (error) {
+            // 错误已自动处理
+        }
+    }
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+{% endblock %}

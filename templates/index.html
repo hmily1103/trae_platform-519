@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm bg-primary text-white" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <h2 class="fw-bold mb-1">欢迎回来，Platform</h2>
+                            <p class="mb-0 opacity-75">今天是 <span id="currentDate"></span>，系统运行正常。</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-light text-primary fw-bold" href="/unified/"><i class="fas fa-play me-2"></i>发起任务</a>
+                            <a class="btn btn-outline-light" href="/ui_automation/recorder"><i class="fas fa-video me-2"></i>录制脚本</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Key Features -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <a href="/log_monitor/" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-start">
+                    <div class="bg-dark bg-opacity-10 p-3 rounded-circle me-3 text-dark">
+                        <i class="fas fa-robot fa-lg"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold text-dark mb-1">日志分析</h5>
+                        <p class="text-muted small mb-0">
+                            实时捕获 Android 日志，结合规则和大模型自动做根因分析与排查建议。
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="/test_case/" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-start">
+                    <div class="bg-success bg-opacity-10 p-3 rounded-circle me-3 text-success">
+                        <i class="fas fa-list-check fa-lg"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold text-dark mb-1">用例生成</h5>
+                        <p class="text-muted small mb-0">
+                            从 PRD / 需求说明一键生成可执行的测试大纲与用例，支持保存到用例库。
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="/unified/" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-start">
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3 text-primary">
+                        <i class="fas fa-layer-group fa-lg"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold text-dark mb-1">统一报告与推荐</h5>
+                        <p class="text-muted small mb-0">
+                            串联 Monkey / 性能 / 日志等任务，生成统一报告并给出下一步测试方向建议。
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4" id="kpiRow">
+        <div class="col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-3 me-3 text-primary">
+                        <i class="fas fa-mobile-alt fa-2x"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted text-uppercase small fw-bold mb-1">在线设备</h6>
+                        <h3 class="fw-bold mb-0" id="kpiDevices">—</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-3 me-3 text-success">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted text-uppercase small fw-bold mb-1">今日任务</h6>
+                        <h3 class="fw-bold mb-0" id="kpiTasks">—</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-3 me-3 text-warning">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted text-uppercase small fw-bold mb-1">异常警告</h6>
+                        <h3 class="fw-bold mb-0" id="kpiAlerts">—</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-3 me-3 text-info">
+                        <i class="fas fa-cubes fa-2x"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted text-uppercase small fw-bold mb-1">已装载模块</h6>
+                        <h3 class="fw-bold mb-0" id="kpiModules">—</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Access -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <a href="/unified/" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3 text-primary">
+                        <i class="fas fa-layer-group fa-lg"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1">一键任务</h6>
+                        <small class="text-muted">日常回归入口</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <a href="/monkey/" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 p-3 rounded-circle me-3 text-success">
+                        <i class="fas fa-robot fa-lg"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1">Monkey 测试</h6>
+                        <small class="text-muted">随机压力测试</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <a href="/performance_monitor/" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-info bg-opacity-10 p-3 rounded-circle me-3 text-info">
+                        <i class="fas fa-chart-line fa-lg"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1">性能监控</h6>
+                        <small class="text-muted">FPS/CPU/Memory</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <a href="/log_monitor/" class="card border-0 shadow-sm text-decoration-none h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-dark bg-opacity-10 p-3 rounded-circle me-3 text-dark">
+                        <i class="fas fa-terminal fa-lg"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1">日志监控</h6>
+                        <small class="text-muted">实时日志流</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="row g-4 mb-4">
+        <!-- Left Column: Recent Runs -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-history me-2 text-primary"></i>最近运行</h5>
+                    <a href="/unified/reports" class="btn btn-sm btn-light">查看全部</a>
+                </div>
+                <div class="card-body p-0">
+                    <div id="recentRunsPlaceholder" class="text-center py-5 text-muted">
+                        <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                        <div>正在加载数据...</div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="recentRunsTable" style="display:none;">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-4">模块</th>
+                                    <th>状态</th>
+                                    <th>时间</th>
+                                    <th class="text-end pe-4">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentRunsList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Announcements -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-bullhorn me-2 text-warning"></i>系统公告</h5>
+                </div>
+                <div class="card-body" id="announcementsBody">
+                    <div class="text-center py-3 text-muted small">加载中…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Module Status -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold"><i class="fas fa-server me-2 text-secondary"></i>模块状态</h5>
+            <span class="badge bg-light text-dark border" id="moduleStatusCount">—</span>
+        </div>
+        <div class="card-body">
+            <div id="moduleStatusPlaceholder" class="text-center py-3 text-muted small">加载中…</div>
+            <div id="moduleStatusList" class="row g-2" style="display:none;"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function(){
+    // Set Date
+    var now = new Date();
+    var dateStr = now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日';
+    document.getElementById('currentDate').textContent = dateStr;
+
+    // Announcements
+    fetch('/api/announcements').then(function(r){return r.json();}).then(function(d){
+        var el=document.getElementById('announcementsBody');
+        if(d.ok&&d.data){
+            var items=d.data.items||[];
+            if(items.length>0){
+                var content = items.map(function(item, index) {
+                    var icon = index === 0 ? 'fas fa-bullhorn text-primary' : 'fas fa-check text-success small opacity-75';
+                    var textColor = index === 0 ? 'text-dark fw-bold' : 'text-secondary';
+                    var badge = index === 0 ? '<span class="badge bg-danger ms-2" style="font-size: 0.6em; vertical-align: text-top;">NEW</span>' : '';
+                    var borderClass = index !== items.length - 1 ? 'border-bottom border-light' : '';
+                    
+                    return '<div class="d-flex align-items-start py-2 ' + borderClass + '">' +
+                           '<div class="me-3 mt-1"><i class="' + icon + '"></i></div>' +
+                           '<div class="' + textColor + '">' + item + badge + '</div>' +
+                           '</div>';
+                }).join('');
+                el.innerHTML = '<div class="px-2">' + content + '</div>';
+            }else{el.innerHTML='<div class="text-center py-4"><i class="fas fa-inbox fa-2x text-light mb-2"></i><p class="text-muted mb-0">暂无公告</p></div>';}
+        }else{el.innerHTML='<p class="text-muted text-center mb-0">加载失败</p>';}
+    }).catch(function(){document.getElementById('announcementsBody').innerHTML='<p class="text-muted text-center mb-0">加载失败</p>';});
+
+    // Stats
+    fetch('/api/dashboard/stats').then(function(r){return r.json();}).then(function(d){
+        if(d.ok&&d.data){
+            document.getElementById('kpiDevices').textContent=d.data.devices;
+            document.getElementById('kpiTasks').textContent=d.data.tasks_today;
+            document.getElementById('kpiAlerts').textContent=d.data.alerts;
+            document.getElementById('kpiModules').textContent=d.data.modules;
+            var failed=d.data.failed_modules||{};
+            if(Object.keys(failed).length>0){
+                var warn=document.createElement('div');
+                warn.className='col-12';
+                warn.innerHTML='<div class="alert alert-warning shadow-sm border-0"><i class="fas fa-exclamation-triangle me-2"></i>以下模块加载失败: <strong>'+Object.keys(failed).join(', ')+'</strong>。请检查后台日志。</div>';
+                document.getElementById('kpiRow').parentNode.insertBefore(warn, document.getElementById('kpiRow').nextSibling);
+            }
+        }
+    }).catch(function(){});
+
+    // Recent Runs (Table format)
+    fetch('/unified/api/reports?limit=5').then(function(r){return r.json();}).then(function(d){
+        var ph=document.getElementById('recentRunsPlaceholder');
+        var table=document.getElementById('recentRunsTable');
+        var list=document.getElementById('recentRunsList');
+        var reports=(d.data&&d.data.reports)||d.reports||[];
+        var modNames={'unified':'一键任务','monkey':'Monkey 测试','performance_monitor':'性能监控','log_monitor':'日志监控','ui_automation_suite':'UI 套件','server_stress':'ARM 压测','player_stress':'播放器压测','reboot':'中控重启','combined_test':'组合测试'};
+        
+        if(reports.length>0){
+            ph.style.display='none';
+            table.style.display='table';
+            list.innerHTML=reports.slice(0,5).map(function(r){
+                var mod=(modNames[r.module]||r.module||'—');
+                var status=r.status||'—';
+                var time = r.start_time ? new Date(r.start_time).toLocaleTimeString() : '—';
+                var statusClass = (status==='completed'||status==='finished') ? 'success' : (status==='running'?'primary':'secondary');
+                var link='/unified/report/'+(r.unified_id||'');
+                return '<tr><td class="ps-4 fw-medium">'+mod+'</td><td><span class="badge bg-'+statusClass+' rounded-pill">'+status+'</span></td><td class="text-muted small">'+time+'</td><td class="text-end pe-4"><a href="'+link+'" class="btn btn-sm btn-link text-decoration-none">详情</a></td></tr>';
+            }).join('');
+        }else{
+            ph.innerHTML='<div class="py-4 text-muted">暂无最近运行记录</div>';
+        }
+    }).catch(function(){document.getElementById('recentRunsPlaceholder').textContent='加载失败';});
+
+    // Module Status
+    fetch('/api/modules/status').then(function(r){return r.json();}).then(function(d){
+        var ph=document.getElementById('moduleStatusPlaceholder');
+        var list=document.getElementById('moduleStatusList');
+        var countEl=document.getElementById('moduleStatusCount');
+        if(!d.ok||!d.modules){
+            ph.textContent='加载失败';
+            return;
+        }
+        var mods=d.modules;
+        var names={'monkey':'Monkey 测试','ui_automation':'UI 自动化','player_stress':'播放器压测','reboot':'中控重启','log_monitor':'日志监控','performance_monitor':'性能监控','server_stress':'ARM 压测','clean_ad':'广告清理','unified':'一键任务','song_order':'点歌搜索','sanfang':'第三方规则','runtime_center':'运行中心','test_case':'用例管理','remote_control':'远程控制'};
+        var stateBadge={'idle':'secondary','running':'success','stopped':'secondary','failed':'danger','unknown':'light'};
+        var stateText={'idle':'空闲','running':'运行中','stopped':'已停止','failed':'异常','unknown':'—'};
+        var items=Object.keys(mods).map(function(id){
+            var s=mods[id];
+            var state=(s.state||'unknown').toLowerCase();
+            var badge=stateBadge[state]||'light';
+            var text=stateText[state]||state;
+            var name=names[id]||id;
+            var link='/'+id+'/';
+            return '<div class="col-6 col-md-4 col-xl-2">' +
+                   '<a href="'+link+'" class="text-decoration-none">' +
+                   '<div class="p-2 border rounded bg-light text-center position-relative">' +
+                   '<div class="fw-bold text-dark small mb-1 text-truncate" title="'+name+'">'+name+'</div>' +
+                   '<span class="badge bg-'+badge+' rounded-pill">'+text+'</span>' +
+                   '</div></a></div>';
+        });
+        ph.style.display='none';
+        list.style.display='flex';
+        list.innerHTML=items.join('');
+        countEl.textContent=items.length;
+    }).catch(function(){document.getElementById('moduleStatusPlaceholder').textContent='加载失败';});
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-0">
+            <ul class="nav nav-pills p-2 gap-2">
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path == '/prd_audit_clone/' else '' }}" href="/prd_audit_clone/">
+                        <i class="fas fa-search me-2"></i>PRD审计
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit_clone/knowledge') else '' }}" href="/prd_audit_clone/knowledge">
+                        <i class="fas fa-database me-2"></i>PRD知识库
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit_clone/rules') else '' }}" href="/prd_audit_clone/rules">
+                        <i class="fas fa-shield-alt me-2"></i>PRD规则库
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit_clone/bug_patterns') else '' }}" href="/prd_audit_clone/bug_patterns">
+                        <i class="fas fa-bug me-2"></i>Bug模式库
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit_clone/learning_mvp') else '' }}" href="/prd_audit_clone/learning_mvp">
+                        <i class="fas fa-brain me-2"></i>学习MVP
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit_clone/matrix_view') else '' }}" href="/prd_audit_clone/matrix_view">
+                        <i class="fas fa-table me-2"></i>矩阵视图
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    {% block module_content %}{% endblock %}
+</div>
+{% endblock %}
+

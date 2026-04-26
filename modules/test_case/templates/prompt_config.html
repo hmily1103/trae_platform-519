@@ -1,0 +1,445 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .prompt-card {
+        height: 100%;
+        transition: transform 0.2s;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .prompt-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .prompt-content-preview {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: #666;
+        height: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+    }
+    .badge-outline {
+        background-color: #e3f2fd;
+        color: #1976d2;
+        border: 1px solid #bbdefb;
+    }
+    .badge-case-writing {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+    }
+    .card-footer-info {
+        font-size: 0.8em;
+        color: #999;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 顶部标题和操作栏 -->
+    <div class="d-flex justify-content-between align-items-center mb-4 text-center">
+        <div class="text-center w-100 position-relative">
+            <h2 class="mb-1"><i class="fas fa-magic me-2 text-primary"></i>提示词配置</h2>
+            <p class="text-muted mb-0">配置用于测试用例编写和评审的AI提示词</p>
+            
+            <!-- 右侧按钮组 -->
+            <div class="position-absolute end-0 top-50 translate-middle-y">
+                <button class="btn btn-outline-secondary me-2" onclick="openLLMConfig()">
+                    <i class="fas fa-cog"></i> 全局配置
+                </button>
+                <button class="btn btn-purple text-white me-2" style="background-color: #6f42c1;" onclick="loadDefaults()">
+                    <i class="fas fa-download"></i> 加载默认提示词
+                </button>
+                <button class="btn btn-success" onclick="showAddPromptModal()">
+                    <i class="fas fa-plus"></i> 添加配置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示词列表容器 -->
+    <div class="row" id="promptsContainer">
+        <!-- 动态加载 -->
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑/添加提示词模态框 -->
+<div class="modal fade" id="promptModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="promptModalTitle">编辑提示词</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="promptForm">
+                    <input type="hidden" id="promptId">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">配置名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="promptName" placeholder="例如：严格评审版" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">类型</label>
+                            <select class="form-select" id="promptType">
+                                <option value="outline_writing">测试大纲编写</option>
+                                <option value="case_writing">测试用例编写</option>
+                                <option value="prd_review">PRD 漏洞分析</option>
+                                <option value="review">用例评审</option>
+                                <option value="other">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">提示词内容 <span class="text-danger">*</span></label>
+                        <div class="form-text mb-2">支持使用 <code>{content}</code> 作为用户输入的占位符</div>
+                        <textarea class="form-control" id="promptContent" rows="10" required></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">标签</label>
+                            <input type="text" class="form-control" id="promptTags" placeholder="多个标签用逗号分隔">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">状态</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="promptActive" checked>
+                                <label class="form-check-label" for="promptActive">启用此配置</label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="savePrompt()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LLM 全局配置模态框 -->
+<div class="modal fade" id="llmConfigModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-cog me-2"></i>LLM 全局配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="llmConfigForm">
+                    <div class="mb-3">
+                        <label class="form-label">Provider</label>
+                        <select class="form-select" id="llmProvider">
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="gemini">Gemini (Google)</option>
+                            <option value="volcengine">火山引擎（方舟 / 豆包）</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="custom">Custom (Compatible)</option>
+                        </select>
+                        <div class="form-text" id="llmProviderHint">先选 Provider，再在下方填写对应的 API Key</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Base URL</label>
+                        <input type="text" class="form-control" id="llmBaseUrl" placeholder="https://api.deepseek.com/v1">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">API Key</label>
+                        <input type="password" class="form-control" id="llmApiKey" placeholder="sk-...">
+                        <div class="form-text" id="llmApiKeyHint">Key 将以加密或脱敏方式存储</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Model Name</label>
+                        <input type="text" class="form-control" id="llmModel" placeholder="deepseek-chat">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveLLMConfig()">保存配置</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const promptModal = new bootstrap.Modal(document.getElementById('promptModal'));
+    const llmConfigModal = new bootstrap.Modal(document.getElementById('llmConfigModal'));
+
+    $(document).ready(function() {
+        loadPrompts();
+    });
+
+    // 加载提示词列表
+    async function loadPrompts() {
+        try {
+            const result = await ApiClient.get('/test_case/api/prompts', { showLoading: false });
+            const container = $('#promptsContainer');
+            container.empty();
+
+            if (!result.data || result.data.length === 0) {
+                container.html(`
+                    <div class="col-12 text-center py-5 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>暂无配置，请点击右上角"添加配置"或"加载默认提示词"</p>
+                    </div>
+                `);
+                return;
+            }
+
+            result.data.forEach(prompt => {
+                const typeLabel = getTypeName(prompt.type);
+                const typeClass = prompt.type === 'case_writing' ? 'badge-case-writing' : 'badge-outline';
+                const statusBadge = prompt.is_active ? 
+                    '<span class="badge bg-success bg-opacity-10 text-success">启用</span>' : 
+                    '<span class="badge bg-secondary bg-opacity-10 text-secondary">禁用</span>';
+                
+                const cardHtml = `
+                    <div class="col-md-6 col-lg-6 mb-4">
+                        <div class="card prompt-card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div>
+                                        <h5 class="card-title mb-1 fw-bold">${escapeHtml(prompt.name)}</h5>
+                                        <div class="mt-2">
+                                            <span class="badge ${typeClass} me-2">${typeLabel}</span>
+                                            ${statusBadge}
+                                        </div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-primary" onclick="previewPrompt('${prompt.id}')">
+                                            <i class="fas fa-eye"></i> 预览
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning" onclick='editPrompt(${JSON.stringify(prompt)})'>
+                                            <i class="fas fa-edit"></i> 编辑
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deletePrompt('${prompt.id}')">
+                                            <i class="fas fa-trash"></i> 删除
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <h6 class="text-muted mb-2" style="font-size: 0.85rem;">提示词内容预览:</h6>
+                                    <div class="prompt-content-preview">
+                                        ${escapeHtml(prompt.content)}
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-end mt-3 pt-3 border-top">
+                                    <div class="card-footer-info">
+                                        <div>创建时间: ${formatDate(prompt.created_at)}</div>
+                                        <div>更新时间: ${formatDate(prompt.updated_at)}</div>
+                                    </div>
+                                    <div class="card-footer-info text-end">
+                                        <div>创建者: ${escapeHtml(prompt.created_by)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.append(cardHtml);
+            });
+
+        } catch (error) {
+            console.error(error);
+            toast.error('加载提示词列表失败');
+        }
+    }
+
+    function getTypeName(type) {
+        const map = {
+            'outline_writing': '测试大纲编写',
+            'case_writing': '测试用例编写',
+            'prd_review': 'PRD 漏洞分析',
+            'review': '用例评审',
+            'other': '其他'
+        };
+        return map[type] || type;
+    }
+
+    // 显示添加模态框
+    function showAddPromptModal() {
+        $('#promptId').val('');
+        $('#promptName').val('');
+        $('#promptType').val('case_writing');
+        $('#promptContent').val('');
+        $('#promptTags').val('');
+        $('#promptActive').prop('checked', true);
+        $('#promptModalTitle').text('添加提示词配置');
+        promptModal.show();
+    }
+
+    // 编辑提示词
+    function editPrompt(prompt) {
+        $('#promptId').val(prompt.id);
+        $('#promptName').val(prompt.name);
+        $('#promptType').val(prompt.type);
+        $('#promptContent').val(prompt.content);
+        $('#promptTags').val(prompt.tags ? prompt.tags.join(',') : '');
+        $('#promptActive').prop('checked', prompt.is_active);
+        $('#promptModalTitle').text('编辑提示词配置');
+        promptModal.show();
+    }
+
+    // 保存提示词
+    async function savePrompt() {
+        const id = $('#promptId').val();
+        const data = {
+            name: $('#promptName').val(),
+            type: $('#promptType').val(),
+            content: $('#promptContent').val(),
+            tags: $('#promptTags').val().split(',').map(t => t.trim()).filter(t => t),
+            is_active: $('#promptActive').is(':checked')
+        };
+
+        if (!data.name || !data.content) {
+            toast.warning('名称和内容不能为空');
+            return;
+        }
+
+        try {
+            if (id) {
+                await ApiClient.put(`/test_case/api/prompts/${id}`, data);
+                toast.success('更新成功');
+            } else {
+                await ApiClient.post('/test_case/api/prompts', data);
+                toast.success('创建成功');
+            }
+            promptModal.hide();
+            loadPrompts();
+        } catch (error) {
+            console.error(error);
+            toast.error('保存失败: ' + (error.message || '未知错误'));
+        }
+    }
+
+    // 删除提示词
+    async function deletePrompt(id) {
+        if (!confirm('确定要删除这个提示词配置吗？')) return;
+
+        try {
+            await ApiClient.delete(`/test_case/api/prompts/${id}`);
+            toast.success('删除成功');
+            loadPrompts();
+        } catch (error) {
+            console.error(error);
+            toast.error('删除失败');
+        }
+    }
+
+    // 加载默认提示词
+    async function loadDefaults() {
+        try {
+            const result = await ApiClient.post('/test_case/api/prompts/load_defaults');
+            toast.success(result.message || '加载成功');
+            loadPrompts();
+        } catch (error) {
+            console.error(error);
+            toast.error('加载默认提示词失败');
+        }
+    }
+
+    // 打开 LLM 配置
+    async function openLLMConfig() {
+        try {
+            const result = await ApiClient.get('/test_case/api/llm_config');
+            const config = result.data || {};
+            
+            $('#llmProvider').val(config.llm_provider || 'deepseek');
+            $('#llmBaseUrl').val(config.base_url || 'https://api.deepseek.com/v1');
+            $('#llmApiKey').val(config.api_key || '');
+            $('#llmModel').val(config.model || 'deepseek-chat');
+            applyProviderDefaults(true);
+            
+            llmConfigModal.show();
+        } catch (error) {
+            console.error(error);
+            toast.error('获取配置失败');
+        }
+    }
+
+    function applyProviderDefaults(isOpenInit) {
+        try {
+            var provider = ($('#llmProvider').val() || 'deepseek').toLowerCase();
+            var base = ($('#llmBaseUrl').val() || '').trim();
+            var model = ($('#llmModel').val() || '').trim();
+            var keyHint = document.getElementById('llmApiKeyHint');
+            if (provider === 'volcengine') {
+                $('#llmApiKey').attr('placeholder', 'api-key-...');
+                if (keyHint) keyHint.textContent = '火山引擎（方舟/豆包）Key 以 api-key- 开头；也可用环境变量 VOLCENGINE_API_KEY / ARK_API_KEY';
+                if (isOpenInit || !base || base.indexOf('api.deepseek.com') >= 0) $('#llmBaseUrl').val('https://ark.cn-beijing.volces.com/api/v3');
+                if (isOpenInit || !model || model === 'deepseek-chat') $('#llmModel').val('doubao-pro-32k');
+            } else if (provider === 'gemini') {
+                $('#llmApiKey').attr('placeholder', 'AIza...（Gemini Key）');
+                if (keyHint) keyHint.textContent = 'Gemini 使用 Google API Key（也可用环境变量 GEMINI_API_KEY）';
+            } else {
+                $('#llmApiKey').attr('placeholder', 'sk-...');
+                if (keyHint) keyHint.textContent = 'Key 将以加密或脱敏方式存储';
+                if (isOpenInit || !base) $('#llmBaseUrl').val(base || 'https://api.deepseek.com/v1');
+                if (isOpenInit || !model) $('#llmModel').val(model || 'deepseek-chat');
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    try { $('#llmProvider').on('change', function() { applyProviderDefaults(false); }); } catch (e) {}
+
+    // 保存 LLM 配置
+    async function saveLLMConfig() {
+        const data = {
+            llm_provider: $('#llmProvider').val(),
+            base_url: $('#llmBaseUrl').val(),
+            api_key: $('#llmApiKey').val(),
+            model: $('#llmModel').val()
+        };
+
+        try {
+            await ApiClient.post('/test_case/api/llm_config', data);
+            toast.success('配置已保存');
+            llmConfigModal.hide();
+        } catch (error) {
+            console.error(error);
+            toast.error('保存配置失败');
+        }
+    }
+
+    function formatDate(isoString) {
+        if (!isoString) return '-';
+        return new Date(isoString).toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+{% endblock %}

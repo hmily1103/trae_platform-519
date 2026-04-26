@@ -1,0 +1,59 @@
+{# 设备连接卡片 - 可复用组件
+   用法: {% include 'components/device_connection_card.html' %}
+   需在 include 前 set: api_prefix, mode, card_title, select_id, show_device_list
+   或使用默认: api_prefix='/player_stress', mode='select', card_title='设备连接', select_id='deviceId', show_device_list=false
+   mode: 'select' 仅下拉+刷新 | 'connect' IP+端口+连接 | 'both' 两者都有
+#}
+{% set api_prefix = api_prefix | default('/player_stress') %}
+{% set mode = mode | default('select') %}
+{% set card_title = card_title | default('设备连接') %}
+{% set select_id = select_id | default('deviceId') %}
+{% set show_device_list = show_device_list | default(false) %}
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0"><i class="fas fa-mobile-alt"></i> {{ card_title }}</h5>
+    </div>
+    <div class="card-body">
+        {% if mode in ('connect', 'both') %}
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">设备 IP</label>
+                <input type="text" class="form-control" id="deviceIp" placeholder="例如: 192.168.1.100">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">端口</label>
+                <input type="number" class="form-control" id="devicePort" value="8787">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button class="btn btn-primary" onclick="typeof connectDevice==='function'&&connectDevice()">
+                        <i class="fas fa-link"></i> 连接设备
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshDevices()">
+                        <i class="fas fa-sync-alt"></i> 刷新列表
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if mode in ('select', 'both') %}
+        <div class="row mb-3">
+            <label for="{{ select_id }}" class="col-sm-2 col-form-label">目标设备</label>
+            <div class="col-sm-8">
+                <select class="form-select" id="{{ select_id }}" {% if mode == 'select' %}required{% endif %}>
+                    <option value="" disabled selected>正在加载设备...</option>
+                </select>
+            </div>
+            <div class="col-sm-2">
+                <button type="button" class="btn btn-outline-secondary w-100" onclick="refreshDevices()">刷新</button>
+            </div>
+        </div>
+        {% endif %}
+        {% if show_device_list %}
+        <div id="deviceList" class="mt-3">
+            <div class="text-muted">点击"刷新列表"加载设备...</div>
+        </div>
+        {% endif %}
+    </div>
+</div>

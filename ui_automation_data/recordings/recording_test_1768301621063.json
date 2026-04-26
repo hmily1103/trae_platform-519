@@ -1,0 +1,49 @@
+{
+  "id": "recording_test_1768301621063",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-01-13T18:53:41.306717",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "0,0",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_test_1768301621063\\step_1.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_test_1768301621063\\step_1.xml",
+      "timestamp": 1768301631.019729,
+      "wait_after": 1000,
+      "description": "topleft"
+    },
+    {
+      "step_num": 2,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "360,640",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 360,
+        "y": 640
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_test_1768301621063\\step_2.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_test_1768301621063\\step_2.xml",
+      "timestamp": 1768301639.8059886,
+      "wait_after": 1000,
+      "description": "center"
+    }
+  ],
+  "description": "e2e"
+}

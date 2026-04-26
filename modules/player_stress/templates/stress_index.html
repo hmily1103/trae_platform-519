@@ -1,0 +1,1045 @@
+{% extends "base.html" %}
+
+{% block title %}播放器压测 - Trae Platform{% endblock %}
+
+
+
+{% block content %}
+<!-- Hero Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm bg-primary text-white" style="background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="fw-bold mb-1"><i class="bi bi-speedometer2 me-2"></i>播放器专项压测</h2>
+                        <p class="mb-0 opacity-75">针对播放器性能、稳定性及功耗的深度测试与分析工具。</p>
+                    </div>
+                    <div>
+                        <span class="badge bg-white text-primary fs-6 px-3 py-2 rounded-pill shadow-sm">
+                            <i class="bi bi-check-circle-fill me-1"></i> Ready
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <!-- Navigation Tabs -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 pt-3 pb-0">
+                <ul class="nav nav-tabs card-header-tabs" id="stressTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold py-3" id="control-tab" data-bs-toggle="tab" data-bs-target="#control-panel" type="button" role="tab">
+                            <i class="bi bi-sliders me-2"></i>测试配置
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold py-3" id="monitoring-tab" data-bs-toggle="tab" data-bs-target="#monitoring-panel" type="button" role="tab">
+                            <i class="bi bi-activity me-2"></i>实时监控
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold py-3" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs-panel" type="button" role="tab">
+                            <i class="bi bi-terminal me-2"></i>实时日志
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold py-3" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports-panel" type="button" role="tab">
+                            <i class="bi bi-file-earmark-text me-2"></i>历史报告
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="card-body p-4">
+                <div class="tab-content" id="stressTabContent">
+                    
+                    <!-- Control Panel -->
+                    <div class="tab-pane fade show active" id="control-panel" role="tabpanel">
+                        <form id="stressForm">
+                            <div class="row g-4">
+                                <!-- Left Column: Core Configuration -->
+                                <div class="col-lg-8">
+                                    <div class="card border bg-light h-100">
+                                        <div class="card-header bg-white py-3">
+                                            <h6 class="mb-0 fw-bold text-primary"><i class="bi bi-gear-fill me-2"></i>核心配置</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row mb-4">
+                                                <div class="col-md-6">
+                                                    <label for="deviceId" class="form-label fw-bold small text-uppercase text-muted">目标设备</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-white"><i class="bi bi-phone"></i></span>
+                                                        <select class="form-select" id="deviceId" required>
+                                                            <option value="" disabled selected>正在加载设备...</option>
+                                                        </select>
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="refreshDevices()" title="刷新设备列表">
+                                                            <i class="bi bi-arrow-clockwise"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="packageName" class="form-label fw-bold small text-uppercase text-muted">测试包名</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-white"><i class="bi bi-box-seam"></i></span>
+                                                        <input type="text" class="form-control" id="packageName" value="com.thunder.ktv:media">
+                                                    </div>
+                                                    <div class="form-text small">多进程应用请指定完整进程名</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="row mb-4">
+                                                <div class="col-md-6">
+                                                    <label for="testMode" class="form-label fw-bold small text-uppercase text-muted">测试模式</label>
+                                                    <select class="form-select" id="testMode">
+                                                        <option value="monitor_only">纯监控模式 (Monitor Only)</option>
+                                                        <option value="fixed_skip">固定间隔切歌 (Fixed Skip)</option>
+                                                        <option value="loop_playback">循环播放压测 (Loop Playback)</option>
+                                                    </select>
+                                                    
+                                                    <div id="songChangeKeywordsGroup" class="mt-3 p-3 bg-white rounded border" style="display: none;">
+                                                        <label for="songChangeKeywords" class="form-label small fw-bold">切歌检测关键字 (Logcat)</label>
+                                                        <input type="text" class="form-control form-control-sm mb-1" id="songChangeKeywords" placeholder="例: playSong, onTrackChanged" title="逗号分隔">
+                                                        <div class="form-text small text-muted">
+                                                            用于统计播放歌曲数。请填入<strong>每首新歌开始时</strong>日志中出现的关键字。
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="duration" class="form-label fw-bold small text-uppercase text-muted">监控时长</label>
+                                                    <select class="form-select" id="duration">
+                                                        <option value="10">10分钟（快速测试）</option>
+                                                        <option value="30">30分钟（标准测试）</option>
+                                                        <option value="60" selected>1小时（推荐）</option>
+                                                        <option value="120">2小时（长时间测试）</option>
+                                                        <option value="180">3小时（深度测试）</option>
+                                                        <option value="360">6小时（超长时间测试）</option>
+                                                        <option value="720">12小时（全天测试）</option>
+                                                        <option value="1440">24小时（极限测试）</option>
+                                                        <option value="custom">自定义时长...</option>
+                                                    </select>
+                                                    <div id="customDurationGroup" class="mt-2" style="display: none;">
+                                                        <input type="number" class="form-control" id="customDuration" placeholder="输入分钟数 (10-1440)" min="10" max="1440">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="row">
+                                                <div class="col-12">
+                                                    <label class="form-label fw-bold small text-uppercase text-muted">监控强度与策略</label>
+                                                    <div class="p-3 bg-white border rounded">
+                                                        <div class="row g-3">
+                                                            <div class="col-md-6">
+                                                                <label for="performanceMode" class="form-label small">监控模式</label>
+                                                                <select class="form-select" id="performanceMode">
+                                                                    <option value="极低功耗">极低功耗 (零干扰)</option>
+                                                                    <option value="标准模式" selected>标准模式 (推荐)</option>
+                                                                    <option value="深度压测">深度压测 (高频)</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-6" id="intervalConfig" style="display: none;">
+                                                                <label for="intervalSeconds" class="form-label small">采样间隔 (秒)</label>
+                                                                <input type="number" class="form-control" id="intervalSeconds" value="5" min="1" max="10">
+                                                            </div>
+                                                            <div class="col-12">
+                                                                <div class="form-text small text-muted mt-0">
+                                                                    <i class="bi bi-info-circle me-1"></i>
+                                                                    <span class="text-success fw-bold">极低功耗</span>：不采集FPS/截图；
+                                                                    <span class="text-primary fw-bold">标准模式</span>：采集FPS和截图；
+                                                                    <span class="text-danger fw-bold">深度压测</span>：高频截图（仅用于排查）。
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Right Column: Environment & Advanced -->
+                                <div class="col-lg-4">
+                                    <!-- Environment Check -->
+                                    <div class="card border bg-light mb-4">
+                                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0 fw-bold text-success"><i class="bi bi-check2-circle me-2"></i>环境检查</h6>
+                                            <button type="button" class="btn btn-sm btn-link text-decoration-none p-0" onclick="checkEnvironment()">刷新</button>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label class="form-label small text-muted mb-1">Root 权限</label>
+                                                <div class="d-flex align-items-center">
+                                                    <span id="rootStatus" class="badge bg-secondary w-100 py-2">检查中...</span>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label small text-muted mb-1">电视端 Display</label>
+                                                <div class="d-flex align-items-center">
+                                                    <span id="displayStatus" class="badge bg-secondary w-100 py-2">检查中...</span>
+                                                </div>
+                                            </div>
+                                            <div class="mb-0">
+                                                <label for="targetDisplays" class="form-label small text-muted mb-1">监控目标屏</label>
+                                                <select class="form-select form-select-sm" id="targetDisplays" multiple size="3">
+                                                    <option value="0">Display 0 (点歌屏)</option>
+                                                    <option value="1" selected>Display 1 (电视屏)</option>
+                                                    <option value="2">Display 2 (电视屏2)</option>
+                                                </select>
+                                                <div class="form-text small fst-italic">建议只选电视屏 (Display 1/2)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- HTTP VOD (Collapsed) -->
+                                    <div class="accordion" id="advancedAccordion">
+                                        <div class="accordion-item border-0 shadow-sm">
+                                            <h2 class="accordion-header" id="headingVod">
+                                                <button class="accordion-button collapsed fw-bold text-secondary bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVod">
+                                                    <i class="bi bi-hdd-network me-2"></i>HTTP 点歌配置 (可选)
+                                                </button>
+                                            </h2>
+                                            <div id="collapseVod" class="accordion-collapse collapse" data-bs-parent="#advancedAccordion">
+                                                <div class="accordion-body bg-light">
+                                                    <div class="form-check form-switch mb-3">
+                                                        <input class="form-check-input" type="checkbox" id="enableHttpVod">
+                                                        <label class="form-check-label small fw-bold" for="enableHttpVod">启用 HTTP 点歌</label>
+                                                    </div>
+                                                    <div id="httpVodConfig" style="display: none;">
+                                                        <div class="mb-2">
+                                                            <label class="form-label small mb-0">服务器 IP</label>
+                                                            <input type="text" class="form-control form-control-sm" id="serverIp" value="192.168.1.100">
+                                                        </div>
+                                                        <div class="mb-2">
+                                                            <label class="form-label small mb-0">机顶盒 IP</label>
+                                                            <input type="text" class="form-control form-control-sm" id="stbIp" value="192.168.1.101">
+                                                        </div>
+                                                        <div class="mb-0">
+                                                            <label class="form-label small mb-0">歌曲 ID 列表</label>
+                                                            <input type="text" class="form-control form-control-sm" id="musicList" value="1001,1002,1003">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Action Buttons -->
+                                    <div class="d-grid gap-2 mt-4">
+                                        <button type="button" class="btn btn-primary btn-lg shadow-sm" id="startBtn" onclick="startTest()">
+                                            <i class="bi bi-play-fill me-1"></i> 开始压测
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-lg shadow-sm" id="stopBtn" onclick="stopTest()" disabled>
+                                            <i class="bi bi-stop-fill me-1"></i> 停止压测
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Monitoring Panel -->
+                    <div class="tab-pane fade" id="monitoring-panel" role="tabpanel">
+                        <div class="row g-3 mb-4">
+                            <!-- KPI Cards -->
+                            <div class="col-md-6 col-xl-3">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex align-items-center">
+                                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3 text-primary">
+                                            <i class="bi bi-film fa-lg"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="text-muted text-uppercase small fw-bold mb-1">视频 FPS</h6>
+                                            <h3 class="fw-bold mb-0 text-dark" id="metric-video-fps">-</h3>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-xl-3">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex align-items-center">
+                                        <div class="bg-info bg-opacity-10 p-3 rounded-circle me-3 text-info">
+                                            <i class="bi bi-cpu fa-lg"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="text-muted text-uppercase small fw-bold mb-1">CPU 使用率</h6>
+                                            <h3 class="fw-bold mb-0 text-dark" id="metric-cpu">- %</h3>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-xl-3">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex align-items-center">
+                                        <div class="bg-success bg-opacity-10 p-3 rounded-circle me-3 text-success">
+                                            <i class="bi bi-music-note-beamed fa-lg"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="text-muted text-uppercase small fw-bold mb-1">播放歌曲数</h6>
+                                            <h3 class="fw-bold mb-0 text-dark" id="metric-song-count">-</h3>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-xl-3">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex align-items-center">
+                                        <div class="bg-warning bg-opacity-10 p-3 rounded-circle me-3 text-warning">
+                                            <i class="bi bi-memory fa-lg"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="text-muted text-uppercase small fw-bold mb-1">内存占用</h6>
+                                            <h3 class="fw-bold mb-0 text-dark" id="metric-memory">- MB</h3>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Row -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-muted small fw-bold mb-1">解码器计数</h6>
+                                            <h4 class="mb-0" id="metric-work-count">-</h4>
+                                        </div>
+                                        <i class="bi bi-123 text-secondary fs-4"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-muted small fw-bold mb-1">解码器状态</h6>
+                                            <div id="metric-decoder-status"><span class="badge bg-secondary">-</span></div>
+                                        </div>
+                                        <i class="bi bi-gpu-card text-secondary fs-4"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-muted small fw-bold mb-1">电视端卡顿</h6>
+                                            <div id="metric-tv-stutter"><span class="badge bg-secondary">-</span></div>
+                                        </div>
+                                        <i class="bi bi-display text-secondary fs-4"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts -->
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3">
+                                <h5 class="mb-0 fw-bold"><i class="bi bi-graph-up me-2 text-primary"></i>性能趋势图</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="fpsChart" height="100"></canvas>
+                                <hr class="my-4">
+                                <canvas id="workCountChart" height="100"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Logs Panel -->
+                    <div class="tab-pane fade" id="logs-panel" role="tabpanel">
+                        <div class="card border-0 shadow-sm bg-dark text-white">
+                            <div class="card-header bg-secondary bg-opacity-25 border-bottom border-secondary d-flex justify-content-between align-items-center py-2">
+                                <span class="small font-monospace"><i class="bi bi-terminal-fill me-2"></i>Console Output</span>
+                                <div class="form-check form-switch form-check-sm">
+                                    <input class="form-check-input" type="checkbox" id="autoScroll" checked>
+                                    <label class="form-check-label small" for="autoScroll">自动滚动</label>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="p-3 font-monospace small" style="height: 600px; overflow-y: auto; background-color: #0f172a; color: #cbd5e1;" id="logContainer">
+                                    <div id="logContent" style="white-space: pre-wrap;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Reports Panel -->
+                    <div class="tab-pane fade" id="reports-panel" role="tabpanel">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0 fw-bold"><i class="bi bi-file-earmark-text me-2 text-primary"></i>测试报告列表</h5>
+                                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="loadReports()">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> 刷新
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="list-group list-group-flush" id="reportList">
+                                    <div class="text-center text-muted py-5">
+                                        <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                                        <div>正在加载报告数据...</div>
+                                    </div>
+                                </div>
+
+                    </div>
+                </div>
+                
+                <!-- 使用说明 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">ℹ️ 使用说明</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>📖 快速开始</h6>
+                        <ol>
+                            <li>在<strong>测试配置</strong>标签页中选择设备、输入包名</li>
+                            <li>选择监控强度（推荐：极低功耗）和监控时长</li>
+                            <li>点击"开始压测"启动测试</li>
+                            <li>切换到<strong>实时监控</strong>标签页查看性能指标</li>
+                            <li>测试结束后，在<strong>历史报告</strong>标签页查看报告</li>
+                        </ol>
+                        
+                        <h6 class="mt-3">⚡ 监控模式说明</h6>
+                        <ul>
+                            <li><strong>极低功耗</strong>：仅监控RK硬件节点，零性能影响，100%排除工具干扰</li>
+                            <li><strong>标准模式</strong>：增加FPS采集和30s间隔截图，轻微性能影响</li>
+                            <li><strong>深度压测</strong>：高频截图+模拟点歌，仅用于复现特定问题</li>
+                        </ul>
+                        
+                        <h6 class="mt-3">🔍 故障排查</h6>
+                        <ul>
+                            <li><strong>设备连接失败</strong>：检查 <code>adb devices</code> 是否能检测到设备</li>
+                            <li><strong>Root权限不可用</strong>：检查设备是否已Root</li>
+                            <li><strong>没有报告</strong>：确保测试正常结束（不要强制关闭）</li>
+                            <li><strong>页面不刷新</strong>：测试运行时会自动刷新，或手动刷新页面</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    let logInterval = null;
+
+    async function refreshDevices() {
+        const select = document.getElementById('deviceId');
+        select.innerHTML = '<option disabled selected>加载中...</option>';
+        
+        try {
+            const data = await ApiClient.get('/player_stress/api/devices', {
+                showLoading: false
+            });
+            
+            select.innerHTML = '';
+            const devices = data.data?.devices || data.devices || [];
+            if(devices.length > 0) {
+                devices.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d;
+                    opt.text = d;
+                    select.appendChild(opt);
+                });
+                // 返回Promise以便链式调用
+                return Promise.resolve();
+            } else {
+                select.innerHTML = '<option disabled selected>未检测到设备</option>';
+                return Promise.resolve();
+            }
+        } catch (error) {
+            select.innerHTML = '<option disabled selected>获取失败</option>';
+            // 错误已自动处理
+            return Promise.reject(error);
+        }
+    }
+    
+    // 环境检查
+    async function checkEnvironment() {
+        const rootStatus = document.getElementById('rootStatus');
+        const displayStatus = document.getElementById('displayStatus');
+        
+        // 获取选中的设备ID
+        const deviceSelect = document.getElementById('deviceId');
+        const deviceId = deviceSelect ? deviceSelect.value : null;
+        
+        // 先显示检查中状态
+        if(rootStatus) {
+            rootStatus.textContent = '检查中...';
+            rootStatus.className = 'badge bg-secondary';
+        }
+        if(displayStatus) {
+            displayStatus.textContent = '检查中...';
+            displayStatus.className = 'badge bg-secondary';
+        }
+        
+        try {
+            // 如果有选中的设备，传递设备ID
+            const url = deviceId ? 
+                `/player_stress/api/environment?device_id=${encodeURIComponent(deviceId)}` : 
+                '/player_stress/api/environment';
+            
+            const data = await ApiClient.get(url, {
+                showLoading: false
+            });
+            
+            if(data.success || data.ok) {
+                const env = data.data || {};
+                
+                // Root权限状态
+                if(rootStatus) {
+                    if(env.root_available) {
+                        rootStatus.textContent = '✅ 可用';
+                        rootStatus.className = 'badge bg-success';
+                    } else {
+                        const errorMsg = env.root_error ? ` (${env.root_error.substring(0, 20)}...)` : '';
+                        rootStatus.textContent = '⚠️ 不可用' + errorMsg;
+                        rootStatus.className = 'badge bg-warning';
+                        rootStatus.title = env.root_error || 'Root权限不可用';
+                    }
+                }
+                
+                // Display状态
+                if(displayStatus) {
+                    const displays = env.available_displays || [];
+                    if(displays.length > 0) {
+                        displayStatus.textContent = `📺 Display ${displays.join(', ')}`;
+                        displayStatus.className = 'badge bg-info';
+                        displayStatus.title = '检测到的Display ID';
+                        
+                        // 更新监控目标屏选项
+                        const targetSelect = document.getElementById('targetDisplays');
+                        if(targetSelect) {
+                            // 如果检测到Display 2，确保选项存在
+                            if(displays.includes(2) && !Array.from(targetSelect.options).some(opt => opt.value === '2')) {
+                                const opt2 = document.createElement('option');
+                                opt2.value = '2';
+                                opt2.text = 'Display 2 (电视屏2)';
+                                targetSelect.appendChild(opt2);
+                            }
+                        }
+                    } else {
+                        const errorMsg = env.display_error ? ` (${env.display_error.substring(0, 20)}...)` : '';
+                        displayStatus.textContent = '⚠️ 未检测到' + errorMsg;
+                        displayStatus.className = 'badge bg-warning';
+                        displayStatus.title = env.display_error || '未检测到Display';
+                    }
+                }
+            } else {
+                // API返回错误
+                const errorMsg = data.message || data.error || '检查失败';
+                if(rootStatus) {
+                    rootStatus.textContent = '❌ 失败';
+                    rootStatus.className = 'badge bg-danger';
+                    rootStatus.title = errorMsg;
+                }
+                if(displayStatus) {
+                    displayStatus.textContent = '❌ 失败';
+                    displayStatus.className = 'badge bg-danger';
+                    displayStatus.title = errorMsg;
+                }
+            }
+        } catch (error) {
+            // 网络错误或其他异常
+            const errorMsg = error.message || '网络错误';
+            if(rootStatus) {
+                rootStatus.textContent = '❌ 检查失败';
+                rootStatus.className = 'badge bg-danger';
+                rootStatus.title = errorMsg;
+            }
+            if(displayStatus) {
+                displayStatus.textContent = '❌ 检查失败';
+                displayStatus.className = 'badge bg-danger';
+                displayStatus.title = errorMsg;
+            }
+            console.error('环境检查失败:', error);
+        }
+    }
+    
+    // 获取监控时长（分钟）
+    function getDurationMinutes() {
+        const durationSelect = document.getElementById('duration');
+        if(durationSelect.value === 'custom') {
+            const customValue = parseInt(document.getElementById('customDuration').value);
+            if(isNaN(customValue) || customValue < 10 || customValue > 1440) {
+                return null; // 无效值
+            }
+            return customValue;
+        }
+        return parseInt(durationSelect.value);
+    }
+    
+    // 格式化时长显示
+    function formatDuration(minutes) {
+        if(minutes < 60) {
+            return `${minutes}分钟`;
+        } else if(minutes === 60) {
+            return '1小时';
+        } else {
+            return `${(minutes / 60).toFixed(1)}小时`;
+        }
+    }
+    
+    async function startTest() {
+        const deviceId = document.getElementById('deviceId').value;
+        if(!deviceId) {
+            toast.warning('请先选择设备');
+            return;
+        }
+        
+        // 获取并验证时长
+        const duration = getDurationMinutes();
+        if(duration === null) {
+            toast.warning('请输入有效的监控时长（10-1440分钟）');
+            if(document.getElementById('duration').value === 'custom') {
+                document.getElementById('customDuration').focus();
+            }
+            return;
+        }
+        
+        // 获取监控模式配置
+        const performanceMode = document.getElementById('performanceMode').value;
+        let intervalSeconds = 5; // 默认值
+        
+        if(performanceMode === '标准模式') {
+            intervalSeconds = parseInt(document.getElementById('intervalSeconds').value) || 5;
+            if(intervalSeconds < 1 || intervalSeconds > 10) {
+                toast.warning('采样间隔必须在1-10秒之间');
+                return;
+            }
+        } else if(performanceMode === '深度压测') {
+            intervalSeconds = 1;
+        }
+        
+        // 确认对话框（显示配置信息）
+        const durationText = formatDuration(duration);
+        const modeText = performanceMode === '极低功耗' ? '极低功耗（零干扰）' : 
+                        performanceMode === '标准模式' ? `标准模式（${intervalSeconds}秒采样）` : 
+                        '深度压测（高频监控）';
+        const confirmed = await ConfirmDialog.show(
+            `确定要启动播放器压测吗？\n\n监控时长：${durationText}\n监控强度：${modeText}`,
+            '确认启动测试'
+        );
+        if (!confirmed) return;
+        
+        // 获取监控目标屏
+        const targetDisplaysSelect = document.getElementById('targetDisplays');
+        const targetDisplays = Array.from(targetDisplaysSelect.selectedOptions).map(opt => parseInt(opt.value));
+        
+        // 获取HTTP VOD配置
+        let httpVod = null;
+        if(document.getElementById('enableHttpVod').checked) {
+            httpVod = {
+                server_ip: document.getElementById('serverIp').value,
+                stb_ip: document.getElementById('stbIp').value,
+                music_list: document.getElementById('musicList').value.split(',').map(s => s.trim())
+            };
+        }
+        
+        const songChangeKeywordsRaw = document.getElementById('songChangeKeywords')?.value || '';
+        const songChangeKeywords = songChangeKeywordsRaw.split(',').map(s => s.trim()).filter(Boolean);
+        
+        const payload = {
+            device_id: deviceId,
+            package_name: document.getElementById('packageName').value,
+            mode: document.getElementById('testMode').value,
+            duration: duration,
+            performance_mode: performanceMode,
+            interval_seconds: intervalSeconds,
+            target_displays: targetDisplays,
+            http_vod: httpVod,
+            song_change_keywords: songChangeKeywords
+        };
+        
+        try {
+            console.log('startTest: 发送启动请求，payload:', payload);
+            const result = await ApiClient.post('/player_stress/api/start', payload, {
+                showLoading: true,
+                loadingMessage: '正在启动压测...'
+            });
+            
+            console.log('startTest: 收到响应:', result);
+            
+            if(result.success || result.ok) {
+                toast.success(result.message || '压测已启动，请切换到监控面板查看实时状态。');
+                updateUIState(true);
+                // Switch to monitoring tab
+                document.querySelector('#monitoring-tab').click();
+                
+                // Start polling immediately - 立即获取一次日志
+                fetchLogs();
+                
+                // 然后开始定期轮询（1.5秒以更快获取性能数据）
+                if(!logInterval) {
+                    logInterval = setInterval(fetchLogs, 1500);
+                    console.log('startTest: 已启动状态轮询，间隔1.5秒');
+                }
+            } else {
+                console.error('startTest: 启动失败:', result);
+            }
+        } catch (error) {
+            console.error('startTest: 异常:', error);
+            // 错误已自动处理
+        }
+    }
+    
+    async function stopTest() {
+        const confirmed = await ConfirmDialog.danger(
+            '确定要停止当前压测吗？',
+            '确认停止测试'
+        );
+        if (!confirmed) return;
+        
+        try {
+            const result = await ApiClient.post('/player_stress/api/stop', {}, {
+                showLoading: true,
+                loadingMessage: '正在停止测试...'
+            });
+            
+            if(result.success || result.ok) {
+                toast.success(result.message || '测试已停止');
+                updateUIState(false);
+            }
+        } catch (error) {
+            // 错误已自动处理
+        }
+    }
+    
+    function updateUIState(running) {
+        document.getElementById('startBtn').disabled = running;
+        document.getElementById('stopBtn').disabled = !running;
+        // document.getElementById('stressForm').disabled = running; // Form disabled makes it hard to copy/paste or check
+        
+        if(running) {
+            if(!logInterval) {
+                logInterval = setInterval(fetchLogs, 1500);
+            }
+        } else {
+            if(logInterval) {
+                // Keep polling for a bit to get final logs?
+                // Or just stop.
+            }
+        }
+    }
+    
+    let fpsChart = null;
+    let workCountChart = null;
+    let chartData = { fps: [], workCount: [], labels: [] };
+    
+    async function fetchLogs() {
+        try {
+            const data = await ApiClient.get('/player_stress/api/status', {
+                showLoading: false
+            });
+            
+            if(data.success || data.ok) {
+                const logs = data.data?.logs || data.logs || [];
+                console.log('fetchLogs: 收到日志数量:', logs.length, '前3条:', logs.slice(0, 3));
+                const content = document.getElementById('logContent');
+                if(content) {
+                    if(logs.length > 0) {
+                        content.innerText = logs.join('\n'); // Simple text dump
+                    } else {
+                        content.innerText = '等待日志...\n（如果测试已启动但长时间无日志，请检查设备连接）';
+                    }
+                } else {
+                    console.error('logContent 元素未找到');
+                }
+                
+                if(document.getElementById('autoScroll').checked) {
+                    const container = document.getElementById('logContainer');
+                    container.scrollTop = container.scrollHeight;
+                }
+                
+                // Update metrics and charts (独立处理，确保有 history 就更新图表)
+                const metrics = data.data?.metrics;
+                const history = data.data?.history || [];
+                const running = data.data?.running !== undefined ? data.data.running : data.running;
+                const perfMode = data.data?.performance_mode;
+                
+                if(history.length > 0) {
+                    // 有历史数据时优先更新图表（即使 video_fps 全为 0 也显示趋势）
+                    updateCharts(history);
+                    document.querySelector('.chart-wait-hint')?.remove();
+                } else if(running) {
+                    const chartCard = document.querySelector('#fpsChart')?.closest('.card-body');
+                    if(chartCard && !chartCard.querySelector('.chart-wait-hint')) {
+                        const hint = document.createElement('div');
+                        hint.className = 'chart-wait-hint text-muted small mb-2';
+                        hint.textContent = perfMode === '极低功耗' ? '极低功耗模式不采集数据，请选择标准/深度模式' : '首帧数据约需 10–30 秒，请稍候…';
+                        chartCard.insertBefore(hint, chartCard.firstChild);
+                    }
+                }
+                
+                if(metrics && Object.keys(metrics).length > 0) {
+                    updateMetrics(metrics);
+                } else {
+                    const fpsEl = document.getElementById('metric-video-fps');
+                    if(fpsEl) {
+                        if(running) {
+                            fpsEl.textContent = perfMode === '极低功耗' ? '需标准/深度模式' : '等待数据...';
+                            fpsEl.title = perfMode === '极低功耗' ? '极低功耗模式不采集FPS，请选择「标准模式」或「深度压测」' : '首帧数据约需10-30秒';
+                        } else {
+                            fpsEl.textContent = '-';
+                            fpsEl.title = '';
+                        }
+                    }
+                }
+                
+                const songCount = data.data?.song_count;
+                const songCountEl = document.getElementById('metric-song-count');
+                if(songCountEl) songCountEl.textContent = songCount !== undefined ? String(songCount) : '-';
+                
+                updateUIState(running);
+                if(!running && logInterval) {
+                    // Stop polling if stopped
+                    clearInterval(logInterval);
+                    logInterval = null;
+                }
+            }
+        } catch (error) {
+            // 静默处理，避免频繁错误提示
+        }
+    }
+    
+    function updateMetrics(metrics) {
+        // Video FPS
+        const fps = metrics.video_fps || 0;
+        const fpsEl = document.getElementById('metric-video-fps');
+        fpsEl.textContent = fps > 0 ? fps.toFixed(1) : 'N/A';
+        fpsEl.title = fps > 0 ? '' : '若为极低功耗模式则不采集FPS';
+        
+        // Work Count
+        document.getElementById('metric-work-count').textContent = metrics.mpp_work_count || 0;
+        
+        // Decoder Status
+        const decoderStatus = document.getElementById('metric-decoder-status');
+        if(metrics.decoder_stuck) {
+            decoderStatus.innerHTML = '<span class="badge bg-danger">⚠️ 卡死</span>';
+        } else {
+            decoderStatus.innerHTML = '<span class="badge bg-success">✅ 正常</span>';
+        }
+        
+        // TV Stutter
+        const tvStutter = document.getElementById('metric-tv-stutter');
+        if(metrics.tv_stutter_detected) {
+            tvStutter.innerHTML = '<span class="badge bg-danger">🚨 检测到</span>';
+        } else {
+            tvStutter.innerHTML = '<span class="badge bg-success">✅ 正常</span>';
+        }
+        
+        // CPU
+        document.getElementById('metric-cpu').textContent = (metrics.cpu_percent || 0).toFixed(1) + ' %';
+        
+        // Memory
+        document.getElementById('metric-memory').textContent = (metrics.pss_mb || 0).toFixed(0) + ' MB';
+    }
+    
+    function updateCharts(history) {
+        const fpsCanvas = document.getElementById('fpsChart');
+        const workCountCanvas = document.getElementById('workCountChart');
+        if(!fpsCanvas || !workCountCanvas) return;
+        
+        const fpsData = [];
+        const workCountData = [];
+        const labels = [];
+        
+        history.forEach((snapshot, index) => {
+            fpsData.push(snapshot.video_fps || 0);
+            workCountData.push(snapshot.mpp_work_count || 0);
+            labels.push(index.toString());
+        });
+        
+        const fpsCtx = fpsCanvas.getContext('2d');
+        if(fpsChart) {
+            fpsChart.data.labels = labels;
+            fpsChart.data.datasets[0].data = fpsData;
+            fpsChart.update('none');  // 'none' 避免动画，加快更新
+        } else {
+            fpsChart = new Chart(fpsCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '视频FPS',
+                        data: fpsData,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true }
+                    }
+                }
+            });
+        }
+        
+        // Update Work Count Chart
+        const workCountCtx = workCountCanvas.getContext('2d');
+        if(workCountChart) {
+            workCountChart.data.labels = labels;
+            workCountChart.data.datasets[0].data = workCountData;
+            workCountChart.update('none');
+        } else {
+            workCountChart = new Chart(workCountCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '解码器工作计数',
+                        data: workCountData,
+                        borderColor: 'rgb(255, 99, 132)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true }
+                    }
+                }
+            });
+        }
+    }
+    
+    async function loadReports() {
+        const list = document.getElementById('reportList');
+        list.innerHTML = '加载中...';
+        
+        try {
+            const data = await ApiClient.get('/player_stress/api/reports', {
+                showLoading: false
+            });
+            
+            list.innerHTML = '';
+            const reports = data.data?.reports || data.reports || [];
+            if(reports.length > 0) {
+                reports.forEach(f => {
+                    const item = document.createElement('a');
+                    item.className = 'list-group-item list-group-item-action';
+                    item.href = '/player_stress/reports/' + f;
+                    item.target = '_blank';
+                    item.innerHTML = `<i class="bi bi-file-earmark-text"></i> ${f}`;
+                    list.appendChild(item);
+                });
+            } else {
+                list.innerHTML = '<div class="alert alert-info">暂无报告</div>';
+            }
+        } catch (error) {
+            list.innerHTML = '<div class="alert alert-danger">加载报告失败</div>';
+            // 错误已自动处理
+        }
+    }
+
+    // 初始化时长选择器
+    (function initDurationSelector() {
+        const durationSelect = document.getElementById('duration');
+        if(durationSelect) {
+            durationSelect.addEventListener('change', function() {
+                const customGroup = document.getElementById('customDurationGroup');
+                if(this.value === 'custom') {
+                    customGroup.style.display = 'block';
+                    // 延迟一下再focus，确保元素已显示
+                    setTimeout(() => {
+                        const customInput = document.getElementById('customDuration');
+                        if(customInput) customInput.focus();
+                    }, 100);
+                } else {
+                    customGroup.style.display = 'none';
+                }
+            });
+        }
+    })();
+    
+    // 测试模式变化时显示/隐藏切歌关键字配置
+    (function initTestModeSelector() {
+        const testModeSelect = document.getElementById('testMode');
+        const songChangeGroup = document.getElementById('songChangeKeywordsGroup');
+        if(testModeSelect && songChangeGroup) {
+            function syncSongChangeVisibility() {
+                songChangeGroup.style.display = testModeSelect.value === 'monitor_only' ? 'block' : 'none';
+            }
+            testModeSelect.addEventListener('change', syncSongChangeVisibility);
+            syncSongChangeVisibility();
+        }
+    })();
+    
+    // 初始化监控模式选择器
+    (function initPerformanceModeSelector() {
+        const performanceModeSelect = document.getElementById('performanceMode');
+        const intervalConfig = document.getElementById('intervalConfig');
+        
+        if(performanceModeSelect && intervalConfig) {
+            function syncIntervalVisibility() {
+                intervalConfig.style.display = performanceModeSelect.value === '标准模式' ? 'block' : 'none';
+            }
+            performanceModeSelect.addEventListener('change', syncIntervalVisibility);
+            syncIntervalVisibility();  // 页面加载时同步（标准模式默认选中需显示）
+        }
+    })();
+    
+    // 监控面板显示时重绘图表（解决 Tab 隐藏时 Chart.js 尺寸为 0 的问题）
+    (function initChartResizeOnTabShow() {
+        const monitoringTab = document.getElementById('monitoring-tab');
+        if(monitoringTab) {
+            monitoringTab.addEventListener('shown.bs.tab', function() {
+                if(typeof fpsChart !== 'undefined' && fpsChart) fpsChart.resize();
+                if(typeof workCountChart !== 'undefined' && workCountChart) workCountChart.resize();
+            });
+        }
+    })();
+    
+    // HTTP VOD配置显示/隐藏
+    document.getElementById('enableHttpVod').addEventListener('change', function() {
+        const configDiv = document.getElementById('httpVodConfig');
+        configDiv.style.display = this.checked ? 'block' : 'none';
+    });
+    
+    // 设备选择变化时重新检查环境
+    const deviceSelect = document.getElementById('deviceId');
+    if(deviceSelect) {
+        deviceSelect.addEventListener('change', function() {
+            if(this.value) {
+                checkEnvironment();  // 设备变化时重新检查环境
+            }
+        });
+    }
+    
+    // 页面加载时检查是否有正在运行的压测，若有则恢复监控（解决切换页面后返回失效问题）
+    async function checkRunningTasks() {
+        try {
+            const data = await ApiClient.get('/player_stress/api/status', { showLoading: false });
+            const running = data.data?.running ?? data.running ?? false;
+            if (running) {
+                updateUIState(true);
+                if (!logInterval) logInterval = setInterval(fetchLogs, 1500);
+                document.querySelector('#monitoring-tab')?.click();
+                fetchLogs();
+                toast.info('检测到正在运行的压测，已恢复监控');
+            }
+        } catch (e) {
+            console.error('checkRunningTasks:', e);
+        }
+    }
+
+    // Init
+    refreshDevices().then(() => {
+        setTimeout(() => checkEnvironment(), 500);
+    });
+    checkRunningTasks();
+    fetchLogs();
+    loadReports();
+</script>
+{% endblock %}

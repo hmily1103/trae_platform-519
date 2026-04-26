@@ -1,0 +1,761 @@
+{
+  "snapshot_id": "audit_1773283035_b0540a5a",
+  "created_at": 1773283035,
+  "created_at_str": "2026-03-12 10:37:15",
+  "offline_mode": true,
+  "prd_text": "星聚会比赛活动接口\n目录\n星聚会 PK 大赛..................................................................................................................................................... 1\n1 文档变更记录...................................................................................................................................................... 3\n2 接口列表...............................................................................................................................................................3\n2.1 PK 大赛.....................................................................................................................................................3\n2.2 同唱一首歌.............................................................................................................................................11\n2.3 K 歌大赛................................................................................................................................................. 13\n3 生产环境.............................................................................................................................................................18\n页 3/18\n1 文档变更记录\n日期 版本 说明 作者\n2025/7/23 V0.0.1 新增文档 郭雷\n2025/7/23 V0.0.2 新增录音上传接口 郭雷\n2025/9/22 V0.0.3 同唱一首歌新增 2.2接口 刘同春\n2025/9/22 V0.0.3 K歌大赛新增 2.3接口 郭雷\n2025/9/24 V0.0.3\n1、修改 K歌通知参数类型\n2、录音上传接口新增入参\nactivityType、activityRecordId\n郭雷\n2025/9/28 V0.0.3 2.3.1 返参添加 joyCoin字段\n2 接口列表\n2.1 PK大赛\n2.1.1 上传PK双方歌唱得分\n接口URL：https://saasapitest.szxjhui.com/open/leishi/score/pk-scores\nContent-Type：application/json\n请求方式：post\n接口备注：PK结束上传 PK双方歌唱得分，返回最终计算得分\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\npkId String 是 暂无描述\nchallengerScore Object 是 挑战者得分\ndefenderScore Object 是 应战者得分\nunionId String 是 雷石绑定用户唯一标\n识\nopenNo String 是 雷石场次号\n页 4/18\nsongId String 是 歌曲id\ntotalScore BigDecimal 是 歌唱得分\nscoreTime Long 是 打分时间戳\npitchScore BigDecimal 是 音准得分\nrhythmScore BigDecimal 是 节奏得分\nemotionScore BigDecimal 是 情感得分\nbreathScore BigDecimal 是 气息得分\ntechniqueScore BigDecimal 是 技巧得分\narticulationScore BigDecimal 是 吐字得分\ntimbreScore BigDecimal 是 音色得分\n请求示例：\n{\n\"pkId\":\"\",\n\"challengerScore\": {\n\"unionId\": \"\",\n\"openNo\": \"\",\n\"songId\": \"\",\n\"scoreTime\": \"\",\n\"totalScore\": 0,\n\"pitchScore\": 0,\n\"rhythmScore\": 0,\n\"emotionScore\": 0,\n\"breathScore\": 0,\n\"techniqueScore\": 0,\n\"articulationScore\": 0,\n\"timbreScore\": 0\n},\n\"defenderScore\": {\n\"unionId\": \"\",\n页 5/18\n\"openNo\": \"\",\n\"songId\": \"\",\n\"scoreTime\": \"\",\n\"totalScore\": 0,\n\"pitchScore\": 0,\n\"rhythmScore\": 0,\n\"emotionScore\": 0,\n\"breathScore\": 0,\n\"techniqueScore\": 0,\n\"articulationScore\": 0,\n\"timbreScore\": 0\n}\n}\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\nchallengerScore Object 挑战者得分\ndefenderScore Object 应战者得分\ncompetitionScore BigDecimal 比赛得分\nsingingScore BigDecimal 演唱得分\ndifficultyCoefficient BigDecimal 难度系数\nvoteCount Integer 票数\nvoteScore BigDecimal 票数得分\nwinStatus Integer 1 = 胜，0 = 负，2 =\n平\n返回示例\n{\n\"code\":\"200\",\n\"msg\": null,\n\"data\":{\n页 6/18\n\"challengerScore\": {\n\"singingScore\": 0,\n\"difficultyCoefficient\": 1.0,\n\"competitionScore\": 0,\n\"voteCount\": \"\",\n\"voteScore\": 0,\n\"winStatus\": 1\n},\n\"defenderScore\": {\n\"singingScore\": 0,\n\"difficultyCoefficient\": 1.0,\n\"competitionScore\": 0,\n\"voteCount\": \"\",\n\"voteScore\": 0,\n\"winStatus\": 0\n}\n}\n}\n2.1.2 上传单维得分\n接口URL：https://saasapitest.szxjhui.com/open/leishi/score/user-score\nContent-Type：application/json\n请求方式：post\n接口备注：暂无描述\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nunionId String 是 雷石绑定用户唯一标\n识\nopenNo String 是 雷石场次号\nsongId String 是 歌曲id\n页 7/18\nscoreTime Long 是 打分时间戳\ntotalScore 0 BigDecimal 是 歌唱得分\n请求示例：\n{\n\"unionId\":\"\",\n\"openNo\":\"\",\n\"songId\": \"\",\n\"scoreTime\":\"\",\n\"totalScore\": 0\n}\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\n返回示例：\n{\n\"code\":\"200\",\n\"msg\": null,\n\"data\":null\n}\n2.1.3 广告资源列表\n接口URL：https://saasapitest.szxjhui.com/open/leishi/advertisements/by-\nmac?mac=123\nContent-Type：application/json\n请求方式：get\n接口备注：暂无描述\n页 8/18\nURI参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nmac 123 String 是 机顶盒 mac地址\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\ncode 200 String 暂无描述\nmsg 错误描述 String 返回文字描述\ndata 返回 Object 返回数据\nid 281 Long 主键id\nadvertisementName test11 String 广告名称\nadvertisementUrl\nhttps://cdn-nebula-portal-\ntest.szxjhui.com/ads-\ncontent/20250208/57efcff\n647ba40809dd60f9eeed4f\n303.jpg\nString 广告地址\nadvertisementOften 1 Integer 投放时长（秒）\nadvertisementType 1 Integer 广告类型:1-图片,2-\n视频\nsort 999 Integer 排序\n返回示例：(200)成功\n{\n\"code\":\"200\",\n\"msg\": \"\",\n\"tid\":\"1ec78f6c-36e2-4c64-92df-33d711fab2e1\",\n\"data\": [\n{\n\"id\":281,\n\"advertisementName\": \"test11\",\n\"advertisementUrl\": \"https://cdn-nebula-portal-\ntest.szxjhui.com/ads-\ncontent/20250208/57efcff647ba40809dd60f9eeed4f303.jpg\",\n页 9/18\n\"advertisementOften\": 1,\n\"isSuspend\": 2,\n\"advertisementType\": 1,\n\"sort\": 999\n},\n{\n\"id\":283,\n\"advertisementName\": \"877\",\n\"advertisementUrl\": \"https://cdn-nebula-portal-\ntest.szxjhui.com/ads-\ncontent/20250208/7a5069d6887c4b45acbfbf5353a02a4f.jpg\",\n\"advertisementOften\": 1,\n\"isSuspend\": 2,\n\"advertisementType\": 1,\n\"sort\": 999\n}\n]\n}\n2.1.4 录音上传\n接口URL：https://saasapitest.szxjhui.com/open/leishi/recordings/callback\nContent-Type：application/json\n请求方式：post\n接口备注：雷石先通过华为云 OBS上传录音文件，上传成功后将 url地址上报给星聚会\n服务端\n华为云 OBS配置\n用户:leishi\nAK:HPUAMGSFAFNFKB9MBOAT\nSK：WTgrcvyjRfWCEo5VgfILrTsw0HDk6OYGMTl3wGjk\nBucket: audio-recording\n页 10/18\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nrecordingId String 是 录音id\nactivityType String 是 活动类型\nactivityRecordId String 是 用户参与活动记录\nid\nuserId String 是 用户id\nsongName String 是 歌曲名\noriginalTrackUrl String 是 原声录音obs地址\nbgmTrackUrl String 是 bgm录音obs地址\nmixedTrackUrl String 是 合成录音obs地址\nuploadTimestamp 0 Long 是 录音时间戳\nsongId String 是 歌曲 id\nscore BigDecimal 是 歌唱评分\n请求示例：\n{\n\"recordingId\": \"\",\n\"userId\":\"\",\n\"songName\": \"\",\n\"originalTrackUrl\":\"\",\n\"bgmTrackUrl\": \"\",\n\"mixedTrackUrl\": \"\",\n\"uploadTimestamp\": 0\n\"songId\": \"1812315\",\n\"score\": 86.5\n}\n返回参数说明：(200)成功\n页 11/18\n参数名 示例值 参数类型 参数描述\ncode 200 String 200成功，其他失败\nmsg Object 返回文字描述\ndata Null Object 返回数据\n返回示例：(200)成功\n{\n\"code\":\"200\",\n\"msg\": \"\",\n\"data\": null\n}\n2.2 同唱一首歌\n2.2.1 拉取参赛信息\n接口URL：https://saasapitest.szxjhui.com/open/leishi/activity/contest-info\n请求方式：GET\n接口备注：通过活动实例 id拉取参赛人数和总奖池金额\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nactivityInstanceId 1 long 是 活动实例 id\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\nliveCount long 参赛人数\ntotalPrizePool BigDecimal 总奖池\n返回示例\n{\n\"code\": \"200\",\n\"msg\": null,\n页 12/18\n\"data\": {\n\"liveCount\": 1,\n\"totalPrizePool\": 20.00\n}\n}\n2.2.2 拉取排名信息和二维码\n接口URL：https://saasapitest.szxjhui.com/open/leishi/activity/ranking\n请求方式：GET\n接口备注：PK结束上传 PK双方歌唱得分，返回最终计算得分\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nactivityInstanceId 1 long 是 活动实例 id\ntop 10 int 是 前几名\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\nqrCode String 排名二维码\nshowTime int 显示时间(秒)\nbackgroundUrl String 背景图片\nrankings List<Object> 排名集合\nrankings内部字段\n参数名 示例值 参数类型 参数描述\nuserName String 用户名称\nuserAvatar String 用户头像\nscore BigDecimal 得分\n页 13/18\n返回示例\n2.3 K歌大赛\n2.3.1 歌唱得分通知\n接口状态：开发中\n接口URL：https://saasapitest.szxjhui.com/open/leishi/score/activity-scores\nContent-Type：application/json\n请求方式：post\n接口备注：K歌和同唱一首歌分数通知\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nactivityType CONTEST String 是\n活动类型：\nCONTEST:K歌比\n赛，CO_SING:同唱\n一首歌\nactivityRecordId 123 String 是 参与活动记录id\nunionId String 是 用户id\nopenNo String 是 roomid\nsongId Integer 是 歌曲id\nscoreTime 1753430272000 Long 是 打分时间，时间戳\n页 14/18\ntotalScore 68 BigDecimal 是 唱功得分\nsingingStatus 1 Integer 是 唱歌状态 1：结束\n2：逃跑 3：终止\npitchScore 50 BigDecimal 是 音准得分\nrhythmScore 50 BigDecimal 是 节奏得分\nemotionScore 50 BigDecimal 是 情感得分\nbreathScore 50 BigDecimal 是 气息得分\ntechniqueScore 50 BigDecimal 是 技巧得分\narticulationScore 50 BigDecimal 是 吐字得分\ntimbreScore 50 BigDecimal 是 音色得分\nprominence 1 Integer 是 突出演唱\n请求示例：\n{\n\"activityType\":\"CONTEST\",\n\"activityRecordId\": \"123\",\n\"unionId\":\"\",\n\"openNo\":\"\",\n\"songId\": \"\",\n\"scoreTime\":1753430272000,\n\"totalScore\": 68,\n\"singingStatus\": 1,\n\"pitchScore\": 50,\n\"rhythmScore\":50,\n\"emotionScore\":50,\n\"breathScore\":50,\n\"techniqueScore\":50,\n\"articulationScore\":50,\n\"timbreScore\": 50,\n\"prominence\":1\n}\n页 15/18\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\ncode 200 String 暂无描述\nmsg String 返回文字描述\ndata Object 返回数据\ndata.competitionSc\nore BigDecimal 比赛综合得分\ndata.singingScore BigDecimal 唱功得分\ndata.difficultyCoeffi\ncient BigDecimal 难度系数\ndata.voteCount Integer 票数\ndata.voteScore BigDecimal 票数得分\ndata.grade String 等级\ndata.activityType String 活动类型\ndata.joyCoin String 赠送快乐值\ndata.gradeTip String 等级奖励提示\ndata.rankings list 同唱一首歌结果排名\ndata.rankings.ranki\nng Integer 排名\ndata.rankings.userN\name String 用户名\ndata.rankings.userA\nvatar String 用户头像\ndata.rankings.song\nName String 歌曲\ndata.rankings.score BigDecimal 得分\ndata.rankings.isSelf Boolean 是否自己\n返回示例：(200)成功\n{\n\"code\":\"200\",\n\"msg\":null,\n\"data\":{\n页 16/18\n\"competitionScore\": null,\n\"singingScore\": null,\n\"difficultyCoefficient\":null,\n\"voteCount\": null,\n\"voteScore\":null,\n\"grade\":null,\n\"activityType\":null,\n\"prefectTip\": null,\n\"gradeTip\":null,\n\"rankings\":[\n{\n\"ranking\":null,\n\"userName\": null,\n\"userAvatar\": null,\n\"singName\": null,\n\"score\": null,\n\"isSelf\":null\n}\n]\n}\n}\n2.3.2 高光时刻通知\n接口URL：https://saasapitest.szxjhui.com/open/leishi/score/highlight-notify\nContent-Type：application/json\n请求方式：post\n接口备注：当前歌唱得分达到 S级或超过平均分，通过此接口通知星聚会\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nactivityType CONTEST String 是\n活动类型：\nCONTEST:K歌比\n赛，CO_SING:同唱\n页 17/18\n一首歌\nactivityRecordId 123 String 是 参与活动记录id\nunionId String 是 用户id\nsongId Integer 是 歌曲 id\nopenNo String 是 roomid\ntotalScore 68 BigDecima\nl 是 唱功得分\nhighlightType AVG String 是\n高光时刻类型；\nAVG:超平均\nS_GRADE:达到等级\n请求示例：\n{\n\"activityType\":\"CONTEST\",\n\"activityRecordId\": \"123\",\n\"unionId\":\"\",\n\"openNo\":\"\",\n\"totalScore\": 68,\n\"highlightType\":'AVG'\n}\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\n返回示例：\n{\n\"code\":\"200\",\n\"msg\": null,\n\"data\":null\n}\n页 18/18\n3 生产环境\nhttps://saasapi.szxjhui.com",
+  "stage1_output": {
+    "product_name": "【PRD未说明】",
+    "background": "接口URL：https://saasapitest.szxjhui.com/open/leishi/activity/ranking 请求方式：GET 接口备注：PK结束上传 PK双方歌唱得分，返回最终计算得分 请求体参数说明： 参数名 示例值 参数类型 是否必填 参数描述 activityInstanceId 1 long 是 活动实例 id top 10 int 是 前几名 返回参数说明：(200)成功 参数名 示例值 参数类型 参数描述 qrCode String 排名二维码 showTime int 显示时间(秒) backgroundUrl String 背景图片 rankings List<Object> 排名集合 rankings内部字段 参数名 示例值 参数类型 参数描述",
+    "goal": "【PRD未说明】",
+    "modules": [
+      "录音上传接口新增入参",
+      "3 广告资源列表",
+      "jpg",
+      "1 拉取参赛信息"
+    ],
+    "features": [
+      "【PRD未说明】"
+    ],
+    "user_roles": [
+      "【PRD未说明】"
+    ],
+    "flows": [
+      "【PRD未说明】"
+    ],
+    "states": [
+      "【PRD未说明】"
+    ],
+    "business_rules": [
+      "【PRD未说明】"
+    ],
+    "data_structures": [
+      "【PRD未说明】"
+    ],
+    "permissions": [
+      "【PRD未说明】"
+    ],
+    "exceptions": [
+      "【PRD未说明】"
+    ],
+    "edge_cases": [
+      "【PRD未说明】"
+    ],
+    "dependencies": [
+      "1 PK 大赛.....................................................................................................................................................3",
+      "2 同唱一首歌.............................................................................................................................................11",
+      "3 K 歌大赛................................................................................................................................................. 13"
+    ],
+    "non_functional_requirements": [
+      "【PRD未说明】"
+    ],
+    "success_metrics": [
+      "【PRD未说明】"
+    ],
+    "source_map": {
+      "modules": [
+        "L0019-L0023",
+        "L0147-L0168",
+        "L0169-L0205",
+        "L0257-L0277"
+      ],
+      "features": [
+        "【PRD未说明】"
+      ],
+      "user_roles": [
+        "【PRD未说明】"
+      ],
+      "flows": [
+        "【PRD未说明】"
+      ],
+      "states": [
+        "【PRD未说明】"
+      ],
+      "business_rules": [
+        "【PRD未说明】"
+      ],
+      "data_structures": [
+        "【PRD未说明】"
+      ],
+      "permissions": [
+        "【PRD未说明】"
+      ],
+      "exceptions": [
+        "【PRD未说明】"
+      ],
+      "edge_cases": [
+        "【PRD未说明】"
+      ],
+      "dependencies": [
+        "L0001-L0017",
+        "L0001-L0017",
+        "L0001-L0017"
+      ],
+      "non_functional_requirements": [
+        "【PRD未说明】"
+      ],
+      "success_metrics": [
+        "【PRD未说明】"
+      ]
+    },
+    "blocks": [
+      {
+        "level": 1,
+        "title": "正文",
+        "content": "星聚会比赛活动接口\n目录\n星聚会 PK 大赛..................................................................................................................................................... 1\n1 文档变更记录...................................................................................................................................................... 3\n2 接口列表...............................................................................................................................................................3\n2.1 PK 大赛.....................................................................................................................................................3\n2.2 同唱一首歌.............................................................................................................................................11\n2.3 K 歌大赛................................................................................................................................................. 13\n3 生产环境.............................................................................................................................................................18\n页 3/18\n1 文档变更记录\n日期 版本 说明 作者\n2025/7/23 V0.0.1 新增文档 郭雷\n2025/7/23 V0.0.2 新增录音上传接口 郭雷\n2025/9/22 V0.0.3 同唱一首歌新增 2.2接口 刘同春\n2025/9/22 V0.0.3 K歌大赛新增 2.3接口 郭雷\n2025/9/24 V0.0.3",
+        "range": "L0001-L0017"
+      },
+      {
+        "level": 1,
+        "title": "修改 K歌通知参数类型",
+        "content": "",
+        "range": "L0018-L0018"
+      },
+      {
+        "level": 1,
+        "title": "录音上传接口新增入参",
+        "content": "activityType、activityRecordId\n郭雷\n2025/9/28 V0.0.3 2.3.1 返参添加 joyCoin字段\n2 接口列表",
+        "range": "L0019-L0023"
+      },
+      {
+        "level": 1,
+        "title": "1 PK大赛",
+        "content": "",
+        "range": "L0024-L0024"
+      },
+      {
+        "level": 2,
+        "title": "1 上传PK双方歌唱得分",
+        "content": "接口URL：https://saasapitest.szxjhui.com/open/leishi/score/pk-scores\nContent-Type：application/json\n请求方式：post\n接口备注：PK结束上传 PK双方歌唱得分，返回最终计算得分\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\npkId String 是 暂无描述\nchallengerScore Object 是 挑战者得分\ndefenderScore Object 是 应战者得分\nunionId String 是 雷石绑定用户唯一标\n识\nopenNo String 是 雷石场次号\n页 4/18\nsongId String 是 歌曲id\ntotalScore BigDecimal 是 歌唱得分\nscoreTime Long 是 打分时间戳\npitchScore BigDecimal 是 音准得分\nrhythmScore BigDecimal 是 节奏得分\nemotionScore BigDecimal 是 情感得分\nbreathScore BigDecimal 是 气息得分\ntechniqueScore BigDecimal 是 技巧得分\narticulationScore BigDecimal 是 吐字得分\ntimbreScore BigDecimal 是 音色得分\n请求示例：\n{\n\"pkId\":\"\",\n\"challengerScore\": {\n\"unionId\": \"\",\n\"openNo\": \"\",\n\"songId\": \"\",\n\"scoreTime\": \"\",\n\"totalScore\": 0,\n\"pitchScore\": 0,\n\"rhythmScore\": 0,\n\"emotionScore\": 0,\n\"breathScore\": 0,\n\"techniqueScore\": 0,\n\"articulationScore\": 0,\n\"timbreScore\": 0\n},\n\"defenderScore\": {\n\"unionId\": \"\",\n页 5/18\n\"openNo\": \"\",\n\"songId\": \"\",\n\"scoreTime\": \"\",\n\"totalScore\": 0,\n\"pitchScore\": 0,\n\"rhythmScore\": 0,\n\"emotionScore\": 0,\n\"breathScore\": 0,\n\"techniqueScore\": 0,\n\"articulationScore\": 0,\n\"timbreScore\": 0\n}\n}\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\nchallengerScore Object 挑战者得分\ndefenderScore Object 应战者得分\ncompetitionScore BigDecimal 比赛得分\nsingingScore BigDecimal 演唱得分\ndifficultyCoefficient BigDecimal 难度系数\nvoteCount Integer 票数\nvoteScore BigDecimal 票数得分\nwinStatus Integer 1 = 胜，0 = 负，2 =\n平\n返回示例\n{\n\"code\":\"200\",\n\"msg\": null,\n\"data\":{\n页 6/18\n\"challengerScore\": {\n\"singingScore\": 0,\n\"difficultyCoefficient\": 1.0,\n\"competitionScore\": 0,\n\"voteCount\": \"\",\n\"voteScore\": 0,\n\"winStatus\": 1\n},\n\"defenderScore\": {\n\"singingScore\": 0,\n\"difficultyCoefficient\": 1.0,\n\"competitionScore\": 0,\n\"voteCount\": \"\",\n\"voteScore\": 0,\n\"winStatus\": 0\n}\n}\n}",
+        "range": "L0025-L0116"
+      },
+      {
+        "level": 2,
+        "title": "2 上传单维得分",
+        "content": "接口URL：https://saasapitest.szxjhui.com/open/leishi/score/user-score\nContent-Type：application/json\n请求方式：post\n接口备注：暂无描述\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nunionId String 是 雷石绑定用户唯一标\n识\nopenNo String 是 雷石场次号\nsongId String 是 歌曲id\n页 7/18\nscoreTime Long 是 打分时间戳\ntotalScore 0 BigDecimal 是 歌唱得分\n请求示例：\n{\n\"unionId\":\"\",\n\"openNo\":\"\",\n\"songId\": \"\",\n\"scoreTime\":\"\",\n\"totalScore\": 0\n}\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\n返回示例：\n{\n\"code\":\"200\",\n\"msg\": null,\n\"data\":null\n}",
+        "range": "L0117-L0146"
+      },
+      {
+        "level": 2,
+        "title": "3 广告资源列表",
+        "content": "接口URL：https://saasapitest.szxjhui.com/open/leishi/advertisements/by-\nmac?mac=123\nContent-Type：application/json\n请求方式：get\n接口备注：暂无描述\n页 8/18\nURI参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nmac 123 String 是 机顶盒 mac地址\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\ncode 200 String 暂无描述\nmsg 错误描述 String 返回文字描述\ndata 返回 Object 返回数据\nid 281 Long 主键id\nadvertisementName test11 String 广告名称\nadvertisementUrl\nhttps://cdn-nebula-portal-\ntest.szxjhui.com/ads-\ncontent/20250208/57efcff\n647ba40809dd60f9eeed4f",
+        "range": "L0147-L0168"
+      },
+      {
+        "level": 1,
+        "title": "jpg",
+        "content": "String 广告地址\nadvertisementOften 1 Integer 投放时长（秒）\nadvertisementType 1 Integer 广告类型:1-图片,2-\n视频\nsort 999 Integer 排序\n返回示例：(200)成功\n{\n\"code\":\"200\",\n\"msg\": \"\",\n\"tid\":\"1ec78f6c-36e2-4c64-92df-33d711fab2e1\",\n\"data\": [\n{\n\"id\":281,\n\"advertisementName\": \"test11\",\n\"advertisementUrl\": \"https://cdn-nebula-portal-\ntest.szxjhui.com/ads-\ncontent/20250208/57efcff647ba40809dd60f9eeed4f303.jpg\",\n页 9/18\n\"advertisementOften\": 1,\n\"isSuspend\": 2,\n\"advertisementType\": 1,\n\"sort\": 999\n},\n{\n\"id\":283,\n\"advertisementName\": \"877\",\n\"advertisementUrl\": \"https://cdn-nebula-portal-\ntest.szxjhui.com/ads-\ncontent/20250208/7a5069d6887c4b45acbfbf5353a02a4f.jpg\",\n\"advertisementOften\": 1,\n\"isSuspend\": 2,\n\"advertisementType\": 1,\n\"sort\": 999\n}\n]\n}",
+        "range": "L0169-L0205"
+      },
+      {
+        "level": 2,
+        "title": "4 录音上传",
+        "content": "接口URL：https://saasapitest.szxjhui.com/open/leishi/recordings/callback\nContent-Type：application/json\n请求方式：post\n接口备注：雷石先通过华为云 OBS上传录音文件，上传成功后将 url地址上报给星聚会\n服务端\n华为云 OBS配置\n用户:leishi\nAK:HPUAMGSFAFNFKB9MBOAT\nSK：WTgrcvyjRfWCEo5VgfILrTsw0HDk6OYGMTl3wGjk\nBucket: audio-recording\n页 10/18\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nrecordingId String 是 录音id\nactivityType String 是 活动类型\nactivityRecordId String 是 用户参与活动记录\nid",
+        "range": "L0206-L0223"
+      },
+      {
+        "level": 2,
+        "title": "userId String 是 用户id",
+        "content": "songName String 是 歌曲名\noriginalTrackUrl String 是 原声录音obs地址\nbgmTrackUrl String 是 bgm录音obs地址\nmixedTrackUrl String 是 合成录音obs地址\nuploadTimestamp 0 Long 是 录音时间戳\nsongId String 是 歌曲 id\nscore BigDecimal 是 歌唱评分\n请求示例：\n{\n\"recordingId\": \"\",\n\"userId\":\"\",\n\"songName\": \"\",\n\"originalTrackUrl\":\"\",\n\"bgmTrackUrl\": \"\",\n\"mixedTrackUrl\": \"\",\n\"uploadTimestamp\": 0\n\"songId\": \"1812315\",\n\"score\": 86.5\n}\n返回参数说明：(200)成功\n页 11/18\n参数名 示例值 参数类型 参数描述\ncode 200 String 200成功，其他失败\nmsg Object 返回文字描述\ndata Null Object 返回数据\n返回示例：(200)成功\n{\n\"code\":\"200\",\n\"msg\": \"\",\n\"data\": null\n}",
+        "range": "L0224-L0255"
+      },
+      {
+        "level": 1,
+        "title": "2 同唱一首歌",
+        "content": "",
+        "range": "L0256-L0256"
+      },
+      {
+        "level": 2,
+        "title": "1 拉取参赛信息",
+        "content": "接口URL：https://saasapitest.szxjhui.com/open/leishi/activity/contest-info\n请求方式：GET\n接口备注：通过活动实例 id拉取参赛人数和总奖池金额\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nactivityInstanceId 1 long 是 活动实例 id\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\nliveCount long 参赛人数\ntotalPrizePool BigDecimal 总奖池\n返回示例\n{\n\"code\": \"200\",\n\"msg\": null,\n页 12/18\n\"data\": {\n\"liveCount\": 1,\n\"totalPrizePool\": 20.00\n}\n}",
+        "range": "L0257-L0277"
+      },
+      {
+        "level": 2,
+        "title": "2 拉取排名信息和二维码",
+        "content": "接口URL：https://saasapitest.szxjhui.com/open/leishi/activity/ranking\n请求方式：GET\n接口备注：PK结束上传 PK双方歌唱得分，返回最终计算得分\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nactivityInstanceId 1 long 是 活动实例 id\ntop 10 int 是 前几名\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\nqrCode String 排名二维码\nshowTime int 显示时间(秒)\nbackgroundUrl String 背景图片\nrankings List<Object> 排名集合\nrankings内部字段\n参数名 示例值 参数类型 参数描述",
+        "range": "L0278-L0293"
+      },
+      {
+        "level": 2,
+        "title": "userName String 用户名称",
+        "content": "userAvatar String 用户头像\nscore BigDecimal 得分\n页 13/18\n返回示例",
+        "range": "L0294-L0298"
+      },
+      {
+        "level": 1,
+        "title": "3 K歌大赛",
+        "content": "",
+        "range": "L0299-L0299"
+      },
+      {
+        "level": 2,
+        "title": "1 歌唱得分通知",
+        "content": "接口状态：开发中\n接口URL：https://saasapitest.szxjhui.com/open/leishi/score/activity-scores\nContent-Type：application/json\n请求方式：post\n接口备注：K歌和同唱一首歌分数通知\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nactivityType CONTEST String 是\n活动类型：\nCONTEST:K歌比\n赛，CO_SING:同唱\n一首歌\nactivityRecordId 123 String 是 参与活动记录id\nunionId String 是 用户id\nopenNo String 是 roomid\nsongId Integer 是 歌曲id\nscoreTime 1753430272000 Long 是 打分时间，时间戳\n页 14/18\ntotalScore 68 BigDecimal 是 唱功得分\nsingingStatus 1 Integer 是 唱歌状态 1：结束\n2：逃跑 3：终止\npitchScore 50 BigDecimal 是 音准得分\nrhythmScore 50 BigDecimal 是 节奏得分\nemotionScore 50 BigDecimal 是 情感得分\nbreathScore 50 BigDecimal 是 气息得分\ntechniqueScore 50 BigDecimal 是 技巧得分\narticulationScore 50 BigDecimal 是 吐字得分\ntimbreScore 50 BigDecimal 是 音色得分\nprominence 1 Integer 是 突出演唱\n请求示例：\n{\n\"activityType\":\"CONTEST\",\n\"activityRecordId\": \"123\",\n\"unionId\":\"\",\n\"openNo\":\"\",\n\"songId\": \"\",\n\"scoreTime\":1753430272000,\n\"totalScore\": 68,\n\"singingStatus\": 1,\n\"pitchScore\": 50,\n\"rhythmScore\":50,\n\"emotionScore\":50,\n\"breathScore\":50,\n\"techniqueScore\":50,\n\"articulationScore\":50,\n\"timbreScore\": 50,\n\"prominence\":1\n}\n页 15/18\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\ncode 200 String 暂无描述\nmsg String 返回文字描述\ndata Object 返回数据\ndata.competitionSc\nore BigDecimal 比赛综合得分\ndata.singingScore BigDecimal 唱功得分\ndata.difficultyCoeffi\ncient BigDecimal 难度系数\ndata.voteCount Integer 票数\ndata.voteScore BigDecimal 票数得分\ndata.grade String 等级\ndata.activityType String 活动类型\ndata.joyCoin String 赠送快乐值\ndata.gradeTip String 等级奖励提示\ndata.rankings list 同唱一首歌结果排名\ndata.rankings.ranki\nng Integer 排名\ndata.rankings.userN",
+        "range": "L0300-L0369"
+      },
+      {
+        "level": 2,
+        "title": "ame String 用户名",
+        "content": "data.rankings.userA",
+        "range": "L0370-L0371"
+      },
+      {
+        "level": 2,
+        "title": "vatar String 用户头像",
+        "content": "data.rankings.song\nName String 歌曲\ndata.rankings.score BigDecimal 得分\ndata.rankings.isSelf Boolean 是否自己\n返回示例：(200)成功\n{\n\"code\":\"200\",\n\"msg\":null,\n\"data\":{\n页 16/18\n\"competitionScore\": null,\n\"singingScore\": null,\n\"difficultyCoefficient\":null,\n\"voteCount\": null,\n\"voteScore\":null,\n\"grade\":null,\n\"activityType\":null,\n\"prefectTip\": null,\n\"gradeTip\":null,\n\"rankings\":[\n{\n\"ranking\":null,\n\"userName\": null,\n\"userAvatar\": null,\n\"singName\": null,\n\"score\": null,\n\"isSelf\":null\n}\n]\n}\n}",
+        "range": "L0372-L0403"
+      },
+      {
+        "level": 2,
+        "title": "2 高光时刻通知",
+        "content": "接口URL：https://saasapitest.szxjhui.com/open/leishi/score/highlight-notify\nContent-Type：application/json\n请求方式：post\n接口备注：当前歌唱得分达到 S级或超过平均分，通过此接口通知星聚会\n请求体参数说明：\n参数名 示例值 参数类型 是否必填 参数描述\nactivityType CONTEST String 是\n活动类型：\nCONTEST:K歌比\n赛，CO_SING:同唱\n页 17/18\n一首歌\nactivityRecordId 123 String 是 参与活动记录id\nunionId String 是 用户id\nsongId Integer 是 歌曲 id\nopenNo String 是 roomid\ntotalScore 68 BigDecima\nl 是 唱功得分\nhighlightType AVG String 是\n高光时刻类型；\nAVG:超平均\nS_GRADE:达到等级\n请求示例：\n{\n\"activityType\":\"CONTEST\",\n\"activityRecordId\": \"123\",\n\"unionId\":\"\",\n\"openNo\":\"\",\n\"totalScore\": 68,\n\"highlightType\":'AVG'\n}\n返回参数说明：(200)成功\n参数名 示例值 参数类型 参数描述\n返回示例：\n{\n\"code\":\"200\",\n\"msg\": null,\n\"data\":null\n}\n页 18/18\n3 生产环境\nhttps://saasapi.szxjhui.com",
+        "range": "L0404-L0446"
+      }
+    ],
+    "parse_quality": {
+      "overall": 6.7,
+      "blocks": 19,
+      "notes": [
+        "必备要素缺失较多，建议先补齐角色/状态/流程/异常/依赖/指标。"
+      ]
+    },
+    "required_elements": {
+      "items": [
+        {
+          "key": "roles",
+          "name": "用户角色",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "缺失会阻断开发/验收"
+        },
+        {
+          "key": "states",
+          "name": "状态机/模式",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "缺失会阻断开发/验收"
+        },
+        {
+          "key": "flows",
+          "name": "核心流程",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "缺失会阻断开发/验收"
+        },
+        {
+          "key": "exceptions",
+          "name": "异常与边界",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "建议补充以降低风险"
+        },
+        {
+          "key": "dependencies",
+          "name": "外部依赖",
+          "present": true,
+          "count": 3,
+          "score": 10.0,
+          "impact": ""
+        },
+        {
+          "key": "success_metrics",
+          "name": "成功指标",
+          "present": false,
+          "count": 0,
+          "score": 2.0,
+          "impact": "建议补充以降低风险"
+        }
+      ],
+      "overall": 3.3
+    },
+    "conflict_candidates": []
+  },
+  "stage2_output": {
+    "defects": [
+      {
+        "id": "R004",
+        "type": "规则边界缺失",
+        "module": "业务规则",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "未定义最小值或最大值。",
+        "risk_level": "P2",
+        "reason": "边界未定义。",
+        "suggestion": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+        "source": "rule"
+      },
+      {
+        "id": "R006",
+        "type": "状态孤岛",
+        "module": "状态机",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "某状态没有入口，状态不可达。",
+        "risk_level": "P0",
+        "reason": "状态机断裂。",
+        "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+        "source": "rule"
+      },
+      {
+        "id": "R007",
+        "type": "状态死路",
+        "module": "状态机",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "某状态没有出口，无法结束。",
+        "risk_level": "P0",
+        "reason": "状态机断裂。",
+        "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+        "source": "rule"
+      },
+      {
+        "id": "R008",
+        "type": "非法状态跳转",
+        "module": "状态机",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "出现不合理跳转。",
+        "risk_level": "P0",
+        "reason": "业务逻辑错误。",
+        "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+        "source": "rule"
+      },
+      {
+        "id": "R009",
+        "type": "状态回滚缺失",
+        "module": "状态机",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "异常情况下没有回滚逻辑。",
+        "risk_level": "P2",
+        "reason": "数据不一致。",
+        "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+        "source": "rule"
+      },
+      {
+        "id": "R012",
+        "type": "异常流程缺失",
+        "module": "业务流程",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "只描述成功路径，缺少失败处理。",
+        "risk_level": "P0",
+        "reason": "异常未定义。",
+        "suggestion": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+        "source": "rule"
+      },
+      {
+        "id": "R013",
+        "type": "中断流程缺失",
+        "module": "业务流程",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "未定义用户中途退出的处理。",
+        "risk_level": "P2",
+        "reason": "状态/资源泄漏。",
+        "suggestion": "针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "R015",
+        "type": "重试机制缺失",
+        "module": "业务流程",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "接口失败是否允许重试未说明。",
+        "risk_level": "P2",
+        "reason": "重复执行或无法恢复。",
+        "suggestion": "针对业务流程补充“重试机制缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "R016",
+        "type": "字段定义缺失",
+        "module": "数据结构",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "字段未说明类型、长度、是否必填。",
+        "risk_level": "P2",
+        "reason": "前后端理解不一致。",
+        "suggestion": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+        "source": "rule"
+      },
+      {
+        "id": "R019",
+        "type": "数据一致性风险",
+        "module": "数据结构",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "多系统写入同一数据未定义协调方式。",
+        "risk_level": "P1",
+        "reason": "数据不一致。",
+        "suggestion": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+        "source": "rule"
+      },
+      {
+        "id": "R023",
+        "type": "成功标准缺失",
+        "module": "可测试性",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "未说明成功条件。",
+        "risk_level": "P2",
+        "reason": "验收标准不清。",
+        "suggestion": "针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "R025",
+        "type": "日志记录缺失",
+        "module": "可测试性",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "关键操作没有日志要求。",
+        "risk_level": "P2",
+        "reason": "无法审计与排查。",
+        "suggestion": "针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "R027",
+        "type": "接口幂等性缺失",
+        "module": "系统与技术",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "接口重复调用未说明处理方式。",
+        "risk_level": "P2",
+        "reason": "重复扣款/重复发货。",
+        "suggestion": "针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。",
+        "source": "rule"
+      },
+      {
+        "id": "D001",
+        "type": "扫描异常",
+        "module": "扫描引擎",
+        "anchor": "L19: 2、录音上传接口新增入参",
+        "description": "漏洞扫描阶段执行失败",
+        "risk_level": "P1",
+        "reason": "LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json",
+        "suggestion": "检查 LLM 配置或重试扫描",
+        "source": "llm"
+      }
+    ],
+    "coverage": {
+      "exception_coverage": [
+        {
+          "item": "超时",
+          "covered": false,
+          "keywords": [
+            "超时",
+            "timeout"
+          ]
+        },
+        {
+          "item": "弱网/断网",
+          "covered": false,
+          "keywords": [
+            "弱网",
+            "断网",
+            "网络"
+          ]
+        },
+        {
+          "item": "失败/错误码",
+          "covered": false,
+          "keywords": [
+            "失败",
+            "错误",
+            "error",
+            "错误码"
+          ]
+        },
+        {
+          "item": "重试",
+          "covered": false,
+          "keywords": [
+            "重试",
+            "retry"
+          ]
+        },
+        {
+          "item": "回滚/补偿",
+          "covered": false,
+          "keywords": [
+            "回滚",
+            "补偿",
+            "撤销"
+          ]
+        },
+        {
+          "item": "幂等/重复提交",
+          "covered": false,
+          "keywords": [
+            "幂等",
+            "去重",
+            "重复提交",
+            "重复点击"
+          ]
+        }
+      ],
+      "boundary_coverage": [
+        {
+          "item": "范围/上下限",
+          "covered": false,
+          "keywords": [
+            "最大",
+            "最小",
+            "上限",
+            "下限",
+            "范围"
+          ]
+        },
+        {
+          "item": "并发",
+          "covered": false,
+          "keywords": [
+            "并发",
+            "同时",
+            "抢占"
+          ]
+        },
+        {
+          "item": "重复操作",
+          "covered": false,
+          "keywords": [
+            "重复",
+            "幂等",
+            "去重",
+            "重复提交",
+            "重复点击"
+          ]
+        },
+        {
+          "item": "弱网/超时",
+          "covered": false,
+          "keywords": [
+            "弱网",
+            "断网",
+            "超时"
+          ]
+        }
+      ],
+      "raw_text_sample": "【PRD未说明】 【PRD未说明】"
+    }
+  },
+  "reports": {
+    "L1": "# 【审计报告】PRD：工具扫描+人工复核版（含14项缺陷，P0级4项）（本地规则体检版，无大模型推理）\n\n> 【本地规则体检版】当前未接入可用大模型，本报告基于本地规则引擎与静态分析自动生成，主要用于结构完整性和显性风险初筛，不能替代人工评审与线上大模型审计。",
+    "L2": "# 【审计报告】PRD：工具扫描+人工复核版（含14项缺陷，P0级4项）（本地规则体检版，无大模型推理）\n\n> 【本地规则体检版】当前未接入可用大模型，本报告基于本地规则引擎与静态分析自动生成，主要用于结构完整性和显性风险初筛，不能替代人工评审与线上大模型审计。\n\n## 一、总体结论\n\n- 审计结论：未定义最小值或最大值。\n- 综合质量评分：5.9/10（基于七维评分）\n- 结构复杂度：0.0/10（简单；状态与流程数量较少，整体复杂度较低。）\n### 核心风险摘要\n- 一句话总结：当前 PRD 存在多处关键规则缺口，建议先完成核心风险闭环再进入开发。\n- 三个致命伤：\n  - 状态机不完整（P0，4项）\n  - 流程闭环缺失（P0，3项）\n  - 数据契约与一致性不足（P1，2项）\n\n### 七维质量评分明细（必填）\n\n| 维度 | 评分 | 扣分原因 | 说明 |\n| :--- | :--- | :--- | :--- |\n| 需求完整度 | 7.0/10 | — | 目标/成功标准存在【PRD未说明】，范围与验收口径不完整。 |\n| 规则明确度 | 7.6/10 | — | 存在规则歧义/冲突/不可执行表述，导致实现与验收口径不一致风险。 |\n| 流程一致性 | 5.3/10 | -0.5：流程闭环不足（并发/重试/幂等） | 流程闭环不足（成功/失败/中断/重试/并发口径缺失），上线行为易不一致。 |\n| 状态机完备度 | 1.6/10 | -2.0：状态与转移/回滚/恢复缺失<br>-0.5：状态与转移/回滚/恢复缺失 | 状态定义/转移/回滚/恢复规则不完整，复杂场景下容易出现不可达/死路/非法跳转。 |\n| 异常覆盖度 | 5.6/10 | -0.5：异常/边界/超时覆盖不足<br>-2.0：异常/边界/超时覆盖不足<br>-1.0：异常/边界/超时覆盖不足 | 异常/边界/弱网/超时/重复等场景覆盖不足，失败闭环与恢复策略不明确。 |\n| 可测试性 | 7.2/10 | — | 存在不可测试描述/成功标准缺失，验收条件难以量化。 |\n| 技术可实现性 | 7.3/10 | — | 并发/幂等/重试等工程约束未落地，存在实现与稳定性风险。 |\n\n### 异常/边界覆盖速览（辅助）\n\n| 类别 | 检查项 | 是否覆盖 |\n| :--- | :--- | :--- |\n| 异常 | 超时 | 否 |\n| 异常 | 弱网/断网 | 否 |\n| 异常 | 失败/错误码 | 否 |\n| 异常 | 重试 | 否 |\n| 异常 | 回滚/补偿 | 否 |\n| 异常 | 幂等/重复提交 | 否 |\n| 边界 | 范围/上下限 | 否 |\n| 边界 | 并发 | 否 |\n| 边界 | 重复操作 | 否 |\n| 边界 | 弱网/超时 | 否 |\n\n\n## 二、核心问题矩阵（合并版）\n\n| 风险等级 | 核心问题 | 涉及锚点 | 问题描述 | 现场翻车（业务视角） | 风险分析 | 审计建议 |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n| P0 | **状态机不完整（P0）——系统不知道下一步该去哪** | L19: 2、录音上传接口新增入参 | 某状态没有入口，状态不可达。；某状态没有出口，无法结束。；出现不合理跳转。 例如：用户退出投屏后系统没有回到可控状态，下一次进入时行为不一致，现场演示容易翻车。 | 退出/返回路径不一致，现场演示卡死或切换混乱。 | 状态机断裂。；业务逻辑错误。；数据不一致。 | 补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。 |\n| P0 | **模式切换规则不完整（P0）——退出投屏后去哪了？** | L19: 2、录音上传接口新增入参 | 只描述成功路径，缺少失败处理。；未定义用户中途退出的处理。；接口失败是否允许重试未说明。 例如：用户退出投屏后系统没有回到可控状态，下一次进入时行为不一致，现场演示容易翻车。 | 退出/返回路径不一致，现场演示卡死或切换混乱。 | 异常未定义。；状态/资源泄漏。；重复执行或无法恢复。 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 |\n| P1 | **数据契约与一致性不足（P1）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 字段未说明类型、长度、是否必填。；多系统写入同一数据未定义协调方式。 例如：字段口径不一致导致一端显示“已成功”另一端仍是“处理中”，用户重复点击触发重复请求。 | 体验不一致引发投诉，后续返工成本高。 | 前后端理解不一致。；数据不一致。 | 补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。 |\n| P1 | **扫描引擎问题聚合（P1）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 漏洞扫描阶段执行失败 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json | 检查 LLM 配置或重试扫描 |\n| P2 | **可测试性问题聚合（P2）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 未说明成功条件。；关键操作没有日志要求。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 验收标准不清。；无法审计与排查。 | 针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。 |\n| P2 | **业务规则问题聚合（P2）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 未定义最小值或最大值。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 边界未定义。 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 |\n| P2 | **系统与技术问题聚合（P2）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 接口重复调用未说明处理方式。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 重复扣款/重复发货。 | 针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。 |\n\n\n### 详细漏洞清单（原始版）\n\n- 扫描来源：规则库 13 条，LLM 1 条，混合 0 条\n\n### 漏洞1\n- 模块：业务规则\n- 类型：规则边界缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：未定义最小值或最大值。\n- 原因：边界未定义。\n- 建议：补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。\n\n### 漏洞2\n- 模块：状态机\n- 类型：状态孤岛\n- 风险等级：P0\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：某状态没有入口，状态不可达。\n- 原因：状态机断裂。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞3\n- 模块：状态机\n- 类型：状态死路\n- 风险等级：P0\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：某状态没有出口，无法结束。\n- 原因：状态机断裂。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞4\n- 模块：状态机\n- 类型：非法状态跳转\n- 风险等级：P0\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：出现不合理跳转。\n- 原因：业务逻辑错误。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞5\n- 模块：状态机\n- 类型：状态回滚缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：异常情况下没有回滚逻辑。\n- 原因：数据不一致。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞6\n- 模块：业务流程\n- 类型：异常流程缺失\n- 风险等级：P0\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：只描述成功路径，缺少失败处理。\n- 原因：异常未定义。\n- 建议：补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。\n\n### 漏洞7\n- 模块：业务流程\n- 类型：中断流程缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：未定义用户中途退出的处理。\n- 原因：状态/资源泄漏。\n- 建议：针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞8\n- 模块：业务流程\n- 类型：重试机制缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：接口失败是否允许重试未说明。\n- 原因：重复执行或无法恢复。\n- 建议：针对业务流程补充“重试机制缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞9\n- 模块：数据结构\n- 类型：字段定义缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：字段未说明类型、长度、是否必填。\n- 原因：前后端理解不一致。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞10\n- 模块：数据结构\n- 类型：数据一致性风险\n- 风险等级：P1\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：多系统写入同一数据未定义协调方式。\n- 原因：数据不一致。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞11\n- 模块：可测试性\n- 类型：成功标准缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：未说明成功条件。\n- 原因：验收标准不清。\n- 建议：针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞12\n- 模块：可测试性\n- 类型：日志记录缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：关键操作没有日志要求。\n- 原因：无法审计与排查。\n- 建议：针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞13\n- 模块：系统与技术\n- 类型：接口幂等性缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：接口重复调用未说明处理方式。\n- 原因：重复扣款/重复发货。\n- 建议：针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞14\n- 模块：扫描引擎\n- 类型：扫描异常\n- 风险等级：P1\n- 来源：llm\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：漏洞扫描阶段执行失败\n- 原因：LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json\n- 建议：检查 LLM 配置或重试扫描\n\n\n## 四、待确认清单\n\n| 优先级 | 待确认项 | 紧急程度 | 涉及模块 | 具体问题 | 影响 |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n| P0 | 异常流程缺失 | 🔥🔥🔥 不确认没法开工 | 业务流程 | 只描述成功路径，缺少失败处理。 | 需澄清后方可进入开发/评审 |\n| P1 | 数据一致性风险 | 🔥🔥 不确认会做错 | 数据结构 | 多系统写入同一数据未定义协调方式。 | 需澄清后方可进入开发/评审 |\n| P2 | 字段定义缺失 | 🔥 可以边做边等 | 数据结构 | 字段未说明类型、长度、是否必填。 | 需澄清后方可进入开发/评审 |\n| P2 | 重试机制缺失 | 🔥 可以边做边等 | 业务流程 | 接口失败是否允许重试未说明。 | 需澄清后方可进入开发/评审 |\n| P2 | 接口幂等性缺失 | 🔥 可以边做边等 | 系统与技术 | 接口重复调用未说明处理方式。 | 需澄清后方可进入开发/评审 |\n| P2 | 中断流程缺失 | 🔥 可以边做边等 | 业务流程 | 未定义用户中途退出的处理。 | 需澄清后方可进入开发/评审 |\n| P2 | 状态回滚缺失 | 🔥 可以边做边等 | 状态机 | 异常情况下没有回滚逻辑。 | 需澄清后方可进入开发/评审 |\n| P2 | 规则边界缺失 | 🔥 可以边做边等 | 业务规则 | 未定义最小值或最大值。 | 需澄清后方可进入开发/评审 |\n| P2 | 日志记录缺失 | 🔥 可以边做边等 | 可测试性 | 关键操作没有日志要求。 | 需澄清后方可进入开发/评审 |\n| P2 | 成功标准缺失 | 🔥 可以边做边等 | 可测试性 | 未说明成功条件。 | 需澄清后方可进入开发/评审 |\n\n## 五、测试重点（测试团队专用）\n\n| 测试类型 | 测试点 | 对应风险 |\n| :--- | :--- | :--- |\n| 功能测试 | 状态机不完整 | P0 |\n| 异常测试 | 流程闭环缺失 | P0 |\n| 功能测试 | 数据契约与一致性不足 | P1 |\n| 异常测试 | 扫描引擎问题聚合 | P1 |\n| 功能测试 | 可测试性问题聚合 | P2 |\n| 功能测试 | 业务规则问题聚合 | P2 |\n| 功能测试 | 系统与技术问题聚合 | P2 |\n\n## 六、研发重点（研发团队专用）\n\n| 模块 | 研发关注点 | 风险等级 |\n| :--- | :--- | :--- |\n| L19: 2、录音上传接口新增入参 | 补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。 | P0 |\n| L19: 2、录音上传接口新增入参 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 | P0 |\n| L19: 2、录音上传接口新增入参 | 补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。 | P1 |\n| L19: 2、录音上传接口新增入参 | 检查 LLM 配置或重试扫描 | P1 |\n| L19: 2、录音上传接口新增入参 | 针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。 | P2 |\n| L19: 2、录音上传接口新增入参 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 | P2 |\n| L19: 2、录音上传接口新增入参 | 针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。 | P2 |\n\n## 七、项目风险\n- 状态机不完整（P0）\n- 流程闭环缺失（P0）\n- 数据契约与一致性不足（P1）\n- 扫描引擎问题聚合（P1）\n- 可测试性问题聚合（P2）\n- 业务规则问题聚合（P2）\n- 系统与技术问题聚合（P2）\n\n## 八、计划建议\n- 先完成 P0 漏洞澄清并冻结关键流程\n- 按 P0→P1→P2 优先级推进修复与复审\n- 同步更新测试点并执行回归验证",
+    "L3": "# 【审计报告】PRD：工具扫描+人工复核版（含14项缺陷，P0级4项）（本地规则体检版，无大模型推理）\n\n> 【本地规则体检版】当前未接入可用大模型，本报告基于本地规则引擎与静态分析自动生成，主要用于结构完整性和显性风险初筛，不能替代人工评审与线上大模型审计。\n\n## 一、总体结论\n\n- 审计结论：未定义最小值或最大值。\n- 综合质量评分：5.9/10（基于七维评分）\n- 结构复杂度：0.0/10（简单；状态与流程数量较少，整体复杂度较低。）\n### 核心风险摘要\n- 一句话总结：当前 PRD 存在多处关键规则缺口，建议先完成核心风险闭环再进入开发。\n- 三个致命伤：\n  - 状态机不完整（P0，4项）\n  - 流程闭环缺失（P0，3项）\n  - 数据契约与一致性不足（P1，2项）\n\n### 七维质量评分明细（必填）\n\n| 维度 | 评分 | 扣分原因 | 说明 |\n| :--- | :--- | :--- | :--- |\n| 需求完整度 | 7.0/10 | — | 目标/成功标准存在【PRD未说明】，范围与验收口径不完整。 |\n| 规则明确度 | 7.6/10 | — | 存在规则歧义/冲突/不可执行表述，导致实现与验收口径不一致风险。 |\n| 流程一致性 | 5.3/10 | -0.5：流程闭环不足（并发/重试/幂等） | 流程闭环不足（成功/失败/中断/重试/并发口径缺失），上线行为易不一致。 |\n| 状态机完备度 | 1.6/10 | -2.0：状态与转移/回滚/恢复缺失<br>-0.5：状态与转移/回滚/恢复缺失 | 状态定义/转移/回滚/恢复规则不完整，复杂场景下容易出现不可达/死路/非法跳转。 |\n| 异常覆盖度 | 5.6/10 | -0.5：异常/边界/超时覆盖不足<br>-2.0：异常/边界/超时覆盖不足<br>-1.0：异常/边界/超时覆盖不足 | 异常/边界/弱网/超时/重复等场景覆盖不足，失败闭环与恢复策略不明确。 |\n| 可测试性 | 7.2/10 | — | 存在不可测试描述/成功标准缺失，验收条件难以量化。 |\n| 技术可实现性 | 7.3/10 | — | 并发/幂等/重试等工程约束未落地，存在实现与稳定性风险。 |\n\n### 异常/边界覆盖速览（辅助）\n\n| 类别 | 检查项 | 是否覆盖 |\n| :--- | :--- | :--- |\n| 异常 | 超时 | 否 |\n| 异常 | 弱网/断网 | 否 |\n| 异常 | 失败/错误码 | 否 |\n| 异常 | 重试 | 否 |\n| 异常 | 回滚/补偿 | 否 |\n| 异常 | 幂等/重复提交 | 否 |\n| 边界 | 范围/上下限 | 否 |\n| 边界 | 并发 | 否 |\n| 边界 | 重复操作 | 否 |\n| 边界 | 弱网/超时 | 否 |\n\n\n## 二、核心问题矩阵（合并版）\n\n| 风险等级 | 核心问题 | 涉及锚点 | 问题描述 | 现场翻车（业务视角） | 风险分析 | 审计建议 |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n| P0 | **状态机不完整（P0）——系统不知道下一步该去哪** | L19: 2、录音上传接口新增入参 | 某状态没有入口，状态不可达。；某状态没有出口，无法结束。；出现不合理跳转。 例如：用户退出投屏后系统没有回到可控状态，下一次进入时行为不一致，现场演示容易翻车。 | 退出/返回路径不一致，现场演示卡死或切换混乱。 | 状态机断裂。；业务逻辑错误。；数据不一致。 | 补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。 |\n| P0 | **模式切换规则不完整（P0）——退出投屏后去哪了？** | L19: 2、录音上传接口新增入参 | 只描述成功路径，缺少失败处理。；未定义用户中途退出的处理。；接口失败是否允许重试未说明。 例如：用户退出投屏后系统没有回到可控状态，下一次进入时行为不一致，现场演示容易翻车。 | 退出/返回路径不一致，现场演示卡死或切换混乱。 | 异常未定义。；状态/资源泄漏。；重复执行或无法恢复。 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 |\n| P1 | **数据契约与一致性不足（P1）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 字段未说明类型、长度、是否必填。；多系统写入同一数据未定义协调方式。 例如：字段口径不一致导致一端显示“已成功”另一端仍是“处理中”，用户重复点击触发重复请求。 | 体验不一致引发投诉，后续返工成本高。 | 前后端理解不一致。；数据不一致。 | 补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。 |\n| P1 | **扫描引擎问题聚合（P1）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 漏洞扫描阶段执行失败 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json | 检查 LLM 配置或重试扫描 |\n| P2 | **可测试性问题聚合（P2）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 未说明成功条件。；关键操作没有日志要求。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 验收标准不清。；无法审计与排查。 | 针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。 |\n| P2 | **业务规则问题聚合（P2）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 未定义最小值或最大值。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 边界未定义。 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 |\n| P2 | **系统与技术问题聚合（P2）——需要补齐可执行规则** | L19: 2、录音上传接口新增入参 | 接口重复调用未说明处理方式。 例如：用户按常规操作会遇到不确定结果，导致投诉或返工。 | 体验不一致引发投诉，后续返工成本高。 | 重复扣款/重复发货。 | 针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。 |\n\n\n### 详细漏洞清单（原始版）\n\n- 扫描来源：规则库 13 条，LLM 1 条，混合 0 条\n\n### 漏洞1\n- 模块：业务规则\n- 类型：规则边界缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：未定义最小值或最大值。\n- 原因：边界未定义。\n- 建议：补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。\n\n### 漏洞2\n- 模块：状态机\n- 类型：状态孤岛\n- 风险等级：P0\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：某状态没有入口，状态不可达。\n- 原因：状态机断裂。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞3\n- 模块：状态机\n- 类型：状态死路\n- 风险等级：P0\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：某状态没有出口，无法结束。\n- 原因：状态机断裂。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞4\n- 模块：状态机\n- 类型：非法状态跳转\n- 风险等级：P0\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：出现不合理跳转。\n- 原因：业务逻辑错误。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞5\n- 模块：状态机\n- 类型：状态回滚缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：异常情况下没有回滚逻辑。\n- 原因：数据不一致。\n- 建议：补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。\n\n### 漏洞6\n- 模块：业务流程\n- 类型：异常流程缺失\n- 风险等级：P0\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：只描述成功路径，缺少失败处理。\n- 原因：异常未定义。\n- 建议：补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。\n\n### 漏洞7\n- 模块：业务流程\n- 类型：中断流程缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：未定义用户中途退出的处理。\n- 原因：状态/资源泄漏。\n- 建议：针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞8\n- 模块：业务流程\n- 类型：重试机制缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：接口失败是否允许重试未说明。\n- 原因：重复执行或无法恢复。\n- 建议：针对业务流程补充“重试机制缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞9\n- 模块：数据结构\n- 类型：字段定义缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：字段未说明类型、长度、是否必填。\n- 原因：前后端理解不一致。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞10\n- 模块：数据结构\n- 类型：数据一致性风险\n- 风险等级：P1\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：多系统写入同一数据未定义协调方式。\n- 原因：数据不一致。\n- 建议：补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。\n\n### 漏洞11\n- 模块：可测试性\n- 类型：成功标准缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：未说明成功条件。\n- 原因：验收标准不清。\n- 建议：针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞12\n- 模块：可测试性\n- 类型：日志记录缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：关键操作没有日志要求。\n- 原因：无法审计与排查。\n- 建议：针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞13\n- 模块：系统与技术\n- 类型：接口幂等性缺失\n- 风险等级：P2\n- 来源：rule\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：接口重复调用未说明处理方式。\n- 原因：重复扣款/重复发货。\n- 建议：针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。\n\n### 漏洞14\n- 模块：扫描引擎\n- 类型：扫描异常\n- 风险等级：P1\n- 来源：llm\n- 锚点：L19: 2、录音上传接口新增入参\n- 描述：例如：漏洞扫描阶段执行失败\n- 原因：LLM 配置不存在: D:\\trae-code\\trae_platform\\modules\\prd_audit\\__llm_disabled__.json\n- 建议：检查 LLM 配置或重试扫描\n\n\n## 四、待确认清单\n\n| 优先级 | 待确认项 | 紧急程度 | 涉及模块 | 具体问题 | 影响 |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n| P0 | 异常流程缺失 | 🔥🔥🔥 不确认没法开工 | 业务流程 | 只描述成功路径，缺少失败处理。 | 需澄清后方可进入开发/评审 |\n| P1 | 数据一致性风险 | 🔥🔥 不确认会做错 | 数据结构 | 多系统写入同一数据未定义协调方式。 | 需澄清后方可进入开发/评审 |\n| P2 | 字段定义缺失 | 🔥 可以边做边等 | 数据结构 | 字段未说明类型、长度、是否必填。 | 需澄清后方可进入开发/评审 |\n| P2 | 重试机制缺失 | 🔥 可以边做边等 | 业务流程 | 接口失败是否允许重试未说明。 | 需澄清后方可进入开发/评审 |\n| P2 | 接口幂等性缺失 | 🔥 可以边做边等 | 系统与技术 | 接口重复调用未说明处理方式。 | 需澄清后方可进入开发/评审 |\n| P2 | 中断流程缺失 | 🔥 可以边做边等 | 业务流程 | 未定义用户中途退出的处理。 | 需澄清后方可进入开发/评审 |\n| P2 | 状态回滚缺失 | 🔥 可以边做边等 | 状态机 | 异常情况下没有回滚逻辑。 | 需澄清后方可进入开发/评审 |\n| P2 | 规则边界缺失 | 🔥 可以边做边等 | 业务规则 | 未定义最小值或最大值。 | 需澄清后方可进入开发/评审 |\n| P2 | 日志记录缺失 | 🔥 可以边做边等 | 可测试性 | 关键操作没有日志要求。 | 需澄清后方可进入开发/评审 |\n| P2 | 成功标准缺失 | 🔥 可以边做边等 | 可测试性 | 未说明成功条件。 | 需澄清后方可进入开发/评审 |\n\n## 五、测试重点（测试团队专用）\n\n| 测试类型 | 测试点 | 对应风险 |\n| :--- | :--- | :--- |\n| 功能测试 | 状态机不完整 | P0 |\n| 异常测试 | 流程闭环缺失 | P0 |\n| 功能测试 | 数据契约与一致性不足 | P1 |\n| 异常测试 | 扫描引擎问题聚合 | P1 |\n| 功能测试 | 可测试性问题聚合 | P2 |\n| 功能测试 | 业务规则问题聚合 | P2 |\n| 功能测试 | 系统与技术问题聚合 | P2 |\n\n## 六、研发重点（研发团队专用）\n\n| 模块 | 研发关注点 | 风险等级 |\n| :--- | :--- | :--- |\n| L19: 2、录音上传接口新增入参 | 补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。 | P0 |\n| L19: 2、录音上传接口新增入参 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 | P0 |\n| L19: 2、录音上传接口新增入参 | 补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。 | P1 |\n| L19: 2、录音上传接口新增入参 | 检查 LLM 配置或重试扫描 | P1 |\n| L19: 2、录音上传接口新增入参 | 针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。 | P2 |\n| L19: 2、录音上传接口新增入参 | 补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。 | P2 |\n| L19: 2、录音上传接口新增入参 | 针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。 | P2 |\n\n## 七、项目风险\n- 状态机不完整（P0）\n- 流程闭环缺失（P0）\n- 数据契约与一致性不足（P1）\n- 扫描引擎问题聚合（P1）\n- 可测试性问题聚合（P2）\n- 业务规则问题聚合（P2）\n- 系统与技术问题聚合（P2）\n\n## 八、计划建议\n- 先完成 P0 漏洞澄清并冻结关键流程\n- 按 P0→P1→P2 优先级推进修复与复审\n- 同步更新测试点并执行回归验证"
+  },
+  "extras": {
+    "test_matrix": {
+      "function_matrix": [
+        {
+          "module": "录音上传接口新增入参",
+          "test_types": {
+            "正常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "异常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "边界条件": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "并发场景": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "中断恢复": {
+              "status": "覆盖",
+              "suggestion": ""
+            }
+          }
+        },
+        {
+          "module": "3 广告资源列表",
+          "test_types": {
+            "正常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "异常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "边界条件": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "并发场景": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "中断恢复": {
+              "status": "覆盖",
+              "suggestion": ""
+            }
+          }
+        },
+        {
+          "module": "jpg",
+          "test_types": {
+            "正常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "异常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "边界条件": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "并发场景": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "中断恢复": {
+              "status": "覆盖",
+              "suggestion": ""
+            }
+          }
+        },
+        {
+          "module": "1 拉取参赛信息",
+          "test_types": {
+            "正常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "异常流程": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "边界条件": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "并发场景": {
+              "status": "覆盖",
+              "suggestion": ""
+            },
+            "中断恢复": {
+              "status": "覆盖",
+              "suggestion": ""
+            }
+          }
+        }
+      ],
+      "state_matrix": {},
+      "concurrent_matrix": {},
+      "boundary_matrix": [
+        {
+          "item": "超时",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "弱网/断网",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "失败/错误码",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "重试",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "回滚/补偿",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        },
+        {
+          "item": "幂等/重复提交",
+          "covered": false,
+          "suggestion": "建议在 PRD 中补充说明"
+        }
+      ],
+      "permission_matrix": []
+    },
+    "diagrams": {
+      "state_diagram": "状态机未定义，请在 PRD 中补充 states 或流程中的状态说明。",
+      "permission_matrix": "用户角色未定义，请在 PRD 中补充 user_roles，以便生成权限矩阵。",
+      "concurrency_diagram": "无高优先级并发场景或事件不足，请在 PRD 中补充业务规则与流程。"
+    },
+    "kg": {
+      "root_causes": [],
+      "risk_chains": [],
+      "system_risks": [],
+      "meta": {
+        "hits": [
+          "D001",
+          "R004",
+          "R006",
+          "R007",
+          "R008",
+          "R009",
+          "R012",
+          "R013",
+          "R015",
+          "R016",
+          "R019",
+          "R023",
+          "R025",
+          "R027"
+        ],
+        "edges_used": 0
+      }
+    },
+    "extras_quality": {
+      "stage4": {
+        "overall": 7.2,
+        "details": {
+          "function_matrix": 4.0,
+          "boundary_matrix": 1.2,
+          "concurrent_matrix": 0.0,
+          "permission_matrix": 1.0,
+          "state_matrix": 1.0,
+          "stats": {
+            "modules_total": 4,
+            "modules_shown": 4,
+            "boundary_items": 6,
+            "boundary_covered": 0,
+            "concurrent_items": 0,
+            "roles_total": 0,
+            "states_total": 0
+          },
+          "notes": []
+        }
+      },
+      "stage5": {
+        "overall": 9.0,
+        "details": {
+          "state_diagram": 4.0,
+          "permission_matrix": 3.0,
+          "concurrency_diagram": 2.0,
+          "stats": {
+            "roles_total": 0,
+            "states_total": 0
+          },
+          "notes": []
+        }
+      }
+    }
+  },
+  "learning_meta": {
+    "source_raw": {
+      "rule": 13,
+      "llm": 1,
+      "other": 0
+    },
+    "source_learning": {
+      "rule": 13,
+      "llm": 0,
+      "other": 0
+    },
+    "lane": "local_only"
+  }
+}

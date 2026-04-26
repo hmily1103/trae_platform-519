@@ -1,0 +1,477 @@
+{% extends "base.html" %}
+
+{% block title %}API 接口压测 - Trae 运维平台{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-1"><i class="bi bi-lightning-charge-fill"></i> API 接口压测</h2>
+                <p class="text-muted mb-0">对 KTV 搜索、点歌等 HTTP 接口进行压测，支持预设配置与自定义修改。</p>
+            </div>
+            <a href="/api_stress/reports" class="btn btn-outline-primary"><i class="bi bi-file-earmark-text"></i> 压测报告</a>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-7">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-light">
+                        <i class="bi bi-gear"></i> 接口配置
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">预设</label>
+                            <select class="form-select" id="presetSelect" onchange="applyPreset()">
+                                <option value="">-- 自定义 --</option>
+                                <option value="search">搜索歌曲</option>
+                                <option value="order">点歌</option>
+                            </select>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">请求方法</label>
+                                <select class="form-select" id="method">
+                                    <option value="GET">GET</option>
+                                    <option value="POST" selected>POST</option>
+                                    <option value="PUT">PUT</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">接口 URL <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control font-monospace" id="url" placeholder="http://192.168.16.210:9000/media/newsearchinfo" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Query 参数（如 page=1&size=10）</label>
+                            <input type="text" class="form-control font-monospace" id="queryParams" placeholder="page=1&size=10">
+                        </div>
+                        <div class="mb-3" id="bodyRow">
+                            <label class="form-label">请求体 JSON</label>
+                            <textarea class="form-control font-monospace" id="body" rows="6" placeholder='{"searchtype":1,"content":"周杰伦"}'></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">搜索关键词（多个用逗号分隔，用于 搜索 时随机替换 content）</label>
+                            <input type="text" class="form-control" id="keywords" placeholder="周杰伦,稻香,七里香,晴天">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-light">
+                        <i class="bi bi-speedometer2"></i> 压测参数
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">并发数</label>
+                                <input type="number" class="form-control" id="concurrency" value="10" min="1" max="500">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">持续时间（秒）</label>
+                                <input type="number" class="form-control" id="durationSec" value="60" min="5" max="3600">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">单次超时（秒）</label>
+                                <input type="number" class="form-control" id="timeoutSec" value="10" min="1" max="120">
+                            </div>
+                        </div>
+                        <div class="mt-3 d-flex gap-2 flex-wrap">
+                            <button id="btnStart" class="btn btn-danger" onclick="startStress()">
+                                <i class="bi bi-play-fill"></i> 开始压测
+                            </button>
+                            <button id="btnStop" class="btn btn-secondary" onclick="stopStress()" disabled>
+                                <i class="bi bi-stop-fill"></i> 停止
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="forceReset()" title="当提示「已有任务在运行」但实际无任务时使用">
+                                <i class="bi bi-arrow-counterclockwise"></i> 清除异常状态
+                            </button>
+                        </div>
+                        <div id="stressStatusBadge" class="mt-2 mb-1" style="display:none;"></div>
+                        <div id="stressMessage" class="mt-1 small text-muted"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-graph-up"></i> 实时指标
+                    </div>
+                    <div class="card-body">
+                        <div id="metricsArea" class="text-muted text-center py-5">
+                            压测未开始，指标将在此显示
+                        </div>
+                        <div id="metricsCards" class="row g-2" style="display:none;">
+                            <div class="col-6">
+                                <div class="card bg-light">
+                                    <div class="card-body py-2">
+                                        <small class="text-muted">QPS</small>
+                                        <div class="fs-4 fw-bold" id="mQps">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="card bg-light">
+                                    <div class="card-body py-2">
+                                        <small class="text-muted">平均延迟 (ms)</small>
+                                        <div class="fs-4 fw-bold" id="mAvg">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="card bg-light">
+                                    <div class="card-body py-2">
+                                        <small class="text-muted">P95 (ms)</small>
+                                        <div class="fs-4 fw-bold" id="mP95">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="card bg-light">
+                                    <div class="card-body py-2">
+                                        <small class="text-muted">P99 (ms)</small>
+                                        <div class="fs-4 fw-bold" id="mP99">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="card bg-light">
+                                    <div class="card-body py-2">
+                                        <small class="text-muted">错误率 (%)</small>
+                                        <div class="fs-4 fw-bold" id="mErrorRate">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="card bg-light">
+                                    <div class="card-body py-2">
+                                        <small class="text-muted">成功 / 总</small>
+                                        <div class="fs-5 fw-bold" id="mSuccessTotal">0 / 0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted" id="mElapsedText">已运行 <span id="mElapsed">0</span> 秒</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="bi bi-cpu"></i> 服务器进程 Top10（每 10s 刷新）
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info py-2 small mb-3">
+                            <i class="bi bi-info-circle"></i> 填写被压测服务器的 SSH 信息，压测时可查看其 CPU/内存占用 Top10 进程
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-3">
+                                <input type="text" class="form-control form-control-sm" id="monitorHost" placeholder="IP (如 192.168.16.210)">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control form-control-sm" id="monitorPort" placeholder="222" value="222">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="text" class="form-control form-control-sm" id="monitorUser" placeholder="用户名" value="thunder">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="password" class="form-control form-control-sm" id="monitorPwd" placeholder="密码" value="Thunder#123">
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="testMonitorConn()">测试连接</button>
+                            </div>
+                        </div>
+                        <div id="monitorError" class="text-danger small mb-2"></div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-muted">CPU 占用 Top10</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead><tr><th>#</th><th>PID</th><th>CPU%</th><th>MEM%</th><th>进程名</th></tr></thead>
+                                        <tbody id="cpuTopBody">
+                                            <tr><td colspan="5" class="text-muted text-center">未配置或未刷新</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-muted">内存占用 Top10</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead><tr><th>#</th><th>PID</th><th>CPU%</th><th>MEM%</th><th>进程名</th></tr></thead>
+                                        <tbody id="memTopBody">
+                                            <tr><td colspan="5" class="text-muted text-center">未配置或未刷新</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted" id="monitorLastUpdate"></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let monitorInterval = null;
+let processMonitorInterval = null;
+let presetsCache = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadPresets();
+    startProcessMonitor();
+    syncPageStateOnLoad();
+});
+
+async function syncPageStateOnLoad() {
+    try {
+        const st = await fetchStatus();
+        if (st.running) {
+            document.getElementById('btnStart').disabled = true;
+            document.getElementById('btnStop').disabled = false;
+            document.getElementById('metricsArea').style.display = 'none';
+            document.getElementById('metricsCards').style.display = '';
+            showStressStatus('running');
+            startMonitoring();
+            if (st.metrics) updateMetricsDisplay(st.metrics, false);
+        } else {
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnStop').disabled = true;
+            document.getElementById('stressStatusBadge').style.display = 'none';
+            if (st.metrics) updateMetricsDisplay(st.metrics, true);
+        }
+    } catch (e) {
+        console.error('syncPageStateOnLoad:', e);
+    }
+}
+
+function getMonitorConfig() {
+    const host = document.getElementById('monitorHost').value.trim();
+    const user = document.getElementById('monitorUser').value.trim();
+    if (!host || !user) return null;
+    return {
+        host,
+        port: parseInt(document.getElementById('monitorPort').value) || 22,
+        username: user,
+        password: document.getElementById('monitorPwd').value || ''
+    };
+}
+
+async function fetchTopProcesses() {
+    const cfg = getMonitorConfig();
+    if (!cfg) return;
+    try {
+        const res = await fetch('/api_stress/api/server_top_processes', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(cfg)
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('monitorError').textContent = '';
+            renderProcessTables(data.cpu_top, data.mem_top);
+            document.getElementById('monitorLastUpdate').textContent = '上次刷新: ' + new Date().toLocaleTimeString();
+        } else {
+            document.getElementById('monitorError').textContent = data.error || '获取失败';
+        }
+    } catch (e) {
+        document.getElementById('monitorError').textContent = '请求异常: ' + e.message;
+    }
+}
+
+function renderProcessTables(cpuTop, memTop) {
+    function rows(data) {
+        if (!data || data.length === 0) return '<tr><td colspan="5" class="text-muted text-center">无数据</td></tr>';
+        return data.map(p => `<tr><td>${p.rank}</td><td>${p.pid}</td><td>${p.cpu}</td><td>${p.mem}</td><td title="${p.name}">${p.name}</td></tr>`).join('');
+    }
+    document.getElementById('cpuTopBody').innerHTML = rows(cpuTop);
+    document.getElementById('memTopBody').innerHTML = rows(memTop);
+}
+
+function startProcessMonitor() {
+    if (processMonitorInterval) clearInterval(processMonitorInterval);
+    processMonitorInterval = setInterval(() => {
+        if (getMonitorConfig()) fetchTopProcesses();
+    }, 10000);
+}
+
+async function testMonitorConn() {
+    const cfg = getMonitorConfig();
+    if (!cfg) {
+        alert('请先填写 IP 和用户名');
+        return;
+    }
+    document.getElementById('monitorError').textContent = '测试中...';
+    try {
+        const res = await fetch('/api_stress/api/server_top_processes', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(cfg)
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('monitorError').className = (data.cpu_top && data.cpu_top.length) ? 'text-success small mb-2' : 'text-warning small mb-2';
+            document.getElementById('monitorError').textContent = (data.cpu_top && data.cpu_top.length) ? '连接成功，进程数据已刷新' : (data.error || '连接成功，但未获取到进程数据');
+            renderProcessTables(data.cpu_top, data.mem_top);
+            document.getElementById('monitorLastUpdate').textContent = '上次刷新: ' + new Date().toLocaleTimeString();
+        } else {
+            document.getElementById('monitorError').className = 'text-danger small mb-2';
+            document.getElementById('monitorError').textContent = '连接失败: ' + (data.error || '未知错误');
+        }
+    } catch (e) {
+        document.getElementById('monitorError').textContent = '请求异常: ' + e.message;
+    }
+}
+
+async function loadPresets() {
+    try {
+        const res = await fetch('/api_stress/api/presets');
+        const data = await res.json();
+        if (data.presets) presetsCache = data.presets;
+    } catch (e) {
+        console.error('Load presets failed:', e);
+    }
+}
+
+function applyPreset() {
+    const v = document.getElementById('presetSelect').value;
+    if (!v || !presetsCache[v]) return;
+    const p = presetsCache[v];
+    document.getElementById('url').value = p.url || '';
+    document.getElementById('method').value = (p.method || 'POST').toUpperCase();
+    document.getElementById('queryParams').value = p.query_params || '';
+    document.getElementById('body').value = p.body || '';
+    document.getElementById('keywords').value = (p.keywords || []).join(',');
+}
+
+async function startStress() {
+    const url = document.getElementById('url').value.trim();
+    if (!url) {
+        alert('请填写接口 URL');
+        return;
+    }
+    const kw = document.getElementById('keywords').value.trim();
+    const keywords = kw ? kw.split(',').map(s => s.trim()).filter(Boolean) : null;
+
+    const payload = {
+        url,
+        method: document.getElementById('method').value,
+        query_params: document.getElementById('queryParams').value.trim(),
+        body: document.getElementById('body').value.trim(),
+        concurrency: parseInt(document.getElementById('concurrency').value) || 10,
+        duration_sec: parseInt(document.getElementById('durationSec').value) || 60,
+        timeout_sec: parseInt(document.getElementById('timeoutSec').value) || 10,
+    };
+    if (keywords && keywords.length) payload.keywords = keywords;
+
+    const res = await fetch('/api_stress/api/stress/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    document.getElementById('stressMessage').textContent = data.message;
+    document.getElementById('stressMessage').className = data.success ? 'mt-1 small text-success' : 'mt-1 small text-danger';
+    if (data.success) {
+        document.getElementById('btnStart').disabled = true;
+        document.getElementById('btnStop').disabled = false;
+        document.getElementById('metricsArea').style.display = 'none';
+        document.getElementById('metricsCards').style.display = '';
+        showStressStatus('running');
+        startMonitoring();
+        if (getMonitorConfig()) fetchTopProcesses();
+    }
+}
+
+function showStressStatus(state) {
+    const el = document.getElementById('stressStatusBadge');
+    el.style.display = 'block';
+    if (state === 'running') {
+        el.innerHTML = '<span class="badge bg-success"><i class="bi bi-arrow-repeat"></i> 压测进行中</span>';
+    } else {
+        el.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-check-circle"></i> 压测已完成</span>';
+    }
+}
+
+async function forceReset() {
+    const res = await fetch('/api_stress/api/stress/force_reset', { method: 'POST' });
+    const data = await res.json();
+    alert(data.message);
+    if (data.success) {
+        document.getElementById('btnStart').disabled = false;
+        document.getElementById('btnStop').disabled = true;
+        document.getElementById('stressStatusBadge').style.display = 'none';
+    }
+}
+
+async function stopStress() {
+    const res = await fetch('/api_stress/api/stress/stop', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+        showStressStatus('completed');
+        document.getElementById('stressMessage').className = 'mt-1 small text-secondary';
+        document.getElementById('stressMessage').innerHTML = data.message + (data.report_id ? ' <a href="/api_stress/reports/' + data.report_id + '" class="ms-2">查看报告</a>' : '');
+    } else {
+        document.getElementById('stressMessage').textContent = data.message;
+    }
+    if (data.success) {
+        document.getElementById('btnStart').disabled = false;
+        document.getElementById('btnStop').disabled = true;
+        stopMonitoring();
+        const st = await fetchStatus();
+        updateMetricsDisplay(data.metrics || st.metrics, true);
+    }
+}
+
+async function fetchStatus() {
+    const res = await fetch('/api_stress/api/stress/status');
+    return res.json();
+}
+
+function updateMetricsDisplay(m, completed) {
+    if (!m) return;
+    document.getElementById('mQps').textContent = m.qps ?? 0;
+    document.getElementById('mAvg').textContent = m.avg_latency_ms ?? 0;
+    document.getElementById('mP95').textContent = m.p95_ms ?? 0;
+    document.getElementById('mP99').textContent = m.p99_ms ?? 0;
+    document.getElementById('mErrorRate').textContent = m.error_rate ?? 0;
+    document.getElementById('mSuccessTotal').textContent = (m.success_count ?? 0) + ' / ' + (m.total_requests ?? 0);
+    var elapsed = m.elapsed_sec ?? 0;
+    var el = document.getElementById('mElapsedText');
+    if (el) el.textContent = completed ? '已完成，共运行 ' + elapsed + ' 秒' : ('已运行 ' + elapsed + ' 秒');
+}
+
+function startMonitoring() {
+    stopMonitoring();
+    monitorInterval = setInterval(async () => {
+        const st = await fetchStatus();
+        if (!st.running && st.metrics) {
+            stopMonitoring();
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnStop').disabled = true;
+            showStressStatus('completed');
+            document.getElementById('stressMessage').className = 'mt-1 small text-secondary';
+            let msg = '压测已完成（到达设定时长）';
+            if (st.report_id) msg += ' <a href="/api_stress/reports/' + st.report_id + '" class="ms-2">查看报告</a>';
+            document.getElementById('stressMessage').innerHTML = msg;
+            updateMetricsDisplay(st.metrics, true);
+        } else if (st.metrics) {
+            updateMetricsDisplay(st.metrics, false);
+        }
+    }, 1000);
+}
+
+function stopMonitoring() {
+    if (monitorInterval) {
+        clearInterval(monitorInterval);
+        monitorInterval = null;
+    }
+}
+</script>
+{% endblock %}

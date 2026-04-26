@@ -1,0 +1,29 @@
+{
+  "id": "recording_test_1768300427573",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-01-13T18:33:47.808879",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "360,640",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 360,
+        "y": 640
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_test_1768300427573\\step_1.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_test_1768300427573\\step_1.xml",
+      "timestamp": 1768300435.791308,
+      "wait_after": 1000,
+      "description": "center click"
+    }
+  ],
+  "description": "click test"
+}

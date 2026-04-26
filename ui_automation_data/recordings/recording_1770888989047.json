@@ -1,0 +1,75 @@
+{
+  "id": "recording_1770888989047",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-02-12T17:36:29.049826",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": null,
+      "value": null,
+      "coordinates": {
+        "x": 771,
+        "y": 403
+      },
+      "screenshot": null,
+      "ui_tree": null,
+      "timestamp": 1770888992.703799,
+      "wait_after": 1000,
+      "description": "点击 (771, 403) (Error: 'UISelector' object has no attribute 'text')",
+      "status": "failed"
+    },
+    {
+      "step_num": 2,
+      "action_type": "click",
+      "selector": null,
+      "value": null,
+      "coordinates": {
+        "x": 216,
+        "y": 142
+      },
+      "screenshot": null,
+      "ui_tree": null,
+      "timestamp": 1770888996.4692686,
+      "wait_after": 1000,
+      "description": "点击 (216, 142) (Error: 'UISelector' object has no attribute 'text')",
+      "status": "failed"
+    },
+    {
+      "step_num": 3,
+      "action_type": "click",
+      "selector": null,
+      "value": null,
+      "coordinates": {
+        "x": 277,
+        "y": 233
+      },
+      "screenshot": null,
+      "ui_tree": null,
+      "timestamp": 1770889001.919036,
+      "wait_after": 1000,
+      "description": "点击 (277, 233) (Error: 'UISelector' object has no attribute 'text')",
+      "status": "failed"
+    },
+    {
+      "step_num": 4,
+      "action_type": "click",
+      "selector": null,
+      "value": null,
+      "coordinates": {
+        "x": 329,
+        "y": 321
+      },
+      "screenshot": null,
+      "ui_tree": null,
+      "timestamp": 1770889004.5555577,
+      "wait_after": 1000,
+      "description": "点击 (329, 321) (Error: 'UISelector' object has no attribute 'text')",
+      "status": "failed"
+    }
+  ],
+  "description": "",
+  "project_id": "",
+  "name": ""
+}

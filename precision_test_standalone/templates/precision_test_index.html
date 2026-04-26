@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>代码级精准回归 - Trae Platform</title>
+    <!-- 复用 prd_audit 的样式和依赖 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { background-color: #f8f9fa; }
+        .markdown-body {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .markdown-body h3 {
+            font-size: 1.1rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.8rem;
+            color: #2c3e50;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+        .markdown-body ul {
+            padding-left: 1.5em;
+        }
+        .code-textarea {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            background-color: #f6f8fa;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 简单的顶部导航（你可以把它嵌入到全局导航中） -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#"><i class="fas fa-bullseye me-2"></i>精准回归测试 (Code)</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row">
+        <!-- 左侧输入区 -->
+        <div class="col-md-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white fw-bold">
+                    <i class="fas fa-code me-2 text-primary"></i>代码变更输入 (Git Diff)
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">项目类型</label>
+                        <select class="form-select form-select-sm" id="projectType">
+                            <option value="backend" selected>后端服务 (Java/Python/Go等)</option>
+                            <option value="frontend">前端工程 (Vue/React等)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">粘贴 Git Diff 文本或改动的代码片段</label>
+                        <textarea id="codeDiffInput" class="form-control code-textarea" rows="18" placeholder="示例:
+@@ -10,4 +10,6 @@
+ public class OrderService {
+-    public void createOrder() {
+-        // 原始逻辑
++    public void createOrder(boolean isVip) {
++        if(isVip) {
++           // 优先处理
++        }
+     }
+ }"></textarea>
+                    </div>
+                    <button id="btnAnalyze" class="btn btn-primary w-100">
+                        <span id="btnText"><i class="fas fa-magic me-2"></i>一键推导回归策略</span>
+                        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none ms-2" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧输出区 -->
+        <div class="col-md-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-chart-network me-2 text-success"></i>爆炸半径与回归大纲</span>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="copyReport()"><i class="far fa-copy me-1"></i>复制报告</button>
+                </div>
+                <div class="card-body bg-light" style="overflow-y: auto; min-height: 500px;">
+                    <div id="reportContainer" class="markdown-body p-3 bg-white border rounded h-100 d-none">
+                        <!-- 报告内容 -->
+                    </div>
+                    <div id="emptyState" class="text-center text-muted mt-5 pt-5">
+                        <i class="fas fa-flask fa-3x mb-3 text-secondary" style="opacity: 0.5;"></i>
+                        <p>请在左侧输入代码 Diff，点击推导获取精准测试策略。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var currentReport = '';
+
+    document.getElementById('btnAnalyze').addEventListener('click', function() {
+        var codeDiff = document.getElementById('codeDiffInput').value.trim();
+        var projectType = document.getElementById('projectType').value;
+        
+        if (!codeDiff) {
+            alert('请粘贴代码 Diff！');
+            return;
+        }
+        
+        var btn = this;
+        var btnText = document.getElementById('btnText');
+        var btnSpinner = document.getElementById('btnSpinner');
+        var reportContainer = document.getElementById('reportContainer');
+        var emptyState = document.getElementById('emptyState');
+        
+        btn.disabled = true;
+        btnText.textContent = 'AI 正在推导链路...';
+        btnSpinner.classList.remove('d-none');
+        
+        fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                code_diff: codeDiff,
+                project_type: projectType
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok || data.success || data.code === 0) {
+                var mdReport = data.impact_report || (data.data && data.data.impact_report);
+                currentReport = mdReport;
+                emptyState.classList.add('d-none');
+                reportContainer.classList.remove('d-none');
+                reportContainer.innerHTML = window.marked.parse(mdReport);
+            } else {
+                alert('分析失败: ' + (data.message || data.msg || '未知错误'));
+            }
+        })
+        .catch(err => {
+            alert('请求异常: ' + err);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btnText.innerHTML = '<i class="fas fa-magic me-2"></i>一键推导回归策略';
+            btnSpinner.classList.add('d-none');
+        });
+    });
+
+    function copyReport() {
+        if (!currentReport) {
+            alert('暂无报告可复制');
+            return;
+        }
+        navigator.clipboard.writeText(currentReport).then(() => {
+            alert('报告已复制到剪贴板！可以直接粘贴到 PR 评论区。');
+        }).catch(err => {
+            alert('复制失败: ' + err);
+        });
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}点歌与搜索 - Trae 运维平台{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4"><i class="fas fa-music"></i> 点歌与搜索</h2>
+    <p class="text-muted small">从 JMeter 计划抽出的搜歌、点歌接口，在 Web 端直接调用 KTV 后端（可配置主机与端口）。</p>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header"><i class="fas fa-history"></i> 点歌历史</div>
+                <div class="card-body p-2">
+                    <div id="historyPlaceholder" class="text-muted small text-center py-2">加载中…</div>
+                    <ul id="historyList" class="list-group list-group-flush list-group-sm" style="display:none; max-height:200px; overflow-y:auto;"></ul>
+                </div>
+            </div>
+            <div class="card shadow-sm mb-3">
+                <div class="card-header"><i class="fas fa-cog"></i> 服务器配置</div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label class="form-label small">主机</label>
+                        <input type="text" class="form-control form-control-sm" id="cfgHost" value="192.168.0.208" placeholder="例如 192.168.0.208">
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small">搜索端口</label>
+                            <input type="number" class="form-control form-control-sm" id="cfgSearchPort" value="9000">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">点歌端口</label>
+                            <input type="number" class="form-control form-control-sm" id="cfgVodPort" value="8008">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">房间信息 roominfo</label>
+                        <input type="text" class="form-control form-control-sm" id="cfgRoominfo" placeholder="留空使用后端环境变量配置">
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small">userid</label>
+                            <input type="text" class="form-control form-control-sm" id="cfgUserid" placeholder="留空使用后端配置">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">appid</label>
+                            <input type="text" class="form-control form-control-sm" id="cfgAppid" placeholder="留空使用后端配置">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header"><i class="fas fa-search"></i> 搜索</div>
+                <div class="card-body">
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-auto">
+                            <label class="form-label small mb-0">关键词</label>
+                            <input type="text" class="form-control" id="searchContent" placeholder="输入歌名或歌手" value="">
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label small mb-0">搜索类型</label>
+                            <select class="form-select form-select-sm" id="searchType">
+                                <option value="1" selected>1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-primary" id="btnSearch"><i class="fas fa-search me-1"></i> 搜索</button>
+                        </div>
+                    </div>
+                    <div id="searchStatus" class="small text-muted mb-2"></div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-list"></i> 搜索结果</span>
+                    <span class="badge bg-secondary" id="resultCount">0 条</span>
+                </div>
+                <div class="card-body p-0">
+                    <div id="resultPlaceholder" class="text-center py-5 text-muted small">请先输入关键词并点击「搜索」。</div>
+                    <div id="resultTableWrap" style="display:none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>序号</th>
+                                        <th>歌曲编号 media_no</th>
+                                        <th>歌名 / 信息</th>
+                                        <th width="80">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    async function loadHistory() {
+        var ph = document.getElementById('historyPlaceholder');
+        var list = document.getElementById('historyList');
+        try {
+            var res = await fetch('/song_order/api/history?limit=20');
+            var data = await res.json();
+            var entries = (data.data && data.data.entries) || [];
+            ph.style.display = entries.length ? 'none' : 'block';
+            ph.textContent = entries.length ? '' : '暂无点歌历史';
+            list.style.display = entries.length ? 'block' : 'none';
+            list.innerHTML = entries.map(function(e) {
+                var name = (e.musicname || e.musicno || '-').substring(0, 20);
+                var ok = e.success ? 'text-success' : 'text-danger';
+                var ts = e.ts ? new Date(e.ts * 1000).toLocaleString() : '';
+                return '<li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2">' +
+                    '<span class="small ' + ok + '">' + name + '</span>' +
+                    '<button type="button" class="btn btn-sm btn-outline-primary btn-reorder" data-no="' + (e.musicno || '').replace(/"/g, '&quot;') + '" data-name="' + (e.musicname || '').replace(/"/g, '&quot;') + '">再点</button>' +
+                    '</li>';
+            }).join('');
+            list.querySelectorAll('.btn-reorder').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    orderSong(btn.getAttribute('data-no'), btn.getAttribute('data-name'));
+                });
+            });
+        } catch (e) {
+            ph.textContent = '加载失败';
+            list.style.display = 'none';
+        }
+    }
+    fetch('/song_order/api/config').then(function(r){return r.json();}).then(function(d){
+        if(d.ok&&d.data){
+            document.getElementById('cfgHost').value=d.data.host||'192.168.0.208';
+            document.getElementById('cfgSearchPort').value=d.data.search_port||'9000';
+            document.getElementById('cfgVodPort').value=d.data.vod_port||'8008';
+        }
+    }).catch(function(){});
+    function getCfg() {
+        return {
+            host: document.getElementById('cfgHost').value.trim(),
+            search_port: parseInt(document.getElementById('cfgSearchPort').value, 10) || 9000,
+            vod_port: parseInt(document.getElementById('cfgVodPort').value, 10) || 8008,
+            roominfo: document.getElementById('cfgRoominfo').value.trim(),
+            userid: document.getElementById('cfgUserid').value.trim(),
+            appid: document.getElementById('cfgAppid').value.trim()
+        };
+    }
+
+    document.getElementById('btnSearch').addEventListener('click', async function () {
+        var content = document.getElementById('searchContent').value.trim();
+        var searchtype = parseInt(document.getElementById('searchType').value, 10) || 1;
+        var statusEl = document.getElementById('searchStatus');
+        statusEl.textContent = '正在搜索…';
+        statusEl.className = 'small text-info mb-2';
+
+        try {
+            var res = await fetch('/song_order/api/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    host: getCfg().host,
+                    search_port: getCfg().search_port,
+                    content: content,
+                    searchtype: searchtype
+                })
+            });
+            var data = await res.json();
+            if (data.success && data.data) {
+                var result = data.data.result;
+                if (result && !Array.isArray(result) && result.list) result = result.list;
+                if (result && !Array.isArray(result) && result.data) result = result.data;
+                if (!Array.isArray(result)) result = [];
+                if (result.length > 0) {
+                    window.__searchResult = result;
+                    renderResult(result);
+                    statusEl.textContent = '搜索成功，共 ' + result.length + ' 条。';
+                    statusEl.className = 'small text-success mb-2';
+                } else {
+                    window.__searchResult = [];
+                    renderResult([]);
+                    statusEl.textContent = (data.data.msg || '无结果') + ' (code: ' + (data.data.code || '') + ')';
+                    statusEl.className = 'small text-warning mb-2';
+                }
+            } else {
+                window.__searchResult = [];
+                renderResult([]);
+                statusEl.textContent = data.message || '搜索失败';
+                statusEl.className = 'small text-danger mb-2';
+            }
+        } catch (e) {
+            window.__searchResult = [];
+            renderResult([]);
+            statusEl.textContent = '请求异常: ' + e.message;
+            statusEl.className = 'small text-danger mb-2';
+        }
+    });
+
+    function renderResult(list) {
+        var placeholder = document.getElementById('resultPlaceholder');
+        var tableWrap = document.getElementById('resultTableWrap');
+        var tbody = document.getElementById('resultBody');
+        var countEl = document.getElementById('resultCount');
+        countEl.textContent = list.length + ' 条';
+        if (list.length === 0) {
+            placeholder.style.display = 'block';
+            tableWrap.style.display = 'none';
+            return;
+        }
+        placeholder.style.display = 'none';
+        tableWrap.style.display = 'block';
+        tbody.innerHTML = '';
+        list.forEach(function (item, idx) {
+            var mediaNo = item.media_no != null ? item.media_no : (item.mediaNo != null ? item.mediaNo : '');
+            var name = item.media_name || item.mediaName || item.name || item.songname || '';
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
+                '<td><code>' + mediaNo + '</code></td>' +
+                '<td>' + (name || '-') + '</td>' +
+                '<td><button type="button" class="btn btn-sm btn-success btn-order" data-media-no="' + mediaNo + '" data-name="' + (name || '').replace(/"/g, '&quot;') + '"><i class="fas fa-plus me-1"></i>点歌</button></td>';
+            tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('.btn-order').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                orderSong(btn.getAttribute('data-media-no'), btn.getAttribute('data-name'));
+            });
+        });
+    }
+
+    async function orderSong(mediaNo, musicname) {
+        var cfg = getCfg();
+        var statusEl = document.getElementById('searchStatus');
+        statusEl.textContent = '正在点歌: ' + (musicname || mediaNo) + ' …';
+        statusEl.className = 'small text-info mb-2';
+        try {
+            var res = await fetch('/song_order/api/order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    host: cfg.host,
+                    vod_port: cfg.vod_port,
+                    roominfo: cfg.roominfo,
+                    userid: cfg.userid,
+                    appid: cfg.appid,
+                    musicno: mediaNo,
+                    musicname: musicname || ''
+                })
+            });
+            var data = await res.json();
+            if (data.success && data.data && (data.data.msg === '点歌请求成功' || data.data.code === 200)) {
+                statusEl.textContent = '点歌成功: ' + (musicname || mediaNo);
+                statusEl.className = 'small text-success mb-2';
+                if (typeof loadHistory === 'function') loadHistory();
+            } else {
+                statusEl.textContent = '点歌失败: ' + (data.data && data.data.msg ? data.data.msg : (data.message || '未知错误'));
+                statusEl.className = 'small text-danger mb-2';
+                if (typeof loadHistory === 'function') loadHistory();
+            }
+        } catch (e) {
+            statusEl.textContent = '点歌请求异常: ' + e.message;
+            statusEl.className = 'small text-danger mb-2';
+            if (typeof loadHistory === 'function') loadHistory();
+        }
+    }
+    loadHistory();
+})();
+</script>
+{% endblock %}

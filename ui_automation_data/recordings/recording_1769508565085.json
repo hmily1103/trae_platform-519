@@ -1,0 +1,91 @@
+{
+  "id": "recording_1769508565085",
+  "device_id": "192.168.16.114:8787",
+  "package_name": "",
+  "created_at": "2026-01-27T18:09:25.087491",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "527,480",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 527,
+        "y": 480
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1769508565085\\step_1.png",
+      "ui_tree": null,
+      "timestamp": 1769508576.2426608,
+      "wait_after": 1000,
+      "description": "点击 (527, 480)"
+    },
+    {
+      "step_num": 2,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "212,570",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 212,
+        "y": 570
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1769508565085\\step_2.png",
+      "ui_tree": null,
+      "timestamp": 1769508581.6038117,
+      "wait_after": 1000,
+      "description": "点击 (212, 570)"
+    },
+    {
+      "step_num": 3,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "493,582",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 493,
+        "y": 582
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1769508565085\\step_3.png",
+      "ui_tree": null,
+      "timestamp": 1769508592.6407652,
+      "wait_after": 1000,
+      "description": "点击 (493, 582)"
+    },
+    {
+      "step_num": 4,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "583,580",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 583,
+        "y": 580
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1769508565085\\step_4.png",
+      "ui_tree": null,
+      "timestamp": 1769508602.1102777,
+      "wait_after": 1000,
+      "description": "点击 (583, 580)"
+    }
+  ],
+  "description": "",
+  "project_id": "",
+  "name": ""
+}

@@ -1,0 +1,44 @@
+{
+    "_comment": "KTV播放器压测配置文件 - V2.3 电视端专项卡顿检测",
+    "_version": "2.3",
+    
+    "device_id": null,
+    "_device_id_comment": "设备ID，如果为null则自动选择第一个连接的设备",
+    
+    "target_app": {
+        "package_name": "com.thunder.ktv:media",
+        "_package_name_comment": "播放器包名，注意可能包含:media等后缀",
+        "main_activity": null,
+        "_main_activity_comment": "主界面Activity（可选，用于自动启动应用）"
+    },
+    
+    "test_strategy": {
+        "mode": "monitor_only",
+        "_mode_comment": "测试模式: monitor_only(纯监控) | fixed_skip(固定间隔切歌) | loop_playback(循环播放)",
+        "duration_minutes": 720,
+        "_duration_minutes_comment": "测试时长（分钟），720分钟=12小时",
+        "skip_interval_seconds": 300,
+        "_skip_interval_seconds_comment": "切歌间隔（秒），仅在fixed_skip和loop_playback模式下生效"
+    },
+    
+    "monitor": {
+        "interval_seconds": 2,
+        "_interval_seconds_comment": "性能数据采集间隔（秒），建议1-2秒以捕捉细微卡顿"
+    },
+    
+    "report": {
+        "output_dir": "reports",
+        "_output_dir_comment": "报告输出目录，相对于项目根目录"
+    },
+    
+    "http_vod": {
+        "server_ip": "192.168.1.100",
+        "_server_ip_comment": "VOD服务器IP（如果使用HTTP点歌功能）",
+        "stb_ip": "192.168.1.101",
+        "_stb_ip_comment": "机顶盒IP（如果使用HTTP点歌功能）",
+        "music_list": "1001,1002,1003",
+        "_music_list_comment": "歌曲ID列表，逗号分隔（如果使用HTTP点歌功能）"
+    },
+    
+    "_usage": "复制此文件为 config.json 并修改相应参数"
+}

@@ -1,0 +1,779 @@
+{% extends "base.html" %}
+
+{% block title %}ARM 服务器压测 - Trae 运维平台{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-cpu-fill"></i> ARM 服务器压测</h2>
+        
+        <div class="row">
+            <!-- Server Management -->
+            <div class="col-md-5">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-1">
+                        <span><i class="bi bi-server"></i> 服务器列表</span>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary" onclick="addSimulatedSlave()" title="仅一台物理机时，可添加模拟从机，模拟一主一从、从机高负载场景">
+                                <i class="bi bi-cpu"></i> 添加模拟从机
+                            </button>
+                            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addServerModal">
+                                <i class="bi bi-plus-lg"></i> 添加服务器
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="serverList">
+                            <!-- JS will populate this -->
+                            <div class="text-center p-3 text-muted">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection/Test Status -->
+            <div class="col-md-7">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-light">
+                        <i class="bi bi-terminal"></i> 连接状态
+                    </div>
+                    <div class="card-body">
+                        <div id="statusOutput" class="alert alert-secondary">
+                            请选择一台服务器以测试连接。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stress Control Panel (Initially Hidden) -->
+                <div class="card shadow-sm" id="stressPanel" style="display:none;">
+                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                        <div><i class="bi bi-lightning-fill"></i> 后台压测模拟器</div>
+                        <span class="badge bg-dark text-white" id="targetServerName">无</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="simSlaveHint" class="alert alert-info py-2 small mb-3" style="display:none;">
+                            <i class="bi bi-info-circle"></i> 当前为<strong>模拟从机</strong>，不执行真实压测，监控曲线为模拟高负载，用于一主一从场景测试。
+                        </div>
+
+                        <!-- Stress Type Tabs -->
+                        <ul class="nav nav-tabs mb-3" id="stressTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="cpu-tab" data-bs-toggle="tab" data-bs-target="#cpu-pane" type="button" role="tab"><i class="bi bi-cpu"></i> CPU 压测</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="mem-tab" data-bs-toggle="tab" data-bs-target="#mem-pane" type="button" role="tab"><i class="bi bi-memory"></i> 内存压测</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="io-tab" data-bs-toggle="tab" data-bs-target="#io-pane" type="button" role="tab"><i class="bi bi-hdd"></i> 磁盘 I/O</button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content mb-3" id="stressTabsContent">
+                            <!-- CPU Tab -->
+                            <div class="tab-pane fade show active" id="cpu-pane" role="tabpanel">
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-md-6">
+                                        <label class="form-label">CPU 负载 (%)</label>
+                                        <div class="d-flex align-items-center">
+                                            <input type="range" class="form-range flex-grow-1 me-2" id="cpuLoadRange" min="10" max="100" value="80" oninput="this.nextElementSibling.value = this.value">
+                                            <output>80</output>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">核心数 (0=所有)</label>
+                                        <input type="number" class="form-control" id="cpuCores" value="0" min="0">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Memory Tab -->
+                            <div class="tab-pane fade" id="mem-pane" role="tabpanel">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">VM Workers (线程数)</label>
+                                        <input type="number" class="form-control" id="vmWorkers" value="1" min="1">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">单线程内存 (例如 256M, 1G)</label>
+                                        <input type="text" class="form-control" id="vmBytes" value="256M">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- I/O Tab -->
+                            <div class="tab-pane fade" id="io-pane" role="tabpanel">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">I/O Workers (线程数)</label>
+                                        <input type="number" class="form-control" id="ioWorkers" value="1" min="1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 align-items-center mb-4 border-top pt-3">
+                            <div class="col-auto">
+                                <label class="col-form-label fw-bold"><i class="bi bi-stopwatch"></i> 持续时间 (秒)</label>
+                            </div>
+                            <div class="col-auto">
+                                <input type="number" class="form-control" id="stressTimeout" value="60" style="width: 100px;">
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button id="btnInstallTool" class="btn btn-outline-secondary btn-sm" onclick="installTool()">
+                                <i class="bi bi-download"></i> 安装 stress-ng 工具
+                            </button>
+                            <button id="btnStartStress" class="btn btn-danger" onclick="startStress()">
+                                <i class="bi bi-play-fill"></i> 开始压测
+                            </button>
+                            <button id="btnStopStress" class="btn btn-secondary" onclick="stopStress()" disabled>
+                                <i class="bi bi-stop-fill"></i> 停止
+                            </button>
+                        </div>
+                        <div id="stressOutput" class="mt-3 text-muted small"></div>
+                    </div>
+                </div>
+
+                <!-- Real-time Monitor -->
+                <div class="card shadow-sm mt-3" id="monitorPanel" style="display:none;">
+                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                        <div><i class="bi bi-graph-up"></i> 实时性能监控</div>
+                        <button class="btn btn-sm btn-outline-light" onclick="simulateAlert()" title="模拟 OOM 告警 (演示)">
+                            <i class="bi bi-bell"></i> 模拟告警
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="perfChart" style="max-height: 250px;"></canvas>
+                        
+                        <!-- Alert Area -->
+                        <div id="alertArea" class="mt-3">
+                            <!-- Dynamic alerts will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Server Modal -->
+<div class="modal fade" id="editServerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑服务器</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning py-2 small" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i> <strong>注意：</strong>若您通过 192.168.x.x:8080 访问本平台，8080 是 Web 端口，不是 SSH。SSH 默认端口 <strong>222</strong>。
+                </div>
+                <form id="editServerForm">
+                    <input type="hidden" name="id" id="editServerId">
+                    <div class="mb-3">
+                        <label class="form-label">名称 (别名)</label>
+                        <input type="text" class="form-control" name="name" id="editName">
+                    </div>
+                    <div class="row">
+                        <div class="col-8 mb-3">
+                            <label class="form-label">IP 地址</label>
+                            <input type="text" class="form-control" name="ip" id="editIp" required>
+                        </div>
+                        <div class="col-4 mb-3">
+                            <label class="form-label">SSH 端口</label>
+                            <input type="number" class="form-control" name="port" id="editPort" placeholder="222" title="SSH 端口，默认 222">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" name="username" id="editUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密码（留空则不修改）</label>
+                        <input type="password" class="form-control" name="password" id="editPassword" placeholder="留空保持原密码">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="updateServer()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Server Modal -->
+<div class="modal fade" id="addServerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加 ARM 服务器</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning py-2 small" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i> 若您通过 192.168.x.x:8080 访问本平台，8080 是 Web 端口。SSH 默认端口 <strong>222</strong>。
+                </div>
+                <div class="alert alert-info py-2" role="alert" style="font-size: 0.9rem;">
+                    <i class="bi bi-info-circle"></i> 没有物理服务器？
+                    <a href="#" onclick="fillVirtualServer(); return false;">创建虚拟服务器</a>
+                </div>
+                <form id="addServerForm">
+                    <div class="mb-3">
+                        <label class="form-label">名称 (别名)</label>
+                        <input type="text" class="form-control" name="name" placeholder="例如: 服务器-A">
+                    </div>
+                    <div class="row">
+                        <div class="col-8 mb-3">
+                            <label class="form-label">IP 地址</label>
+                            <input type="text" class="form-control" name="ip" required placeholder="例如: 192.168.1.100">
+                        </div>
+                        <div class="col-4 mb-3">
+                            <label class="form-label">SSH 端口</label>
+                            <input type="number" class="form-control" name="port" value="222" placeholder="222" title="SSH 端口，默认 222">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" name="username" value="thunder" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密码</label>
+                        <input type="password" class="form-control" name="password" value="Thunder#123">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="btnSaveServer">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+console.log("Server Stress JS loaded");
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadServers();
+    checkRunningStressJobs();
+
+    // Explicitly bind save button
+    const saveBtn = document.getElementById('btnSaveServer');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveServer);
+        console.log("Save button bound");
+    } else {
+        console.error("Save button not found!");
+    }
+});
+
+let monitorInterval = null;
+let perfChart = null;
+let currentServerId = null;
+let currentServerSimulated = false;
+
+// ... (rest of the functions remain the same but moved here)
+// Due to SearchReplace limitations, I will rewrite the functions or keep them if they are accessible.
+// Since SearchReplace replaces a block, I need to be careful.
+// Strategy: I will keep the original script tag content empty or remove it, and put everything in extra_js.
+// But wait, the previous content was inside the content block.
+// I should move the script tag out of content block into extra_js block.
+
+
+async function addSimulatedSlave() {
+    try {
+        const res = await fetch('/server_stress/api/servers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ simulated: true, name: '模拟从机' })
+        });
+        if (res.ok) {
+            loadServers();
+        } else {
+            const d = await res.json().catch(() => ({}));
+            alert(d.message || '添加模拟从机失败');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('添加模拟从机失败');
+    }
+}
+
+async function checkRunningStressJobs() {
+    try {
+        const res = await fetch('/server_stress/api/stress/active_jobs');
+        const data = await res.json();
+        const jobs = data.active_jobs || [];
+        if (jobs.length > 0) {
+            const job = jobs[0];
+            currentServerId = job.server_id;
+            currentServerSimulated = !!job.simulated;
+            document.getElementById('targetServerName').innerText = job.server_name;
+            document.getElementById('simSlaveHint').style.display = currentServerSimulated ? 'block' : 'none';
+            document.getElementById('stressPanel').style.display = 'block';
+            document.getElementById('monitorPanel').style.display = 'block';
+            if (!perfChart) initChart();
+            startMonitoring(job.server_id);
+            document.getElementById('statusOutput').className = 'alert alert-info';
+            document.getElementById('statusOutput').innerText = '已恢复对运行中压测的监控（' + job.server_name + '）';
+            document.getElementById('btnStartStress').disabled = true;
+            document.getElementById('btnStopStress').disabled = false;
+            document.getElementById('stressOutput').className = 'mt-3 text-success small';
+            document.getElementById('stressOutput').innerText = '压测进行中（已从其他页面恢复）';
+        }
+    } catch (e) {
+        console.error('checkRunningStressJobs:', e);
+    }
+}
+
+async function loadServers() {
+    try {
+        const res = await fetch('/server_stress/api/servers');
+        const data = await res.json();
+        const list = document.getElementById('serverList');
+        list.innerHTML = '';
+        
+        if (data.servers.length === 0) {
+            list.innerHTML = '<div class="text-center p-3 text-muted">暂无服务器</div>';
+            return;
+        }
+        
+        data.servers.forEach(s => {
+            const isSim = s.simulated === true || s.ip === 'sim://slave';
+            const roleLabel = isSim ? '<span class="badge bg-info ms-1">模拟从机</span>' : (s.role === 'slave' ? '<span class="badge bg-secondary ms-1">从</span>' : (s.role === 'master' ? '<span class="badge bg-primary ms-1">主</span>' : ''));
+            const sub = isSim ? '模拟从机，监控显示高负载，不连真实 SSH' : `${s.username}@${s.ip}:${s.port}`;
+            const item = document.createElement('div');
+            item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+            const editBtn = isSim ? '' : `<button class="btn btn-sm btn-outline-primary me-1" onclick="editServer('${s.id}'); event.stopPropagation();" title="编辑（可修改 SSH 端口）"><i class="bi bi-pencil"></i></button>`;
+            item.innerHTML = `
+                <div onclick="selectServer('${s.id}', '${s.name}')" style="cursor:pointer; flex-grow:1">
+                    <strong>${s.name}</strong>${roleLabel}<br>
+                    <small class="text-muted">${sub}</small>
+                </div>
+                <div>${editBtn}<button class="btn btn-sm btn-outline-danger" onclick="deleteServer('${s.id}'); event.stopPropagation();"><i class="bi bi-trash"></i></button></div>
+            `;
+            list.appendChild(item);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function selectServer(id, name) {
+    currentServerId = id;
+    currentServerSimulated = false;
+    document.getElementById('targetServerName').innerText = name;
+    const resList = await fetch('/server_stress/api/servers');
+    const dataList = await resList.json();
+    const server = dataList.servers && dataList.servers.find(s => s.id === id);
+    if (server && (server.simulated === true || server.ip === 'sim://slave')) {
+        currentServerSimulated = true;
+    }
+    document.getElementById('simSlaveHint').style.display = currentServerSimulated ? 'block' : 'none';
+    await testConnection(id, name);
+}
+
+async function saveServer() {
+    console.log("saveServer called");
+    const btn = document.querySelector('#addServerModal .modal-footer .btn-primary');
+    const originalText = btn.innerHTML;
+    
+    try {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 保存中...';
+
+        const form = document.getElementById('addServerForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        
+        console.log("Sending data:", data);
+
+        const res = await fetch('/server_stress/api/servers', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        console.log("Response status:", res.status);
+
+        if (res.ok) {
+        const modalEl = document.getElementById('addServerModal');
+        // Get the modal instance (bootstrap 5)
+        // Ensure bootstrap is available
+        if (typeof bootstrap === 'undefined') {
+            console.error("Bootstrap is not defined!");
+            alert("Bootstrap JS 加载失败，请刷新页面重试");
+            return;
+        }
+
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            // Create new instance if not exists
+            modal = new bootstrap.Modal(modalEl);
+        }
+        modal.hide();
+        
+        form.reset();
+        loadServers();
+    } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.message || '添加服务器失败 (HTTP ' + res.status + ')');
+    }
+} catch (e) {
+    console.error("saveServer error:", e);
+    alert('发生错误: ' + e.message);
+} finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+}
+}
+
+async function deleteServer(id) {
+    if (!confirm('确定要删除吗？')) return;
+    await fetch(`/server_stress/api/servers/${id}`, { method: 'DELETE' });
+    loadServers();
+}
+
+function editServer(id) {
+    fetch('/server_stress/api/servers')
+        .then(r => r.json())
+        .then(data => {
+            const s = data.servers && data.servers.find(x => x.id === id);
+            if (!s || s.simulated || s.ip === 'sim://slave') return;
+            document.getElementById('editServerId').value = s.id;
+            document.getElementById('editName').value = s.name || '';
+            document.getElementById('editIp').value = s.ip || '';
+            document.getElementById('editPort').value = s.port ?? 222;
+            document.getElementById('editUsername').value = s.username || '';
+            document.getElementById('editPassword').value = '';
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('editServerModal')).show();
+        });
+}
+
+async function updateServer() {
+    const id = document.getElementById('editServerId').value;
+    const data = {
+        name: document.getElementById('editName').value,
+        ip: document.getElementById('editIp').value,
+        port: document.getElementById('editPort').value || 222,
+        username: document.getElementById('editUsername').value,
+    };
+    const pwd = document.getElementById('editPassword').value;
+    if (pwd) data.password = pwd;
+
+    const res = await fetch(`/server_stress/api/servers/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (result.success) {
+        bootstrap.Modal.getInstance(document.getElementById('editServerModal')).hide();
+        loadServers();
+    } else {
+        alert(result.message || '更新失败');
+    }
+}
+
+function fillVirtualServer() {
+    const form = document.getElementById('addServerForm');
+    form.name.value = 'Virtual-ARM-' + Math.floor(Math.random() * 100);
+    form.ip.value = 'mock';
+    form.port.value = '22';
+    form.username.value = 'simulator';
+    form.password.value = 'virtual123';
+}
+
+async function testConnection(id, name) {
+    document.getElementById('statusOutput').innerHTML = `<div class="spinner-border spinner-border-sm"></div> 正在测试连接 ${name}...`;
+    document.getElementById('statusOutput').className = 'alert alert-info';
+
+    const res = await fetch('/server_stress/api/test_connection', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ server_id: id })
+    });
+    
+    const data = await res.json();
+    if (data.success) {
+        document.getElementById('statusOutput').className = 'alert alert-success';
+        document.getElementById('statusOutput').innerText = '连接成功: ' + data.message;
+        
+        // Show panels
+        document.getElementById('stressPanel').style.display = 'block';
+        startMonitoring(id);
+    } else {
+        document.getElementById('statusOutput').className = 'alert alert-danger';
+        let errorHtml = '连接失败: ' + data.message;
+        if (data.details) {
+            errorHtml += `<div class="mt-2">
+                <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#errorLogCollapse">
+                    <i class="bi bi-bug"></i> 查看详细日志
+                </button>
+                <div class="collapse mt-2" id="errorLogCollapse">
+                    <pre class="card card-body bg-light text-danger small mb-0" style="max-height: 200px; overflow-y: auto;">${data.details}</pre>
+                </div>
+            </div>`;
+        }
+        document.getElementById('statusOutput').innerHTML = errorHtml;
+        document.getElementById('stressPanel').style.display = 'none';
+        document.getElementById('monitorPanel').style.display = 'none';
+        stopMonitoring();
+    }
+}
+
+// Stress Functions
+async function installTool() {
+    if (!currentServerId) return;
+    const btn = document.getElementById('btnInstallTool');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 安装中...';
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch('/server_stress/api/stress/install_tool', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({server_id: currentServerId})
+        });
+        const data = await res.json();
+        alert(data.message);
+    } catch (e) {
+        alert('工具安装失败');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function startStress() {
+    if (!currentServerId) return;
+    
+    // Determine active tab
+    const activeTab = document.querySelector('#stressTabs .nav-link.active').id;
+    const timeout = document.getElementById('stressTimeout').value;
+    
+    let payload = {
+        server_id: currentServerId,
+        timeout: timeout
+    };
+    
+    if (activeTab === 'cpu-tab') {
+        payload.cpu_load = document.getElementById('cpuLoadRange').value;
+        payload.cpu_cores = document.getElementById('cpuCores').value;
+        payload.vm_workers = 0;
+        payload.io_workers = 0;
+    } else if (activeTab === 'mem-tab') {
+        payload.vm_workers = document.getElementById('vmWorkers').value;
+        payload.vm_bytes = document.getElementById('vmBytes').value;
+        // Ensure CPU is off unless explicitly set (but here we enforce mode)
+        payload.cpu_cores = 0; 
+        payload.io_workers = 0;
+        // Special case: if vm_workers is 0, nothing runs. Default is 1 in HTML.
+    } else if (activeTab === 'io-tab') {
+        payload.io_workers = document.getElementById('ioWorkers').value;
+        payload.cpu_cores = 0;
+        payload.vm_workers = 0;
+    }
+    
+    const res = await fetch('/server_stress/api/stress/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    
+    const data = await res.json();
+    if (data.success) {
+        document.getElementById('stressOutput').className = 'mt-3 text-success small';
+        document.getElementById('stressOutput').innerText = data.message;
+        document.getElementById('btnStartStress').disabled = true;
+        document.getElementById('btnStopStress').disabled = false;
+        
+        // Auto re-enable start button after timeout
+        setTimeout(() => {
+             document.getElementById('btnStartStress').disabled = false;
+             document.getElementById('btnStopStress').disabled = true;
+             document.getElementById('stressOutput').className = 'mt-3 text-muted small';
+             document.getElementById('stressOutput').innerText += ' (超时结束)';
+        }, timeout * 1000);
+    } else {
+        document.getElementById('stressOutput').className = 'mt-3 text-danger small';
+        document.getElementById('stressOutput').innerText = '错误: ' + data.message;
+    }
+}
+
+async function stopStress() {
+    if (!currentServerId) return;
+    const res = await fetch('/server_stress/api/stress/stop', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({server_id: currentServerId})
+    });
+    const data = await res.json();
+    document.getElementById('stressOutput').innerText = data.message;
+    document.getElementById('btnStartStress').disabled = false;
+    document.getElementById('btnStopStress').disabled = true;
+}
+
+// Monitoring Functions
+function initChart() {
+    const ctx = document.getElementById('perfChart').getContext('2d');
+    perfChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'CPU 使用率 (%)',
+                data: [],
+                borderColor: 'rgb(220, 53, 69)', // Red
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                fill: true,
+                tension: 0.3,
+                yAxisID: 'y'
+            }, {
+                label: '内存使用率 (%)',
+                data: [],
+                borderColor: 'rgb(13, 110, 253)', // Blue
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                fill: true,
+                tension: 0.3,
+                yAxisID: 'y'
+            }, {
+                label: 'IO 读取 (KB/s)',
+                data: [],
+                borderColor: 'rgb(255, 193, 7)', // Yellow
+                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                fill: false,
+                tension: 0.3,
+                yAxisID: 'y1'
+            }, {
+                label: 'IO 写入 (KB/s)',
+                data: [],
+                borderColor: 'rgb(111, 66, 193)', // Purple
+                backgroundColor: 'rgba(111, 66, 193, 0.1)',
+                fill: false,
+                tension: 0.3,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    beginAtZero: true,
+                    max: 100,
+                    title: { display: true, text: '百分比 (%)' }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: true,
+                    grid: {
+                        drawOnChartArea: false, // only want the grid lines for one axis to show up
+                    },
+                    title: { display: true, text: 'I/O (KB/s)' }
+                }
+            },
+            animation: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            }
+        }
+    });
+}
+
+let simulateAlertFlag = false;
+
+function simulateAlert() {
+    simulateAlertFlag = true;
+}
+
+function startMonitoring(serverId) {
+    stopMonitoring(); // clear existing
+    
+    document.getElementById('monitorPanel').style.display = 'block';
+    document.getElementById('alertArea').innerHTML = ''; // Clear old alerts
+    
+    if (!perfChart) {
+        initChart();
+    } else {
+        // Clear data
+        perfChart.data.labels = [];
+        perfChart.data.datasets.forEach(ds => ds.data = []);
+        perfChart.update();
+    }
+    
+    monitorInterval = setInterval(async () => {
+        if (!currentServerId) return;
+        
+        try {
+            let url = `/server_stress/api/monitor/stats?server_id=${serverId}`;
+            if (simulateAlertFlag) {
+                url += '&simulate_alert=1';
+                simulateAlertFlag = false; // Reset after one shot
+            }
+            
+            const res = await fetch(url);
+            const data = await res.json();
+            
+            if (data.success && data.stats) {
+                const now = new Date().toLocaleTimeString();
+                
+                if (perfChart.data.labels.length > 30) {
+                    perfChart.data.labels.shift();
+                    perfChart.data.datasets.forEach(ds => ds.data.shift());
+                }
+                
+                perfChart.data.labels.push(now);
+                perfChart.data.datasets[0].data.push(data.stats.cpu_usage);
+                perfChart.data.datasets[1].data.push(data.stats.mem_usage);
+                perfChart.data.datasets[2].data.push(data.stats.io_read_kb || 0);
+                perfChart.data.datasets[3].data.push(data.stats.io_write_kb || 0);
+                
+                perfChart.update();
+                
+                // Handle Alerts
+                if (data.alerts && data.alerts.length > 0) {
+                    const alertArea = document.getElementById('alertArea');
+                    data.alerts.forEach(alert => {
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+                        alertDiv.role = 'alert';
+                        alertDiv.innerHTML = `
+                            <strong><i class="bi bi-exclamation-triangle-fill"></i> ${alert.severity} 告警</strong>
+                            <small class="text-muted ms-2">${alert.timestamp}</small>
+                            <hr class="my-1">
+                            <div>${alert.message}</div>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+                        alertArea.prepend(alertDiv); // Newest on top
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("Monitor error:", e);
+        }
+    }, 2000);
+}
+
+function stopMonitoring() {
+    if (monitorInterval) {
+        clearInterval(monitorInterval);
+        monitorInterval = null;
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,167 @@
+{
+  "version": "2.0",
+  "description": "applied（AUTO_APPLIED, selected=all）（AUTO_APPLIED, selected=all）",
+  "categories": [],
+  "rules": [
+    {
+      "rule_id": "AUTO_APPLY_001",
+      "category": "FLOW",
+      "rule_name": "异常流程缺失",
+      "severity": "P0",
+      "weight": 10,
+      "description": "只描述成功路径，缺少失败处理。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=1，主要模块=业务流程",
+      "llm_check_prompt": "检查是否存在：异常流程缺失。",
+      "risk_reason": "异常未定义。",
+      "suggestion": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "example_fix": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 1,
+        "top_module": "业务流程"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_002",
+      "category": "STATE_MACHINE",
+      "rule_name": "系统未定义全局状态",
+      "severity": "P0",
+      "weight": 10,
+      "description": "系统存在多个功能模块，但未定义统一状态集合（states 为空或均为【PRD未说明】）。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=1，主要模块=状态机",
+      "llm_check_prompt": "检查是否存在：系统未定义全局状态。",
+      "risk_reason": "没有全局状态集合，模块切换与恢复规则无法统一，开发容易产生逻辑冲突与不可预期行为。",
+      "suggestion": "补充系统状态机定义（状态集合+进入/退出条件+恢复规则），并给出关键状态转换关系。",
+      "example_fix": "补充系统状态机定义（状态集合+进入/退出条件+恢复规则），并给出关键状态转换关系。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 1,
+        "top_module": "状态机"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_003",
+      "category": "FLOW",
+      "rule_name": "流程仅描述成功路径",
+      "severity": "P1",
+      "weight": 7,
+      "description": "流程里只有成功描述，缺少失败/异常处理（exceptions/edge_cases 为空或覆盖不足）。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=1，主要模块=业务流程",
+      "llm_check_prompt": "检查是否存在：流程仅描述成功路径。",
+      "risk_reason": "上线后遇到弱网/超时/失败会卡死或白屏，现场体验差且难排查。",
+      "suggestion": "补充失败闭环：错误提示、重试/回滚/降级策略，以及状态恢复规则。",
+      "example_fix": "补充失败闭环：错误提示、重试/回滚/降级策略，以及状态恢复规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 1,
+        "top_module": "业务流程"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_001",
+      "category": "STATE_MACHINE",
+      "rule_name": "并发冲突规则缺失",
+      "severity": "P1",
+      "weight": 7,
+      "description": "多人/多事件同时触发时的裁决规则未定义。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=2，主要模块=并发控制",
+      "llm_check_prompt": "检查是否存在：并发冲突规则缺失。",
+      "risk_reason": "多用户场景下容易出现屏幕乱跳、操作覆盖、状态错乱，现场投诉高发。",
+      "suggestion": "明确并发裁决：优先级/排队/先到先得；同时定义用户提示与可恢复路径。",
+      "example_fix": "明确并发裁决：优先级/排队/先到先得；同时定义用户提示与可恢复路径。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 2,
+        "top_module": "并发控制"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_002",
+      "category": "EXCEPTION",
+      "rule_name": "规则边界缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "未定义最小值或最大值。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=6，主要模块=业务规则",
+      "llm_check_prompt": "检查是否存在：规则边界缺失。",
+      "risk_reason": "边界未定义。",
+      "suggestion": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "example_fix": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 6,
+        "top_module": "业务规则"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_003",
+      "category": "STATE_MACHINE",
+      "rule_name": "中断流程缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "未定义用户中途退出的处理。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=6，主要模块=业务流程",
+      "llm_check_prompt": "检查是否存在：中断流程缺失。",
+      "risk_reason": "状态/资源泄漏。",
+      "suggestion": "针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。",
+      "example_fix": "针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 6,
+        "top_module": "业务流程"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_004",
+      "category": "TEST",
+      "rule_name": "成功标准缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "未说明成功条件。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=6，主要模块=可测试性",
+      "llm_check_prompt": "检查是否存在：成功标准缺失。",
+      "risk_reason": "验收标准不清。",
+      "suggestion": "针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。",
+      "example_fix": "针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 6,
+        "top_module": "可测试性"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_005",
+      "category": "TEST",
+      "rule_name": "日志记录缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "关键操作没有日志要求。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=6，主要模块=可测试性",
+      "llm_check_prompt": "检查是否存在：日志记录缺失。",
+      "risk_reason": "无法审计与排查。",
+      "suggestion": "针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。",
+      "example_fix": "针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 6,
+        "top_module": "可测试性"
+      }
+    }
+  ]
+}

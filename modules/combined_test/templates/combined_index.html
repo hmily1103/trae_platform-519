@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+    .logs { height: 280px; overflow: auto; background: #f9f9f9; padding: 12px; font-family: monospace; font-size: 13px; border: 1px solid #eee; border-radius: 4px; }
+    .pipeline-card { cursor: pointer; transition: all 0.2s; position: relative; }
+    .pipeline-card:hover { border-color: #0d6efd; background: #f8f9fa; }
+    .pipeline-card.selected {
+        border: 2px solid #0d6efd;
+        background: rgba(13, 110, 253, 0.12);
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.2);
+    }
+    .pipeline-card.selected::before {
+        content: "✓ 已选";
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        font-size: 12px;
+        color: #0d6efd;
+        font-weight: 600;
+    }
+    .flow-box { background: #f0f7ff; border-left: 4px solid #0d6efd; padding: 12px 16px; border-radius: 4px; font-size: 14px; line-height: 1.8; }
+    .flow-box .step { display: inline-block; background: #fff; padding: 2px 8px; border-radius: 4px; margin: 0 4px; }
+    .param-hint { font-size: 12px; color: #6c757d; margin-top: 4px; }
+    .total-duration { font-weight: 600; color: #0d6efd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h2"><i class="fas fa-route me-2"></i>组合测试</h1>
+            <p class="text-muted small mb-0">断电重启 + 播放压测 / 日志监控，预定义流水线。与「一键任务」不同：组合测试侧重冷启动场景。</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ prefix }}/reports" class="btn btn-sm btn-outline-info">查看历史报告</a>
+            <span class="badge" id="statusBadge">已停止</span>
+            <span class="text-muted small" id="pipelineId">-</span>
+        </div>
+    </div>
+
+    <!-- 第一步：选择流水线类型（独立一行，醒目展示） -->
+    <div class="card mb-3">
+        <h5 class="card-title mb-3"><i class="fas fa-list me-2"></i>第一步：选择流水线类型</h5>
+        <p class="text-muted small mb-3">点击下方卡片选择要执行的测试组合</p>
+        <div class="row g-3" id="pipelineTypes">
+            <!-- 由 JS 动态填充 -->
+        </div>
+    </div>
+
+    <!-- 第二步 + 执行流程（横向） -->
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card h-100" id="configCard">
+                <h5 class="card-title mb-3"><i class="fas fa-cog me-2"></i>第二步：设置参数</h5>
+                <div class="row g-2">
+                    <div class="col-12" id="rebootDurationRow">
+                        <label class="form-label">断电重启时长（分钟）</label>
+                        <input type="number" class="form-control" id="rebootDuration" value="5" min="1" max="120" onchange="updateFlowDesc()" />
+                        <div class="param-hint">在这段时间内持续对设备做断电→通电循环</div>
+                    </div>
+                    <div class="col-12" id="playerStressDurationRow">
+                        <label class="form-label">播放监控时长（分钟）</label>
+                        <input type="number" class="form-control" id="playerStressDuration" value="30" min="1" max="480" onchange="updateFlowDesc()" />
+                        <div class="param-hint">重启完成后监控播放性能的持续时间</div>
+                    </div>
+                    <div class="col-12" id="monkeyEventsRow" style="display: none;">
+                        <label class="form-label">Monkey 事件数</label>
+                        <input type="number" class="form-control" id="monkeyEvents" value="20000" min="1000" step="1000" onchange="updateFlowDesc()" />
+                        <div class="param-hint">Monkey 测试执行的随机事件总数</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <h5 class="card-title mb-2"><i class="fas fa-route me-2"></i>执行流程</h5>
+                <div id="flowDesc" class="flow-box">
+                    <span id="flowText">选择流水线类型后，此处将显示具体执行步骤</span>
+                </div>
+                <div class="mt-2 text-muted small">
+                    <i class="fas fa-clock me-1"></i>预计总时长：<span id="totalDuration" class="total-duration">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第三步：配置设备 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <h5 class="card-title mb-3"><i class="fas fa-mobile-alt me-2"></i>第三步：配置设备</h5>
+                <p class="text-muted small mb-3">设备用于断电重启和后续监控。格式与「中控重启」模块一致，按行填写即可。</p>
+
+                <div class="card mb-3" style="background:#f8f9fa; padding:12px;">
+                    <strong class="d-block mb-2">快速生成</strong>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-auto">
+                            <label class="form-label small mb-0">IP 列表（逗号/空格分隔）</label>
+                            <input type="text" class="form-control form-control-sm" id="ipListInput" placeholder="192.168.16.105 192.168.16.106" style="min-width:220px;" />
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label small mb-0">ADB 端口</label>
+                            <input type="number" class="form-control form-control-sm" id="adbPort" value="8787" style="width:80px;" />
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label small mb-0">起始通道</label>
+                            <input type="number" class="form-control form-control-sm" id="ipListStartChannel" value="1" style="width:70px;" />
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="fillFromIpList()">生成表格</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label mb-1">设备列表</label>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>IP</th>
+                                    <th>ADB端口</th>
+                                    <th>通道</th>
+                                    <th>串口</th>
+                                    <th>波特率</th>
+                                    <th>地址码</th>
+                                    <th>包名</th>
+                                    <th style="width:70px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devicesTbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-success" onclick="addDeviceRow()"><i class="fas fa-plus me-1"></i>新增行</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="fillSampleDevices()">填入示例</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" class="btn btn-primary" onclick="startPipeline()">
+                    <i class="fas fa-play me-1"></i>启动
+                </button>
+                <button type="button" class="btn btn-danger" onclick="stopPipeline()">
+                    <i class="fas fa-stop me-1"></i>停止
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 运行日志（底部全宽） -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <h5 class="card-title mb-3"><i class="fas fa-terminal me-2"></i>运行日志</h5>
+                <div id="logs" class="logs"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const prefix = '{{ prefix }}';
+    let selectedType = 'reboot_then_player_stress';
+    let statusUpdater = null;
+
+    async function loadPipelineTypes() {
+        try {
+            const resp = await ApiClient.get(prefix + '/api/pipeline_types', { showLoading: false });
+            const types = (resp.data || resp).types || [];
+            const container = document.getElementById('pipelineTypes');
+            container.innerHTML = '';
+            types.forEach(t => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6';
+                col.innerHTML = `
+                    <div class="card pipeline-card ${t.id === selectedType ? 'selected' : ''}" data-type="${t.id}" onclick="selectPipeline('${t.id}')">
+                        <div class="card-body py-3">
+                            <h6 class="mb-1">${t.name}</h6>
+                            <p class="text-muted small mb-0">${t.desc}</p>
+                            <small class="text-muted">步骤: ${(t.steps || []).join(' → ')}</small>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(col);
+            });
+        } catch (e) {
+            console.warn('加载流水线类型失败:', e);
+            // 降级：使用默认
+            document.getElementById('pipelineTypes').innerHTML = `
+                <div class="col-md-6 col-lg-4"><div class="card pipeline-card selected" data-type="reboot_then_player_stress" onclick="selectPipeline('reboot_then_player_stress')">
+                    <div class="card-body py-3"><h6>重启 + 播放压测</h6><p class="text-muted small mb-0">先执行断电重启，完成后启动播放器压力测试</p></div>
+                </div></div>
+                <div class="col-md-6"><div class="card pipeline-card" data-type="reboot_with_log_monitor" onclick="selectPipeline('reboot_with_log_monitor')">
+                    <div class="card-body py-3"><h6>重启 + 日志监控</h6><p class="text-muted small mb-0">执行断电重启的同时抓取冷启动日志</p></div>
+                </div></div>
+            `;
+        }
+    }
+
+    function selectPipeline(type) {
+        selectedType = type;
+        document.querySelectorAll('.pipeline-card').forEach(el => {
+            el.classList.toggle('selected', el.dataset.type === type);
+        });
+        // 根据类型显示/隐藏参数
+        const hasPlayerStress = type === 'reboot_then_player_stress';
+        document.getElementById('playerStressDurationRow').style.display = hasPlayerStress ? '' : 'none';
+        
+        const hasMonkey = type.includes('monkey');
+        const monkeyRow = document.getElementById('monkeyEventsRow');
+        if (monkeyRow) monkeyRow.style.display = hasMonkey ? '' : 'none';
+
+        updateFlowDesc();
+    }
+
+    function updateFlowDesc() {
+        const rebootMin = parseInt(document.getElementById('rebootDuration').value || '5');
+        const psMin = parseInt(document.getElementById('playerStressDuration').value || '30');
+        const monkeyEvt = parseInt(document.getElementById('monkeyEvents')?.value || '20000');
+        
+        const flowText = document.getElementById('flowText');
+        const totalEl = document.getElementById('totalDuration');
+        
+        if (selectedType === 'reboot_then_player_stress') {
+            flowText.innerHTML = `
+                <span class="step">① 断电重启</span> 运行 <strong>${rebootMin} 分钟</strong>（反复断电→通电）
+                <br/>↓ 等待 10 秒
+                <br/><span class="step">② 播放监控</span> 对第一个设备监控 <strong>${psMin} 分钟</strong>（CPU/内存/FPS/切歌）
+            `;
+            totalEl.textContent = `约 ${Math.round(rebootMin + psMin + 0.2)} 分钟`;
+        } else if (selectedType === 'reboot_with_log_monitor') {
+            flowText.innerHTML = `
+                <span class="step">① 启动日志监控</span> 对第一个设备抓取 logcat
+                <br/><span class="step">② 断电重启</span> 运行 <strong>${rebootMin} 分钟</strong>（与日志监控并行）
+                <br/>↓ Reboot 结束后停止日志监控
+            `;
+            totalEl.textContent = `约 ${rebootMin} 分钟`;
+        } else if (selectedType === 'monkey_stress_monitor') {
+            flowText.innerHTML = `
+                <span class="step">① 并行执行</span>
+                <br/> - <strong>Monkey</strong>: 执行 ${monkeyEvt} 事件
+                <br/> - <strong>性能监控</strong>: 采集 FPS/CPU/内存
+                <br/> - <strong>日志监控</strong>: 抓取 logcat
+                <br/>↓ 所有任务停止后生成报告
+            `;
+            totalEl.textContent = `视 Monkey 执行速度而定 (约 ${Math.round(monkeyEvt / 300 / 60)} 分钟)`;
+        } else if (selectedType === 'reboot_then_monkey') {
+            flowText.innerHTML = `
+                <span class="step">① 断电重启</span> 运行 <strong>${rebootMin} 分钟</strong>
+                <br/>↓ 等待 10 秒
+                <br/><span class="step">② Monkey</span> 执行 ${monkeyEvt} 事件
+            `;
+            totalEl.textContent = `约 ${rebootMin + Math.round(monkeyEvt / 300 / 60)} 分钟`;
+        } else {
+            flowText.innerHTML = `
+                <span class="step">未知类型</span> ${selectedType}
+            `;
+            totalEl.textContent = '—';
+        }
+    }
+
+    function addDeviceRow(preset) {
+        const tbody = document.getElementById('devicesTbody');
+        const def = preset || { ip: '', adb_port: 8787, channel: '', com_port: 'COM13', baud: 9600, addr_hex: '01', package: 'com.thunder.ktv' };
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" class="form-control form-control-sm device-ip" placeholder="192.168.16.x" value="${def.ip || ''}"></td>
+            <td><input type="number" class="form-control form-control-sm device-adb_port" value="${def.adb_port || 8787}" style="width:75px;"></td>
+            <td><input type="number" class="form-control form-control-sm device-channel" placeholder="1-8" value="${def.channel || ''}" style="width:60px;"></td>
+            <td><input type="text" class="form-control form-control-sm device-com_port" value="${def.com_port || 'COM13'}" style="width:75px;"></td>
+            <td><input type="number" class="form-control form-control-sm device-baud" value="${def.baud || 9600}" style="width:70px;"></td>
+            <td><input type="text" class="form-control form-control-sm device-addr_hex" value="${def.addr_hex || '01'}" style="width:55px;"></td>
+            <td><input type="text" class="form-control form-control-sm device-package" value="${def.package || 'com.thunder.ktv'}"></td>
+            <td><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()"><i class="fas fa-trash-alt"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function fillSampleDevices() {
+        const tbody = document.getElementById('devicesTbody');
+        tbody.innerHTML = '';
+        addDeviceRow({ ip: '192.168.16.105', adb_port: 8787, channel: 1, com_port: 'COM13', baud: 9600, addr_hex: '01', package: 'com.thunder.ktv' });
+        addDeviceRow({ ip: '192.168.16.106', adb_port: 8787, channel: 2, com_port: 'COM13', baud: 9600, addr_hex: '01', package: 'com.thunder.ktv' });
+        toast.success('已填入示例设备');
+    }
+
+    function fillFromIpList() {
+        const input = document.getElementById('ipListInput').value.trim();
+        const port = parseInt(document.getElementById('adbPort').value || '8787');
+        const startCh = parseInt(document.getElementById('ipListStartChannel').value || '1');
+        if (!input) {
+            toast.warning('请先输入 IP 列表');
+            return;
+        }
+        const ips = input.split(/[\s,，]+/).filter(s => s.trim());
+        if (ips.length > 8) {
+            toast.warning('最多支持 8 台设备');
+            return;
+        }
+        const tbody = document.getElementById('devicesTbody');
+        tbody.innerHTML = '';
+        ips.forEach((ip, i) => {
+            addDeviceRow({
+                ip: ip.trim(),
+                adb_port: port,
+                channel: startCh + i,
+                com_port: 'COM13',
+                baud: 9600,
+                addr_hex: '01',
+                package: 'com.thunder.ktv'
+            });
+        });
+        toast.success(`已生成 ${ips.length} 个设备`);
+    }
+
+    function buildDevicesFromTable() {
+        const rows = document.querySelectorAll('#devicesTbody tr');
+        const devices = [];
+        const channels = new Set();
+        for (const r of rows) {
+            const ip = (r.querySelector('.device-ip')?.value || '').trim();
+            const adb_port = parseInt(r.querySelector('.device-adb_port')?.value || '8787');
+            const channel = parseInt(r.querySelector('.device-channel')?.value || '');
+            const com_port = (r.querySelector('.device-com_port')?.value || '').trim();
+            const baud = parseInt(r.querySelector('.device-baud')?.value || '9600');
+            const addr_hex = (r.querySelector('.device-addr_hex')?.value || '').trim();
+            const pkg = (r.querySelector('.device-package')?.value || '').trim();
+            if (!ip) continue;
+            if (!channel || !com_port || !addr_hex || !pkg) {
+                toast.error('表格存在必填项为空（IP、通道、串口、地址码、包名）');
+                return null;
+            }
+            if (channel < 1 || channel > 8) {
+                toast.error('通道必须在 1-8 范围');
+                return null;
+            }
+            if (channels.has(channel)) {
+                toast.error('通道重复，请确保唯一');
+                return null;
+            }
+            channels.add(channel);
+            devices.push({ ip, adb_port, channel, com_port, baud, addr_hex, package: pkg });
+        }
+        if (devices.length === 0) return null;
+        return devices;
+    }
+
+    function parseDevices() {
+        return buildDevicesFromTable();
+    }
+
+    async function startPipeline() {
+        const devices = parseDevices();
+        if (!devices) {
+            toast.error('请配置至少一个设备');
+            return;
+        }
+        const payload = {
+            pipeline_type: selectedType,
+            devices,
+            reboot_duration_minutes: parseInt(document.getElementById('rebootDuration').value || '5'),
+            player_stress_duration: parseInt(document.getElementById('playerStressDuration').value || '30'),
+            monkey_events: parseInt(document.getElementById('monkeyEvents')?.value || '20000'),
+            mode: 'monitor_only',
+        };
+        try {
+            const resp = await ApiClient.post(prefix + '/api/start', payload, {
+                showLoading: true,
+                loadingMessage: '正在启动组合测试...'
+            });
+            if (resp.ok || resp.success) {
+                toast.success(resp.message || '组合测试已启动');
+                refreshStatus();
+            }
+        } catch (e) {
+            refreshStatus();
+        }
+    }
+
+    async function stopPipeline() {
+        const ok = await ConfirmDialog.show('确定要停止当前组合测试吗？', '确认停止');
+        if (!ok) return;
+        try {
+            const resp = await ApiClient.post(prefix + '/api/stop', {}, {
+                showLoading: true,
+                loadingMessage: '正在停止...'
+            });
+            if (resp.ok || resp.success) {
+                toast.success(resp.message || '已停止');
+                refreshStatus();
+            }
+        } catch (e) {
+            refreshStatus();
+        }
+    }
+
+    async function refreshStatus() {
+        try {
+            const resp = await ApiClient.get(prefix + '/api/status', { showLoading: false, showError: false });
+            const data = resp.data || resp;
+            const running = data.running || false;
+
+            document.getElementById('statusBadge').textContent = running ? '运行中' : '已停止';
+            document.getElementById('statusBadge').className = 'badge ' + (running ? 'bg-success' : 'bg-secondary');
+            document.getElementById('pipelineId').textContent = data.pipeline_id ? `ID: ${data.pipeline_id}` : '-';
+
+            const logs = data.logs || [];
+            const logsEl = document.getElementById('logs');
+            const shouldScroll = logsEl.scrollTop + logsEl.clientHeight >= logsEl.scrollHeight - 20;
+            logsEl.innerHTML = logs.map(x => {
+                const dt = x.ts ? new Date(x.ts * 1000).toLocaleTimeString() : '';
+                const msg = (x.msg || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return `<div><span class="text-muted">[${dt}]</span> ${msg}</div>`;
+            }).join('');
+            if (shouldScroll) logsEl.scrollTop = logsEl.scrollHeight;
+
+            if (data.result && !running) {
+                const r = data.result;
+                toast.info(r.success ? '流水线完成' : (r.message || '流水线结束'));
+            }
+        } catch (e) {
+            console.warn('刷新状态失败:', e);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadPipelineTypes();
+        refreshStatus();
+        updateFlowDesc();
+        addDeviceRow();
+        if (typeof StatusUpdater !== 'undefined') {
+            statusUpdater = StatusUpdater.create(refreshStatus, 2000);
+            statusUpdater.start();
+        } else {
+            setInterval(refreshStatus, 2000);
+        }
+    });
+</script>
+{% endblock %}

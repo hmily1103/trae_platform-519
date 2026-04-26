@@ -1,0 +1,367 @@
+{
+  "version": "2.0",
+  "description": "applied（AUTO_APPLIED, selected=all）（AUTO_DRAFT, snapshot=14）",
+  "categories": [],
+  "rules": [
+    {
+      "rule_id": "AUTO_APPLY_001",
+      "category": "FLOW",
+      "rule_name": "异常流程缺失",
+      "severity": "P0",
+      "weight": 10,
+      "description": "只描述成功路径，缺少失败处理。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=1，主要模块=业务流程",
+      "llm_check_prompt": "检查是否存在：异常流程缺失。",
+      "risk_reason": "异常未定义。",
+      "suggestion": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "example_fix": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 1,
+        "top_module": "业务流程"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_002",
+      "category": "STATE_MACHINE",
+      "rule_name": "系统未定义全局状态",
+      "severity": "P0",
+      "weight": 10,
+      "description": "系统存在多个功能模块，但未定义统一状态集合（states 为空或均为【PRD未说明】）。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=1，主要模块=状态机",
+      "llm_check_prompt": "检查是否存在：系统未定义全局状态。",
+      "risk_reason": "没有全局状态集合，模块切换与恢复规则无法统一，开发容易产生逻辑冲突与不可预期行为。",
+      "suggestion": "补充系统状态机定义（状态集合+进入/退出条件+恢复规则），并给出关键状态转换关系。",
+      "example_fix": "补充系统状态机定义（状态集合+进入/退出条件+恢复规则），并给出关键状态转换关系。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 1,
+        "top_module": "状态机"
+      }
+    },
+    {
+      "rule_id": "AUTO_APPLY_003",
+      "category": "FLOW",
+      "rule_name": "流程仅描述成功路径",
+      "severity": "P1",
+      "weight": 7,
+      "description": "流程里只有成功描述，缺少失败/异常处理（exceptions/edge_cases 为空或覆盖不足）。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=1，主要模块=业务流程",
+      "llm_check_prompt": "检查是否存在：流程仅描述成功路径。",
+      "risk_reason": "上线后遇到弱网/超时/失败会卡死或白屏，现场体验差且难排查。",
+      "suggestion": "补充失败闭环：错误提示、重试/回滚/降级策略，以及状态恢复规则。",
+      "example_fix": "补充失败闭环：错误提示、重试/回滚/降级策略，以及状态恢复规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 1,
+        "top_module": "业务流程"
+      }
+    },
+    {
+      "rule_id": "AUTO_001",
+      "category": "STATE_MACHINE",
+      "rule_name": "状态孤岛",
+      "severity": "P0",
+      "weight": 10,
+      "description": "某状态没有入口，状态不可达。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=3，主要模块=状态机",
+      "llm_check_prompt": "检查是否存在：状态孤岛。",
+      "risk_reason": "状态机断裂。",
+      "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+      "example_fix": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 3,
+        "top_module": "状态机"
+      }
+    },
+    {
+      "rule_id": "AUTO_002",
+      "category": "STATE_MACHINE",
+      "rule_name": "状态死路",
+      "severity": "P0",
+      "weight": 10,
+      "description": "某状态没有出口，无法结束。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=3，主要模块=状态机",
+      "llm_check_prompt": "检查是否存在：状态死路。",
+      "risk_reason": "状态机断裂。",
+      "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+      "example_fix": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 3,
+        "top_module": "状态机"
+      }
+    },
+    {
+      "rule_id": "AUTO_003",
+      "category": "STATE_MACHINE",
+      "rule_name": "非法状态跳转",
+      "severity": "P0",
+      "weight": 10,
+      "description": "出现不合理跳转。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=3，主要模块=状态机",
+      "llm_check_prompt": "检查是否存在：非法状态跳转。",
+      "risk_reason": "业务逻辑错误。",
+      "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+      "example_fix": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 3,
+        "top_module": "状态机"
+      }
+    },
+    {
+      "rule_id": "AUTO_004",
+      "category": "DATA",
+      "rule_name": "数据一致性风险",
+      "severity": "P1",
+      "weight": 7,
+      "description": "多系统写入同一数据未定义协调方式。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=6，主要模块=数据结构",
+      "llm_check_prompt": "检查是否存在：数据一致性风险。",
+      "risk_reason": "数据不一致。",
+      "suggestion": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+      "example_fix": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 6,
+        "top_module": "数据结构"
+      }
+    },
+    {
+      "rule_id": "AUTO_005",
+      "category": "STATE_MACHINE",
+      "rule_name": "并发冲突规则缺失",
+      "severity": "P1",
+      "weight": 7,
+      "description": "多人/多事件同时触发时的裁决规则未定义。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=2，主要模块=并发控制",
+      "llm_check_prompt": "检查是否存在：并发冲突规则缺失。",
+      "risk_reason": "多用户场景下容易出现屏幕乱跳、操作覆盖、状态错乱，现场投诉高发。",
+      "suggestion": "明确并发裁决：优先级/排队/先到先得；同时定义用户提示与可恢复路径。",
+      "example_fix": "明确并发裁决：优先级/排队/先到先得；同时定义用户提示与可恢复路径。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 2,
+        "top_module": "并发控制"
+      }
+    },
+    {
+      "rule_id": "AUTO_006",
+      "category": "EXCEPTION",
+      "rule_name": "规则边界缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "未定义最小值或最大值。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=14，主要模块=业务规则",
+      "llm_check_prompt": "检查是否存在：规则边界缺失。",
+      "risk_reason": "边界未定义。",
+      "suggestion": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "example_fix": "补充失败、超时、重试、回滚和降级策略，并给出用户提示与状态恢复规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 14,
+        "top_module": "业务规则"
+      }
+    },
+    {
+      "rule_id": "AUTO_007",
+      "category": "STATE_MACHINE",
+      "rule_name": "中断流程缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "未定义用户中途退出的处理。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=14，主要模块=业务流程",
+      "llm_check_prompt": "检查是否存在：中断流程缺失。",
+      "risk_reason": "状态/资源泄漏。",
+      "suggestion": "针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。",
+      "example_fix": "针对业务流程补充“中断流程缺失”的可执行规则、边界条件和验收标准。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 14,
+        "top_module": "业务流程"
+      }
+    },
+    {
+      "rule_id": "AUTO_008",
+      "category": "TEST",
+      "rule_name": "日志记录缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "关键操作没有日志要求。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=14，主要模块=可测试性",
+      "llm_check_prompt": "检查是否存在：日志记录缺失。",
+      "risk_reason": "无法审计与排查。",
+      "suggestion": "针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。",
+      "example_fix": "针对可测试性补充“日志记录缺失”的可执行规则、边界条件和验收标准。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 14,
+        "top_module": "可测试性"
+      }
+    },
+    {
+      "rule_id": "AUTO_009",
+      "category": "TEST",
+      "rule_name": "成功标准缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "未说明成功条件。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=12，主要模块=可测试性",
+      "llm_check_prompt": "检查是否存在：成功标准缺失。",
+      "risk_reason": "验收标准不清。",
+      "suggestion": "针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。",
+      "example_fix": "针对可测试性补充“成功标准缺失”的可执行规则、边界条件和验收标准。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 12,
+        "top_module": "可测试性"
+      }
+    },
+    {
+      "rule_id": "AUTO_010",
+      "category": "STATE_MACHINE",
+      "rule_name": "重试机制缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "接口失败是否允许重试未说明。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=7，主要模块=业务流程",
+      "llm_check_prompt": "检查是否存在：重试机制缺失。",
+      "risk_reason": "重复执行或无法恢复。",
+      "suggestion": "针对业务流程补充“重试机制缺失”的可执行规则、边界条件和验收标准。",
+      "example_fix": "针对业务流程补充“重试机制缺失”的可执行规则、边界条件和验收标准。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 7,
+        "top_module": "业务流程"
+      }
+    },
+    {
+      "rule_id": "AUTO_011",
+      "category": "CONCURRENCY",
+      "rule_name": "接口幂等性缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "接口重复调用未说明处理方式。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=7，主要模块=系统与技术",
+      "llm_check_prompt": "检查是否存在：接口幂等性缺失。",
+      "risk_reason": "重复扣款/重复发货。",
+      "suggestion": "针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。",
+      "example_fix": "针对系统与技术补充“接口幂等性缺失”的可执行规则、边界条件和验收标准。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 7,
+        "top_module": "系统与技术"
+      }
+    },
+    {
+      "rule_id": "AUTO_012",
+      "category": "DATA",
+      "rule_name": "字段定义缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "字段未说明类型、长度、是否必填。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=6，主要模块=数据结构",
+      "llm_check_prompt": "检查是否存在：字段定义缺失。",
+      "risk_reason": "前后端理解不一致。",
+      "suggestion": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+      "example_fix": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 6,
+        "top_module": "数据结构"
+      }
+    },
+    {
+      "rule_id": "AUTO_013",
+      "category": "DATA",
+      "rule_name": "数据来源不明确",
+      "severity": "P2",
+      "weight": 5,
+      "description": "数据从哪里来未说明。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=5，主要模块=数据结构",
+      "llm_check_prompt": "检查是否存在：数据来源不明确。",
+      "risk_reason": "依赖不清。",
+      "suggestion": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+      "example_fix": "补充字段契约（类型、长度、必填、默认值、来源）并明确跨系统一致性与校验规则。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 5,
+        "top_module": "数据结构"
+      }
+    },
+    {
+      "rule_id": "AUTO_014",
+      "category": "STATE_MACHINE",
+      "rule_name": "状态回滚缺失",
+      "severity": "P2",
+      "weight": 5,
+      "description": "异常情况下没有回滚逻辑。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=5，主要模块=状态机",
+      "llm_check_prompt": "检查是否存在：状态回滚缺失。",
+      "risk_reason": "数据不一致。",
+      "suggestion": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+      "example_fix": "补充状态机定义（状态、触发事件、转移条件、终态），并明确异常回滚与恢复路径。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 5,
+        "top_module": "状态机"
+      }
+    },
+    {
+      "rule_id": "AUTO_015",
+      "category": "TECH",
+      "rule_name": "外部依赖未定义",
+      "severity": "P2",
+      "weight": 5,
+      "description": "依赖系统未说明。",
+      "detector": "",
+      "detection_logic": "历史样本命中次数=4，主要模块=系统与技术",
+      "llm_check_prompt": "检查是否存在：外部依赖未定义。",
+      "risk_reason": "集成与排障困难。",
+      "suggestion": "补充外部依赖清单、可用性要求和故障降级方案，明确依赖不可用时的回退逻辑。",
+      "example_fix": "补充外部依赖清单、可用性要求和故障降级方案，明确依赖不可用时的回退逻辑。",
+      "enabled": false,
+      "auto_generated": true,
+      "source_stats": {
+        "count": 4,
+        "top_module": "系统与技术"
+      }
+    }
+  ]
+}

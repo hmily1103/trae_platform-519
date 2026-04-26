@@ -1,0 +1,1514 @@
+{
+  "snapshots": [
+    {
+      "timestamp": "2026-01-22T09:43:17.520491",
+      "total_pss": 196255,
+      "gc_count": 0,
+      "cpu_usage": 78.4,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 64.2,
+          "rss_kb": 353280,
+          "pss_kb": 196255,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 9.5,
+          "rss_kb": 133120,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 4.7,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:19.153264",
+      "total_pss": 196255,
+      "gc_count": 0,
+      "cpu_usage": 78.4,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 64.2,
+          "rss_kb": 353280,
+          "pss_kb": 196255,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 9.5,
+          "rss_kb": 133120,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 4.7,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:20.442045",
+      "total_pss": 196255,
+      "gc_count": 0,
+      "cpu_usage": 78.4,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 64.2,
+          "rss_kb": 353280,
+          "pss_kb": 196255,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 9.5,
+          "rss_kb": 133120,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 4.7,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:23.806214",
+      "total_pss": 167710,
+      "gc_count": 0,
+      "cpu_usage": 44.7,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 34.7,
+          "rss_kb": 324608,
+          "pss_kb": 167710,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 5.7,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 4.3,
+          "rss_kb": 133120,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:25.228567",
+      "total_pss": 167710,
+      "gc_count": 0,
+      "cpu_usage": 44.7,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 34.7,
+          "rss_kb": 324608,
+          "pss_kb": 167710,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 5.7,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 4.3,
+          "rss_kb": 133120,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:26.670450",
+      "total_pss": 167710,
+      "gc_count": 0,
+      "cpu_usage": 44.7,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 34.7,
+          "rss_kb": 324608,
+          "pss_kb": 167710,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 5.7,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 4.3,
+          "rss_kb": 133120,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:29.161962",
+      "total_pss": 168188,
+      "gc_count": 0,
+      "cpu_usage": 102.99999999999999,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 83.8,
+          "rss_kb": 325632,
+          "pss_kb": 168188,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 9.6,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 9.6,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:30.617413",
+      "total_pss": 168188,
+      "gc_count": 0,
+      "cpu_usage": 102.99999999999999,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 83.8,
+          "rss_kb": 325632,
+          "pss_kb": 168188,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 9.6,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 9.6,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:31.999477",
+      "total_pss": 168188,
+      "gc_count": 0,
+      "cpu_usage": 102.99999999999999,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 83.8,
+          "rss_kb": 325632,
+          "pss_kb": 168188,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 9.6,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 9.6,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:35.493786",
+      "total_pss": 167596,
+      "gc_count": 0,
+      "cpu_usage": 48.6,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 38.0,
+          "rss_kb": 324608,
+          "pss_kb": 167596,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 5.9,
+          "rss_kb": 130048,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 4.7,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:36.843383",
+      "total_pss": 167596,
+      "gc_count": 0,
+      "cpu_usage": 48.6,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 38.0,
+          "rss_kb": 324608,
+          "pss_kb": 167596,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 5.9,
+          "rss_kb": 130048,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 4.7,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:38.312677",
+      "total_pss": 167596,
+      "gc_count": 0,
+      "cpu_usage": 48.6,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 38.0,
+          "rss_kb": 324608,
+          "pss_kb": 167596,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 5.9,
+          "rss_kb": 130048,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 4.7,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:40.771589",
+      "total_pss": 167656,
+      "gc_count": 0,
+      "cpu_usage": 84.7,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 75.7,
+          "rss_kb": 325632,
+          "pss_kb": 167656,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 9.0,
+          "rss_kb": 130048,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 0.0,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:42.362793",
+      "total_pss": 167656,
+      "gc_count": 0,
+      "cpu_usage": 84.7,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 75.7,
+          "rss_kb": 325632,
+          "pss_kb": 167656,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 9.0,
+          "rss_kb": 130048,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 0.0,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:43.788958",
+      "total_pss": 167656,
+      "gc_count": 0,
+      "cpu_usage": 84.7,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 75.7,
+          "rss_kb": 325632,
+          "pss_kb": 167656,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 9.0,
+          "rss_kb": 130048,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 0.0,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:47.584640",
+      "total_pss": 172384,
+      "gc_count": 0,
+      "cpu_usage": 39.0,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 27.1,
+          "rss_kb": 333824,
+          "pss_kb": 172384,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 7.6,
+          "rss_kb": 130048,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 4.3,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:48.921980",
+      "total_pss": 172384,
+      "gc_count": 0,
+      "cpu_usage": 39.0,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 27.1,
+          "rss_kb": 333824,
+          "pss_kb": 172384,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 7.6,
+          "rss_kb": 130048,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 4.3,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:50.232067",
+      "total_pss": 172384,
+      "gc_count": 0,
+      "cpu_usage": 39.0,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 27.1,
+          "rss_kb": 333824,
+          "pss_kb": 172384,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 7.6,
+          "rss_kb": 130048,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 4.3,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:52.716739",
+      "total_pss": 169220,
+      "gc_count": 0,
+      "cpu_usage": 56.2,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 56.2,
+          "rss_kb": 330752,
+          "pss_kb": 169220,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 0.0,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 0.0,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-01-22T09:43:54.166483",
+      "total_pss": 169220,
+      "gc_count": 0,
+      "cpu_usage": 56.2,
+      "fps": 0,
+      "jank_count": 0,
+      "network_rx_kb": 0.0,
+      "network_tx_kb": 0.0,
+      "device_info": "192.168.16.114:8787",
+      "perceptual_stall_score": 0,
+      "perceptual_stall_events": 0,
+      "perceptual_stall_duration_ms": 0,
+      "is_perceptual_stalling": false,
+      "perceptual_stall_severity": "",
+      "frame_time_variance": 0,
+      "processes": [
+        {
+          "pid": 1768,
+          "process_name": "com.thunder.ktv",
+          "cpu_usage": 56.2,
+          "rss_kb": 330752,
+          "pss_kb": 169220,
+          "gc_count": 0
+        },
+        {
+          "pid": 3479,
+          "process_name": "com.thunder.ktv:media",
+          "cpu_usage": 0.0,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 3208,
+          "process_name": "com.thunder.ktv:tvservice",
+          "cpu_usage": 0.0,
+          "rss_kb": 131072,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2584,
+          "process_name": "com.thunder.ktv:daemon",
+          "cpu_usage": 0.0,
+          "rss_kb": 82944,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2230,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin:RemoteControl",
+          "cpu_usage": 0.0,
+          "rss_kb": 54272,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2204,
+          "process_name": "com.thunder.ktv.tssystemservice_pangolin",
+          "cpu_usage": 0.0,
+          "rss_kb": 88064,
+          "pss_kb": 0,
+          "gc_count": 0
+        },
+        {
+          "pid": 2156,
+          "process_name": "com.thunder.ktv.upgrade",
+          "cpu_usage": 0.0,
+          "rss_kb": 78848,
+          "pss_kb": 0,
+          "gc_count": 0
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "session_id": "perf_1769046195",
+    "device_id": "192.168.16.114:8787",
+    "package_name": "com.thunder.ktv",
+    "description": "",
+    "monitor_type": "video",
+    "start_time": "2026-01-22T09:43:15.850490",
+    "end_time": "2026-01-22T09:43:54.841141",
+    "snapshot_count": 20
+  }
+}

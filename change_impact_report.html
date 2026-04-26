@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星耀屏PRD变更影响分析</title>
+    <style>
+        :root { --primary: #1890ff; --success: #52c41a; --warning: #faad14; --danger: #ff4d4f; --bg: #f0f2f5; --card-bg: #fff; --text: #333; --text-secondary: #666; --border: #e8e8e8; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 40px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 32px; margin-bottom: 12px; }
+        .header p { opacity: 0.9; font-size: 16px; }
+        .risk-banner { background: #52c41a; color: white; padding: 20px; border-radius: 12px; margin-bottom: 24px; text-align: center; }
+        .risk-banner .level { font-size: 28px; font-weight: bold; }
+        .risk-banner .score { font-size: 16px; opacity: 0.9; }
+        .summary-card { background: var(--card-bg); padding: 20px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid var(--primary); }
+        .section { background: var(--card-bg); border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .section-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .data-table th { background: #fafafa; padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+        .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .data-table tr:hover { background: #fafafa; }
+        .action-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; background: #e6f7ff; color: #1890ff; }
+        .impact-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+        .method-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: white; }
+        .recommend-section { margin-bottom: 20px; }
+        .recommend-section h3 { font-size: 16px; margin-bottom: 12px; color: var(--primary); }
+        .recommend-section ul { list-style: none; }
+        .recommend-section li { padding: 8px 12px; background: #fafafa; border-radius: 6px; margin-bottom: 6px; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tag { display: inline-block; padding: 4px 12px; background: #fff0f0; color: #ff4d4f; border-radius: 16px; font-size: 13px; }
+        .change-desc { background: #f0f5ff; padding: 20px; border-radius: 8px; margin-bottom: 24px; border-left: 4px solid #1890ff; }
+        .change-desc h3 { margin-bottom: 12px; color: #1890ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>星耀屏PRD变更影响分析</h1>
+            <p>变更影响分析报告 | 生成时间：2026-03-30 16:44</p>
+        </div>
+        
+        <div class="change-desc">
+            <h3>变更描述</h3>
+            <p>在星耀屏新增游戏功能，同时优化广告展示策略，支持游戏场景下广告被打断后恢复播放</p>
+        </div>
+        
+        <div class="risk-banner">
+            <div class="level">P2 - 中等风险</div>
+            <div class="score">影响分数: 9 | 建议进行变更相关模块测试</div>
+        </div>
+        
+        <div class="summary-card">
+            <h3>影响摘要</h3>
+            <p style="font-size: 16px; margin-top: 12px;">变更涉及1个模块（1个高影响），4个状态，建议根据影响范围制定测试策略</p>
+            <p style="margin-top:12px;color:#666">高风险项: 模块「游戏功能」(风险:高), 状态「广告展示」(影响:高)</p>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">📦 受影响的功能模块 (1)</h2>
+            <table class="data-table">
+                <thead><tr><th>模块名称</th><th>变更类型</th><th>影响范围</th><th>影响原因</th><th>复杂度</th><th>风险等级</th></tr></thead>
+                <tbody><tr>
+            <td><strong>游戏功能</strong></td>
+            <td><span class="action-badge">直接修改</span></td>
+            <td><span class="impact-badge" style="background:#ff4d4f20;color:#ff4d4f">高影响</span></td>
+            <td>变更描述直接提及模块「游戏功能」</td>
+            <td>3.6</td>
+            <td>P2</td>
+        </tr></tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">🔄 受影响的状态 (4)</h2>
+            <table class="data-table">
+                <thead><tr><th>状态名称</th><th>变更类型</th><th>影响范围</th><th>影响原因</th><th>相关转换</th></tr></thead>
+                <tbody><tr>
+            <td><strong>广告展示</strong></td>
+            <td><span class="action-badge">直接修改</span></td>
+            <td><span class="impact-badge" style="background:#ff4d4f20;color:#ff4d4f">高影响</span></td>
+            <td>变更直接提及状态「广告展示」</td>
+            <td>检测广告→广告展示, 广告展示→营销活动</td>
+        </tr><tr>
+            <td><strong>播放广告</strong></td>
+            <td><span class="action-badge">间接影响</span></td>
+            <td><span class="impact-badge" style="background:#52c41a20;color:#52c41a">低影响</span></td>
+            <td>变更涉及「播放」，可能影响状态「播放广告」</td>
+            <td>-</td>
+        </tr><tr>
+            <td><strong>星耀屏展示</strong></td>
+            <td><span class="action-badge">间接影响</span></td>
+            <td><span class="impact-badge" style="background:#52c41a20;color:#52c41a">低影响</span></td>
+            <td>变更涉及「展示」，可能影响状态「星耀屏展示」</td>
+            <td>-</td>
+        </tr><tr>
+            <td><strong>默认展示页面</strong></td>
+            <td><span class="action-badge">间接影响</span></td>
+            <td><span class="impact-badge" style="background:#52c41a20;color:#52c41a">低影响</span></td>
+            <td>变更涉及「展示」，可能影响状态「默认展示页面」</td>
+            <td>-</td>
+        </tr></tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">🔌 受影响的API接口 (0)</h2>
+            <table class="data-table">
+                <thead><tr><th width="60">方法</th><th>接口名称</th><th>路径</th><th>变更类型</th><th>影响原因</th></tr></thead>
+                <tbody><tr><td colspan="5" style="text-align:center;color:#999">未识别到受影响的接口</td></tr></tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">🗄️ 受影响的数据实体 (0)</h2>
+            <table class="data-table">
+                <thead><tr><th>实体名称</th><th>变更类型</th><th>影响范围</th><th>相关字段</th><th>影响原因</th></tr></thead>
+                <tbody><tr><td colspan="5" style="text-align:center;color:#999">未识别到受影响的实体</td></tr></tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">🧪 测试建议</h2>
+            <div class="recommend-section">
+            <h3>优先测试区域</h3>
+            <ul><li><strong>游戏功能</strong>: 变更描述直接提及模块「游戏功能」</li></ul>
+        </div><div class="recommend-section">
+            <h3>人工测试重点</h3>
+            <ul><li><strong>状态转换测试</strong>: 涉及4个状态的变更，需重点验证状态流转</li></ul>
+        </div>
+        </div>
+    </div>
+</body>
+</html>

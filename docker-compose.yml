@@ -1,0 +1,21 @@
+# Trae Platform - 一键部署
+# 注意：ADB 设备需通过 USB 或网络连接宿主机，容器内 ADB 需挂载宿主机 adb 或使用 host 网络
+version: "3.8"
+
+services:
+  trae:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+      - ./config:/app/config
+    environment:
+      - LOG_DIR=/app/logs
+      - RUNTIME_DATA_DIR=/app/data/runtime
+    # 可选：启用 API 认证
+    # - ENABLE_API_AUTH=1
+    # - API_KEY=your_secret
+    restart: unless-stopped

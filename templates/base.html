@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>运维平台</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons (for Monkey module) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/app.css') }}?v=5" rel="stylesheet">
+    <style>
+        body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
+        .sidebar {
+            height: 100vh;
+            padding-top: 20px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            overflow-y: auto;
+            transition: all 0.3s;
+        }
+        /* 侧边栏链接样式优化：使用 Flex 布局实现垂直居中 */
+        .sidebar a { text-decoration: none; padding: 10px 20px; display: flex !important; align-items: center !important; transition: 0.2s; }
+        /* 图标样式优化：固定宽度并居中，确保文字左对齐 */
+        .sidebar i { width: 24px !important; text-align: center !important; margin-right: 10px !important; display: inline-block !important; }
+        .sidebar .brand { font-size: 1.5rem; text-align: center; margin-bottom: 30px; font-weight: bold; }
+        .main-content { margin-left: 250px; padding: 20px; }
+        .card { margin-bottom: 20px; }
+    </style>
+    {% block extra_css %}{% endblock %}
+    </head>
+<body>
+<div class="sidebar">
+    <div class="brand"><i class="fas fa-tools"></i> Thunderstone</div>
+    
+    <!-- 概览 -->
+    <a href="/" class="{{ 'active' if request.path == '/' else '' }}">
+        <i class="fas fa-tachometer-alt"></i> 仪表盘
+    </a>
+    <a href="/runtime_center/" class="{{ 'active' if request.path.startswith('/runtime_center') else '' }}">
+        <i class="fas fa-microchip"></i> 运行中心
+    </a>
+
+    <!-- PRD模块 -->
+    <div class="text-uppercase text-white-50 small px-3 mt-3 mb-1">PRD模块</div>
+    <a href="/prd_audit/" class="{{ 'active' if request.path.startswith('/prd_audit') else '' }}">
+        <i class="fas fa-search"></i> PRD 审计
+    </a>
+    <a href="/prd_audit/knowledge" class="{{ 'active' if request.path.startswith('/prd_audit/knowledge') else '' }}">
+        <i class="fas fa-database"></i> PRD 知识库
+    </a>
+    <a href="/prd_audit/rules" class="{{ 'active' if request.path.startswith('/prd_audit/rules') or request.path.startswith('/prd_audit/bug_patterns') else '' }}">
+        <i class="fas fa-shield-alt"></i> PRD 规则库
+    </a>
+    <a href="/prd_audit/bug_patterns" class="{{ 'active' if request.path.startswith('/prd_audit/bug_patterns') else '' }}">
+        <i class="fas fa-bug"></i> Bug 模式库
+    </a>
+
+    <!-- 用例与测试左移 -->
+    <div class="text-uppercase text-white-50 small px-3 mt-3 mb-1">用例与测试左移</div>
+    <a href="/precision_test/" class="{{ 'active' if request.path.startswith('/precision_test') else '' }}">
+        <i class="fas fa-bullseye"></i> 精准回归 (Code)
+    </a>
+    <a href="/test_case/" class="{{ 'active' if request.path.startswith('/test_case') and not request.path.startswith('/test_case/prompts') else '' }}">
+        <i class="fas fa-list-check"></i> 用例管理
+    </a>
+    <a href="/test_case/prompts" class="{{ 'active' if request.path.startswith('/test_case/prompts') else '' }}">
+        <i class="fas fa-magic"></i> 提示词管理
+    </a>
+
+    <!-- 设备运维 -->
+    <div class="text-uppercase text-white-50 small px-3 mt-3 mb-1">设备运维</div>
+    <a href="/reboot/" class="{{ 'active' if request.path.startswith('/reboot') else '' }}">
+        <i class="fas fa-power-off"></i> 中控重启
+    </a>
+    <a href="/log_monitor/" class="{{ 'active' if request.path == '/log_monitor/' else '' }}">
+        <i class="fas fa-terminal"></i> 日志监控
+    </a>
+    <a href="/log_monitor/file_analyze" class="{{ 'active' if request.path.startswith('/log_monitor/file_analyze') else '' }}">
+        <i class="fas fa-file-alt"></i> 日志文件分析
+    </a>
+    <a href="/performance_monitor/" class="{{ 'active' if request.path.startswith('/performance_monitor') else '' }}">
+        <i class="fas fa-chart-line"></i> 性能监控
+    </a>
+    <!-- 远程控制 -->
+    <a href="/remote_control/" class="{{ 'active' if request.path.startswith('/remote_control') else '' }}">
+        <i class="fas fa-gamepad"></i> 远程控制
+    </a>
+
+    <!-- 自动化测试 -->
+    <div class="text-uppercase text-white-50 small px-3 mt-3 mb-1">自动化测试</div>
+    <a href="/monkey/" class="{{ 'active' if request.path.startswith('/monkey') else '' }}">
+        <i class="fas fa-robot"></i> Monkey 测试
+    </a>
+    <a href="/ui_automation/" class="{{ 'active' if request.path.startswith('/ui_automation') else '' }}">
+        <i class="fas fa-mouse-pointer"></i> UI自动化
+    </a>
+    <a href="/player_stress/" class="{{ 'active' if request.path.startswith('/player_stress') else '' }}">
+        <i class="fas fa-play-circle"></i> 播放器压测
+    </a>
+    <a href="/unified/" class="{{ 'active' if request.path.startswith('/unified') and not request.path.startswith('/unified/reports') else '' }}" title="Monkey + 性能 + 日志 + UI 套件，自由勾选串行执行">
+        <i class="fas fa-layer-group"></i> 一键任务
+    </a>
+    <a href="/combined_test/" class="{{ 'active' if request.path.startswith('/combined_test') else '' }}" title="断电重启 + 播放压测 / 日志监控，预定义流水线">
+        <i class="fas fa-route"></i> 组合测试
+    </a>
+    <a href="/unified/reports" class="{{ 'active' if request.path.startswith('/unified/reports') else '' }}">
+        <i class="fas fa-file-lines"></i> 报告中心
+    </a>
+
+    <!-- 服务端压测 -->
+    <div class="text-uppercase text-white-50 small px-3 mt-3 mb-1">服务端压测</div>
+    <a href="/server_stress/" class="{{ 'active' if request.path.startswith('/server_stress') else '' }}">
+        <i class="fas fa-server"></i> ARM服务器压测
+    </a>
+    <a href="/api_stress/" class="{{ 'active' if request.path.startswith('/api_stress') and not request.path.startswith('/api_stress/reports') else '' }}">
+        <i class="fas fa-bolt"></i> API接口压测
+    </a>
+    <a href="/api_stress/reports" class="{{ 'active' if request.path.startswith('/api_stress/reports') else '' }}">
+        <i class="fas fa-file-alt"></i> 压测报告
+    </a>
+
+    <!-- 小工具 -->
+    <div class="text-uppercase text-white-50 small px-3 mt-3 mb-1">小工具</div>
+    <a href="/sanfang/" class="{{ 'active' if request.path.startswith('/sanfang') else '' }}">
+        <i class="fas fa-file-code"></i> 第三方规则配置
+    </a>
+    <a href="/clean_ad/" class="{{ 'active' if request.path.startswith('/clean_ad') else '' }}">
+        <i class="fas fa-broom"></i> 广告清理
+    </a>
+    <!-- 点歌搜索 -->
+    <a href="/song_order/" class="{{ 'active' if request.path.startswith('/song_order') else '' }}">
+        <i class="fas fa-music"></i> 点歌搜索
+    </a>
+
+    <!-- 开发 -->
+    <div class="text-uppercase text-white-50 small px-3 mt-3 mb-1">开发</div>
+    <a href="/docs" class="{{ 'active' if request.path == '/docs' else '' }}" target="_blank">
+        <i class="fas fa-book"></i> API 文档
+    </a>
+ </div>
+<div class="main-content">
+    {% if request.path == '/' %}
+    <div class="tp-topbar">
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+            <div>
+                <div class="tp-title">运维平台</div>
+                <div class="tp-subtitle">设备与服务器测试运维控制台</div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge" style="background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.25); color: #16a34a;">
+                    <i class="fas fa-circle-notch"></i> 在线
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+</div>
+<script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+<script src="{{ url_for('static', filename='js/common.js') }}?v=4"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

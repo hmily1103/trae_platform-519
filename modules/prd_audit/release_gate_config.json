@@ -1,0 +1,8 @@
+{
+  "p0_block_threshold": 1,
+  "platform_risk_block_threshold": 7,
+  "quality_review_threshold": 70,
+  "p0_penalty": 8,
+  "platform_risk_penalty_start": 3,
+  "platform_risk_penalty_per_item": 2
+}

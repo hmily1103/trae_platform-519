@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2"><i class="fas fa-file-alt me-2"></i>组合测试报告</h1>
+        <a href="{{ prefix }}/" class="btn btn-sm btn-outline-secondary">返回控制台</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>报告文件</th>
+                            <th>生成时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportList">
+                        <tr><td colspan="3" class="text-center text-muted">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const prefix = '{{ prefix }}';
+
+    async function loadReports() {
+        const tbody = document.getElementById('reportList');
+        try {
+            const res = await ApiClient.get(prefix + '/api/reports', { showLoading: false, showError: false });
+            const data = res.data || res;
+            const reports = data.reports || [];
+            tbody.innerHTML = '';
+            if (reports.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">暂无报告</td></tr>';
+                return;
+            }
+            reports.forEach(r => {
+                const tr = document.createElement('tr');
+                const date = r.mtime ? new Date(r.mtime * 1000).toLocaleString() : '-';
+                const isHtml = r.name && r.name.endsWith('.html');
+                tr.innerHTML = `
+                    <td>${r.name || '-'}</td>
+                    <td>${date}</td>
+                    <td>
+                        <a href="${prefix}/reports/${r.name}" class="btn btn-sm btn-primary" target="_blank">${isHtml ? '查看' : '下载'}</a>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">加载失败</td></tr>';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadReports);
+</script>
+{% endblock %}

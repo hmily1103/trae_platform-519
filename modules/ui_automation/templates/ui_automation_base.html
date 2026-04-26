@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- Module Navigation (Tabs style) -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-0">
+            <ul class="nav nav-pills p-2 gap-2">
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path == '/ui_automation/' or request.path == '/ui_automation/dashboard' else '' }}" href="/ui_automation/">
+                        <i class="fas fa-tachometer-alt me-2"></i> 仪表盘
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/ui_automation/cases') else '' }}" href="/ui_automation/cases">
+                        <i class="fas fa-folder me-2"></i> 用例管理
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/ui_automation/recorder') else '' }}" href="/ui_automation/recorder">
+                        <i class="fas fa-video me-2"></i> 录制工坊
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/ui_automation/reports') else '' }}" href="/ui_automation/reports">
+                        <i class="fas fa-chart-bar me-2"></i> 执行记录
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/ui_automation/remote') else '' }}" href="/ui_automation/remote">
+                        <i class="fas fa-gamepad me-2"></i> 远程控制
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Module Content -->
+    <div class="module-content">
+        {% block module_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Custom Tab/Pill Styling */
+    .nav-pills .nav-link {
+        color: #6c757d;
+        font-weight: 500;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    .nav-pills .nav-link:hover {
+        background-color: #f8f9fa;
+        color: #0d6efd;
+    }
+    .nav-pills .nav-link.active {
+        background-color: #0d6efd;
+        color: white;
+        box-shadow: 0 2px 4px rgba(13, 110, 253, 0.2);
+    }
+    .nav-pills .nav-link i {
+        width: 20px;
+        text-align: center;
+    }
+</style>
+{{ super() }}
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+{% endblock %}

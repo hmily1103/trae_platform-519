@@ -1,0 +1,55 @@
+2026-02-12 15:23:59,110 INFO DEBUG: config.py loaded. Name: modules.reboot.core.config, RUNTIME id: 2571560747520
+2026-02-12 15:24:00 - trae_platform - INFO - UIAutomation module loaded successfully
+2026-02-12 15:24:00 - trae_platform - INFO - RemoteControl module loaded successfully
+2026-02-12 15:24:00 - trae_platform - INFO - Unified module loaded successfully
+2026-02-12 15:24:00 - trae_platform - INFO - RuntimeCenter module loaded successfully
+2026-02-12 15:24:00 - trae_platform - INFO - CombinedTest module loaded successfully
+2026-02-12 15:24:00 - trae_platform - INFO - ServerStress module loaded successfully
+2026-02-12 15:24:00 - trae_platform - INFO - SongOrder module loaded successfully
+2026-02-12 15:24:00 - trae_platform - INFO - ApiStress module loaded successfully
+2026-02-12 15:24:00 - trae_platform - INFO - ModuleLoader: modules registered
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5000
+Press CTRL+C to quit
+127.0.0.1 - - [12/Feb/2026 15:28:18] "GET /api_stress/reports/d6fef65a_1770877185 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:18] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 15:28:18] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 15:28:22] "GET /ui_automation/ HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:22] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 15:28:22] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 15:28:24] "GET /ui_automation/api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:25] "GET /ui_automation/recorder HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:25] "GET /static/css/app.css?v=5 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 15:28:25] "GET /static/js/common.js?v=4 HTTP/1.1" 304 -
+127.0.0.1 - - [12/Feb/2026 15:28:26] "GET /ui_automation/api/recording/list HTTP/1.1" 200 -
+2026-02-12 15:28:26 - ui_automation_module - INFO - 获取到 1 个设备: ['192.168.16.131:8787']
+127.0.0.1 - - [12/Feb/2026 15:28:26] "GET /ui_automation/api/devices HTTP/1.1" 200 -
+2026-02-12 15:28:32 - ui_automation_module - INFO - ADB启用成功: 192.168.16.105:2007
+127.0.0.1 - - [12/Feb/2026 15:28:33] "POST /ui_automation/api/connect HTTP/1.1" 200 -
+2026-02-12 15:28:33 - ui_automation_module - INFO - 获取到 2 个设备: ['192.168.16.105:8787', '192.168.16.131:8787']
+127.0.0.1 - - [12/Feb/2026 15:28:33] "GET /ui_automation/api/devices HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:37] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770881313568 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:42] "POST /ui_automation/api/control/click HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:44] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770881322479 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:47] "POST /ui_automation/api/control/click HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:49] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770881327412 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:54] "POST /ui_automation/api/control/click HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:28:55] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770881334395 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:29:02] "POST /ui_automation/api/control/click HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:29:05] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770881342240 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:29:07] "POST /ui_automation/api/control/click HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:29:11] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770881348261 HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:29:19] "POST /ui_automation/api/control/click HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:29:22] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770881359625 HTTP/1.1" 200 -
+2026-02-12 15:29:32 - action_recorder - INFO - 开始录制: recording_1770881372806 (Project: )
+2026-02-12 15:29:32 - ui_automation_service - INFO - 开始录制: recording_1770881372806
+127.0.0.1 - - [12/Feb/2026 15:29:32] "POST /ui_automation/api/recording/start HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:29:36] "POST /ui_automation/api/control/click HTTP/1.1" 200 -
+127.0.0.1 - - [12/Feb/2026 15:29:41] "GET /ui_automation/api/screenshot?device_id=192.168.16.105:8787&t=1770881377083 HTTP/1.1" 200 -
+2026-02-12 15:29:44 - device_controller - ERROR - 读取UI树失败: name 'os' is not defined
+Traceback (most recent call last):
+  File "D:\trae-code\trae_platform\modules\ui_automation\core\device_controller.py", line 245, in get_ui_tree
+    if os.path.exists(save_path):
+NameError: name 'os' is not defined
+2026-02-12 15:29:44 - action_recorder - WARNING - 获取UI树失败，将使用坐标录制
+127.0.0.1 - - [12/Feb/2026 15:29:46] "POST /ui_automation/api/recording/click HTTP/1.1" 200 -

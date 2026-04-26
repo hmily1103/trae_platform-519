@@ -1,0 +1,477 @@
+{% extends "base.html" %}
+
+{% block title %}一键任务 - Trae Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+  .unified-page { max-width: 1400px; margin: 0 auto; }
+  .unified-config-card { border: none; border-radius: 12px; background: #fafbfc; }
+  .unified-step { margin-bottom: 1.5rem; }
+  .unified-step:last-of-type { margin-bottom: 0; }
+  .unified-step-label { font-size: 0.75rem; font-weight: 600; color: #94a3b8; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .unified-module-chip { display: inline-flex; align-items: center; padding: 0.5rem 1rem; margin: 0.25rem; border-radius: 8px; cursor: pointer; border: 1px solid #e2e8f0; background: #fff; transition: all 0.15s; user-select: none; font-size: 0.9rem; }
+  .unified-module-chip:hover { border-color: #94a3b8; background: #f8fafc; }
+  .unified-module-chip.checked { border-color: #3b82f6; background: #eff6ff; }
+  .unified-module-chip.checked span { font-weight: 600; color: #2563eb; }
+  .unified-param-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-top: 0.5rem; }
+  .unified-param-box .form-label { font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem; }
+  .unified-run-card { border-radius: 8px; border: 1px solid #e2e8f0; transition: box-shadow 0.2s; }
+  .unified-run-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .unified-run-card.finished { border-left: 3px solid #22c55e; }
+  .unified-run-card.invalid { border-left: 3px solid #f59e0b; }
+  .unified-run-card:not(.finished):not(.invalid) { border-left: 3px solid #3b82f6; }
+  .unified-run-id { font-family: ui-monospace, monospace; font-size: 0.8rem; }
+  .unified-tabs-wrap { border-bottom: 1px solid #e2e8f0; margin-bottom: 0; }
+  .unified-tabs-wrap .nav-link { border: none; color: #64748b; font-weight: 500; padding: 0.6rem 1rem; }
+  .unified-tabs-wrap .nav-link:hover { color: #334155; }
+  .unified-tabs-wrap .nav-link.active { color: #2563eb; border-bottom: 2px solid #2563eb; background: transparent; }
+  .unified-empty-state { color: #94a3b8; padding: 2.5rem 1rem; text-align: center; }
+  .unified-empty-state i { font-size: 2rem; opacity: 0.5; margin-bottom: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid unified-page">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="mb-1"><i class="fas fa-layer-group me-2"></i>一键任务</h2>
+      <p class="text-muted small mb-0">一键串联 Monkey / 性能 / 日志等模块，生成统一报告并给出测试方向推荐。</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/unified/reports" class="btn btn-outline-primary btn-sm"><i class="fas fa-file-lines me-1"></i>报告中心</a>
+      <button class="btn btn-outline-secondary btn-sm" onclick="UnifiedUI.refreshAll()"><i class="fas fa-rotate me-1"></i>刷新</button>
+    </div>
+  </div>
+
+  <div class="mb-3 small text-muted" id="unified_status_strip">
+    <span id="unified_runs_status">运行中: --</span>
+    <span class="ms-3" id="unified_devices_usage">设备占用: --</span>
+  </div>
+
+  <div class="row g-4">
+    <!-- 左侧：配置区 -->
+    <div class="col-lg-5">
+      <div class="card unified-config-card">
+        <div class="card-body p-4">
+          <div class="unified-step">
+            <div class="unified-step-label">目标设备</div>
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label small text-muted">设备 IP:端口</label>
+                <div class="input-group">
+                  <select class="form-select form-select-sm" id="u_device_select" style="max-width: 200px;">
+                    <option value="">选择在线设备...</option>
+                  </select>
+                  <button class="btn btn-outline-secondary btn-sm" type="button" onclick="UnifiedUI.refreshDevices()" title="刷新设备"><i class="fas fa-rotate"></i></button>
+                  <input class="form-control form-control-sm" id="u_device_id" placeholder="或手动输入 192.168.1.10:8787">
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label small text-muted">包名</label>
+                <input class="form-control form-control-sm" id="u_package" value="com.thunder.ktv" placeholder="com.thunder.ktv">
+              </div>
+            </div>
+          </div>
+
+          <div class="unified-step">
+            <div class="unified-step-label">选择模块</div>
+            <div class="d-flex flex-wrap">
+              <label class="unified-module-chip" id="chip_monkey">
+                <input type="checkbox" class="form-check-input me-2" id="m_monkey" checked onchange="toggleChip('monkey')">
+                <span><i class="fas fa-robot me-1 text-primary"></i>Monkey</span>
+              </label>
+              <label class="unified-module-chip" id="chip_perf">
+                <input type="checkbox" class="form-check-input me-2" id="m_perf" onchange="toggleChip('perf')">
+                <span><i class="fas fa-chart-line me-1 text-success"></i>性能</span>
+              </label>
+              <label class="unified-module-chip" id="chip_log">
+                <input type="checkbox" class="form-check-input me-2" id="m_log" onchange="toggleChip('log')">
+                <span><i class="fas fa-terminal me-1 text-info"></i>日志</span>
+              </label>
+              <label class="unified-module-chip" id="chip_ui">
+                <input type="checkbox" class="form-check-input me-2" id="m_ui" onchange="toggleChip('ui')">
+                <span><i class="fas fa-mouse-pointer me-1 text-info"></i>UI 套件</span>
+              </label>
+              <label class="unified-module-chip" id="chip_server_stress">
+                <input type="checkbox" class="form-check-input me-2" id="m_server_stress" onchange="toggleChip('server_stress')">
+                <span><i class="fas fa-server me-1 text-warning"></i>ARM 压测</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="unified-step" id="params-step">
+            <div class="unified-step-label">模块参数 <span class="text-muted fw-normal">（仅显示已选模块）</span></div>
+            <div id="params_monkey" class="unified-param-box mb-2" style="display:none">
+              <div class="small fw-semibold mb-2 text-primary"><i class="fas fa-robot me-1"></i>Monkey</div>
+              <div class="row g-2">
+                <div class="col-6"><label class="form-label">IP</label><input class="form-control form-control-sm" id="monkey_ip" placeholder="不填则从设备解析"></div>
+                <div class="col-3"><label class="form-label">端口</label><input class="form-control form-control-sm" id="monkey_port" type="number" value="8787"></div>
+                <div class="col-3"><label class="form-label">事件数</label><input class="form-control form-control-sm" id="monkey_events" type="number" value="20000"></div>
+                <div class="col-4"><label class="form-label">间隔(ms)</label><input class="form-control form-control-sm" id="monkey_throttle" type="number" value="1000"></div>
+                <div class="col-4"><label class="form-label">超时(s)</label><input class="form-control form-control-sm" id="monkey_timeout" type="number" value="3600"></div>
+              </div>
+            </div>
+            <div id="params_ui" class="unified-param-box mb-2" style="display:none">
+              <div class="small fw-semibold mb-2 text-info"><i class="fas fa-mouse-pointer me-1"></i>UI 套件</div>
+              <label class="form-label">suite_id</label>
+              <input class="form-control form-control-sm" id="ui_suite_id" placeholder="从 UI自动化 复制">
+            </div>
+            <div id="params_server_stress" class="unified-param-box mb-2" style="display:none">
+              <div class="small fw-semibold mb-2 text-warning"><i class="fas fa-server me-1"></i>ARM 压测</div>
+              <div class="row g-2">
+                <div class="col-12"><label class="form-label">服务器 ID</label><input class="form-control form-control-sm" id="server_stress_id" placeholder="从 ARM压测 复制"></div>
+                <div class="col-4"><label class="form-label">核数</label><input class="form-control form-control-sm" id="server_stress_cores" type="number" value="0" placeholder="0=全部"></div>
+                <div class="col-4"><label class="form-label">负载%</label><input class="form-control form-control-sm" id="server_stress_load" type="number" value="80"></div>
+                <div class="col-4"><label class="form-label">时长(s)</label><input class="form-control form-control-sm" id="server_stress_timeout" type="number" value="60"></div>
+              </div>
+            </div>
+            <div id="params_empty" class="text-muted small py-2">勾选模块后显示对应参数</div>
+          </div>
+
+          <div class="d-flex gap-2 mt-3 pt-3 border-top">
+            <button class="btn btn-primary flex-grow-1 py-2" onclick="UnifiedUI.start()"><i class="fas fa-play me-2"></i>启动任务</button>
+            <button class="btn btn-outline-secondary btn-sm py-2" onclick="UnifiedUI.clearLocalRuns()" title="清空运行列表"><i class="fas fa-broom"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧：运行与报告 -->
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+          <ul class="nav unified-tabs-wrap px-3" id="unifiedTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="runs-tab" data-bs-toggle="tab" data-bs-target="#runs-pane" type="button">运行中</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports-pane" type="button">最近报告</button>
+            </li>
+          </ul>
+          <div class="tab-content p-3">
+            <div class="tab-pane fade show active" id="runs-pane">
+              <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-sm btn-outline-warning" onclick="UnifiedUI.clearInvalidRuns()">清理失效</button>
+              </div>
+              <div style="max-height: 400px; overflow-y: auto;">
+                <div id="u_runs_empty" class="unified-empty-state">
+                  <i class="fas fa-play-circle d-block"></i>
+                  暂无运行任务<br><span class="small">配置完成后点击「启动任务」</span>
+                </div>
+                <div id="u_runs" class="d-flex flex-column gap-2"></div>
+              </div>
+            </div>
+            <div class="tab-pane fade" id="reports-pane">
+              <div class="d-flex justify-content-end mb-2">
+                <select class="form-select form-select-sm" id="u_reports_filter" style="max-width: 140px;" onchange="UnifiedUI.loadReports()">
+                  <option value="">全部</option>
+                  <option value="unified">一键任务</option>
+                  <option value="monkey">Monkey</option>
+                </select>
+              </div>
+              <div style="max-height: 380px; overflow-y: auto;">
+                <table class="table table-hover table-sm align-middle mb-0">
+                  <thead class="table-light sticky-top bg-light">
+                    <tr><th class="small">时间</th><th class="small">模块</th><th class="small">类型</th><th class="small">状态</th><th class="small" style="width:70px"></th></tr>
+                  </thead>
+                  <tbody id="u_reports_tbody">
+                    <tr><td colspan="5" class="text-muted text-center py-4 small">加载中...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleChip(id){
+  const map = {monkey:'m_monkey',perf:'m_perf',log:'m_log',ui:'m_ui',server_stress:'m_server_stress'};
+  const cb = document.getElementById(map[id]);
+  const chip = document.getElementById('chip_'+id);
+  if(chip){ chip.classList.toggle('checked', !!cb?.checked); }
+  updateParamsVisibility();
+}
+function updateParamsVisibility(){
+  const hasParams = {monkey:true, ui:true, server_stress:true};
+  let anyVisible = false;
+  for (const id of ['monkey','ui','server_stress']){
+    const cb = document.getElementById(id==='monkey'?'m_monkey':(id==='ui'?'m_ui':'m_server_stress'));
+    const box = document.getElementById('params_'+id);
+    const show = cb?.checked;
+    if(box){ box.style.display = show ? 'block' : 'none'; if(show) anyVisible = true; }
+  }
+  const empty = document.getElementById('params_empty');
+  if(empty){ empty.style.display = anyVisible ? 'none' : 'block'; }
+}
+document.addEventListener('DOMContentLoaded', function(){
+  ['monkey','perf','log','ui','server_stress'].forEach(id => toggleChip(id));
+});
+
+const UnifiedUI = (() => {
+  const RUNS_KEY = 'tp_unified_runs_v1';
+  let updater = null;
+
+  function parseDeviceId(deviceId){
+    if (!deviceId) return null;
+    const parts = String(deviceId).split(':');
+    if (parts.length !== 2) return null;
+    const ip = parts[0].trim();
+    const port = parseInt(parts[1], 10);
+    if (!ip || !port) return null;
+    return { ip, port };
+  }
+
+  function getRuns(){
+    try{ return JSON.parse(localStorage.getItem(RUNS_KEY) || '[]') || []; }catch{ return []; }
+  }
+  function setRuns(runs){ localStorage.setItem(RUNS_KEY, JSON.stringify(runs.slice(0, 30))); }
+  function addRun(runId){ const runs = getRuns(); setRuns([runId, ...runs.filter(x => x !== runId)]); }
+  function removeRunFromLocal(runId){ setRuns(getRuns().filter(x => x !== runId)); }
+
+  function clearLocalRuns(){
+    localStorage.removeItem(RUNS_KEY);
+    toast.info('已清理运行列表');
+    renderRuns([]);
+  }
+
+  async function remove(runId){
+    const ok = await ConfirmDialog.show(`确定移除 ${runId} 吗？`, '移除任务', { confirmClass: 'btn-danger' });
+    if (!ok) return;
+    try{ await ApiClient.delete(`/unified/api/runs/${encodeURIComponent(runId)}`, { showLoading: false, showError: false }); }catch{}
+    removeRunFromLocal(runId);
+    toast.info('已移除');
+    await refreshRuns();
+  }
+
+  async function clearInvalidRuns(){
+    const runs = getRuns();
+    const items = [];
+    for (const runId of runs){
+      try{
+        const res = await ApiClient.get(`/unified/api/status/${runId}`, { showLoading: false, showError: false });
+        const overall = (res.data || {}).overall_status || 'unknown';
+        if (overall === 'stopped_or_missing' || overall === 'unknown') items.push(runId);
+      }catch{ items.push(runId); }
+    }
+    if (items.length === 0){ toast.info('没有失效任务'); return; }
+    const ok = await ConfirmDialog.show(`发现 ${items.length} 个失效任务，确定全部移除吗？`, '清理失效任务', { confirmClass: 'btn-warning' });
+    if (!ok) return;
+    for (const runId of items){
+      try{ await ApiClient.delete(`/unified/api/runs/${encodeURIComponent(runId)}`, { showLoading: false, showError: false }); }catch{}
+      removeRunFromLocal(runId);
+    }
+    toast.info(`已移除 ${items.length} 个失效任务`);
+    await refreshRuns();
+  }
+
+  function selectedModules(){
+    const modules = [];
+    if (document.getElementById('m_monkey')?.checked) modules.push('monkey');
+    if (document.getElementById('m_perf')?.checked) modules.push('performance_monitor');
+    if (document.getElementById('m_log')?.checked) modules.push('log_monitor');
+    if (document.getElementById('m_ui')?.checked) modules.push('ui_automation_suite');
+    if (document.getElementById('m_server_stress')?.checked) modules.push('server_stress');
+    return modules;
+  }
+
+  async function start(){
+    const device_id = document.getElementById('u_device_select')?.value?.trim() || document.getElementById('u_device_id')?.value?.trim() || '';
+    const package_name = document.getElementById('u_package')?.value?.trim() || '';
+    const modules = selectedModules();
+    if (modules.length === 0){ toast.warning('请至少选择一个模块'); return; }
+
+    const deviceParsed = parseDeviceId(device_id);
+    const monkeyIp = document.getElementById('monkey_ip')?.value?.trim() || (deviceParsed ? deviceParsed.ip : '');
+    const monkeyPort = parseInt(document.getElementById('monkey_port')?.value || (deviceParsed ? deviceParsed.port : 8787), 10);
+
+    const payload = {
+      modules,
+      device_id: device_id || undefined,
+      package_name: package_name || undefined,
+      monkey: {
+        ip: monkeyIp || undefined,
+        port: monkeyPort || 8787,
+        events_count: parseInt(document.getElementById('monkey_events')?.value || 20000, 10),
+        throttle: parseInt(document.getElementById('monkey_throttle')?.value || 1000, 10),
+        timeout: parseInt(document.getElementById('monkey_timeout')?.value || 3600, 10),
+        package_name: package_name || undefined
+      },
+      ui_automation_suite: { suite_id: document.getElementById('ui_suite_id')?.value?.trim() || undefined, device_id: device_id || undefined },
+      server_stress: {
+        server_id: document.getElementById('server_stress_id')?.value?.trim() || undefined,
+        cpu_cores: parseInt(document.getElementById('server_stress_cores')?.value || 0, 10),
+        cpu_load: parseInt(document.getElementById('server_stress_load')?.value || 80, 10),
+        timeout: parseInt(document.getElementById('server_stress_timeout')?.value || 60, 10)
+      }
+    };
+
+    if (modules.includes('performance_monitor') || modules.includes('log_monitor')){ if (!device_id){ toast.warning('性能/日志 需要填写设备'); return; } }
+    if (modules.includes('performance_monitor') && !package_name){ toast.warning('性能监控需要包名'); return; }
+    if (modules.includes('monkey') && !payload.monkey.ip){ toast.warning('Monkey 需要 IP 或设备（ip:port）'); return; }
+    if (modules.includes('ui_automation_suite') && !payload.ui_automation_suite.suite_id){ toast.warning('UI 套件需要 suite_id'); return; }
+    if (modules.includes('server_stress') && !payload.server_stress.server_id){ toast.warning('ARM 压测需要服务器 ID'); return; }
+
+    try{
+      const res = await ApiClient.post('/unified/api/start', payload, { loadingMessage: '正在启动...' });
+      const run_id = res.data?.run_id;
+      if (run_id){ addRun(run_id); toast.success('已启动'); await refreshRuns(); await loadReports(); }
+    }catch{}
+  }
+
+  function renderRuns(items){
+    const container = document.getElementById('u_runs');
+    const empty = document.getElementById('u_runs_empty');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!items || items.length === 0){ if(empty) empty.style.display = 'block'; return; }
+    if(empty) empty.style.display = 'none';
+
+    const statusNames = {finished:'已完成',running:'运行中',stopped:'已停止',unknown:'未知',stopped_or_missing:'已失效'};
+    items.forEach(item => {
+      const runId = item.run_id;
+      const overall = item.overall_status || 'unknown';
+      const isInvalid = overall === 'stopped_or_missing' || overall === 'unknown';
+      const statusBadge = overall === 'finished' ? 'bg-success' : (overall === 'stopped' ? 'bg-secondary' : (isInvalid ? 'bg-warning text-dark' : 'bg-primary'));
+      const cardClass = overall === 'finished' ? 'unified-run-card finished' : (isInvalid ? 'unified-run-card invalid' : 'unified-run-card');
+
+      const div = document.createElement('div');
+      div.className = 'card ' + cardClass + ' mb-2';
+      div.innerHTML = `
+        <div class="card-body py-2 px-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+              <span class="unified-run-id fw-semibold">${runId}</span>
+              <span class="badge ${statusBadge}">${statusNames[overall] || overall}</span>
+              <span class="text-muted small">${new Date((item.run?.created_at || Date.now()/1000)*1000).toLocaleString()}</span>
+            </div>
+            <div class="d-flex gap-1">
+              <button class="btn btn-sm btn-outline-primary" onclick="UnifiedUI.openReport('${runId}')">报告</button>
+              ${!isInvalid ? `<button class="btn btn-sm btn-outline-danger" onclick="UnifiedUI.stop('${runId}')">停止</button>` : ''}
+              <button class="btn btn-sm btn-outline-secondary" onclick="UnifiedUI.remove('${runId}')">移除</button>
+            </div>
+          </div>
+          <div class="mt-1 small text-muted">${renderChildSummary(item.statuses || {})}</div>
+        </div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  function renderChildSummary(statuses){
+    const lines = [];
+    for (const [k,v] of Object.entries(statuses || {})){
+      const st = v?.status || 'unknown';
+      if (k === 'monkey'){
+        const src = v.report || v.test_info || {};
+        const ev = (src.events_executed ?? 0) + '/' + (src.events_planned ?? '-');
+        lines.push(`Monkey: ${st} 事件${ev} crash${src.crash_count||0} anr${src.anr_count||0}`);
+      } else if (k === 'ui_automation_suite'){
+        const job = v.job || {};
+        lines.push(`UI: ${st} ${job.current_case_index||0}/${job.total_cases||0}`);
+      } else { lines.push(`${k}: ${st}`); }
+    }
+    return lines.length ? lines.join(' · ') : '暂无状态';
+  }
+
+  async function refreshRuns(){
+    const runs = getRuns();
+    const items = [];
+    for (const runId of runs){
+      try{
+        const res = await ApiClient.get(`/unified/api/status/${runId}`, { showLoading: false, showError: false });
+        items.push({ run_id: runId, ...(res.data || {}) });
+      }catch{ items.push({ run_id: runId, overall_status: 'unknown', statuses: {} }); }
+    }
+    renderRuns(items);
+  }
+
+  async function stop(runId){
+    const ok = await ConfirmDialog.show(`确定停止 ${runId} 吗？`, '停止任务', { confirmClass: 'btn-danger' });
+    if (!ok) return;
+    try{ await ApiClient.post(`/unified/api/stop/${runId}`, {}, { loadingMessage: '正在停止...' }); toast.info('已停止'); await refreshRuns(); await loadReports(); }catch{}
+  }
+
+  function openReport(unifiedId){ window.open(`/unified/report/${encodeURIComponent(unifiedId)}`, '_blank'); }
+
+  async function loadReports(){
+    const tbody = document.getElementById('u_reports_tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">加载中...</td></tr>';
+    const mod = document.getElementById('u_reports_filter')?.value || '';
+    try{
+      const url = mod ? `/unified/api/reports?module=${encodeURIComponent(mod)}&limit=30` : '/unified/api/reports?limit=30';
+      const res = await ApiClient.get(url, { showLoading: false, showError: false });
+      const reports = res.data?.reports || [];
+      const modNames = {unified:'一键任务',monkey:'Monkey',performance_monitor:'性能',log_monitor:'日志',ui_automation_suite:'UI套件',server_stress:'ARM压测'};
+      const kindNames = {orchestration:'编排',monkey:'Monkey',suite:'UI套件',performance:'性能',log:'日志'};
+      const statusNames = {finished:'已完成',running:'运行中',failed:'失败',stopped:'已停止'};
+      if (!reports.length){ tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-5 small"><i class="fas fa-file-lines fa-2x mb-2 d-block opacity-50"></i>暂无报告</td></tr>'; return; }
+      tbody.innerHTML = reports.map(r => {
+        const t = r.updated_at ? new Date(r.updated_at*1000).toLocaleString() : '-';
+        const badge = ['finished','completed','success'].includes(r.status) ? 'bg-success' : (r.status === 'running' ? 'bg-primary' : 'bg-secondary');
+        return `<tr>
+          <td class="small">${t}</td>
+          <td>${modNames[r.module] || r.module}</td>
+          <td>${kindNames[r.kind] || r.kind}</td>
+          <td><span class="badge ${badge}">${statusNames[r.status] || r.status}</span></td>
+          <td><button class="btn btn-sm btn-outline-primary" onclick="UnifiedUI.openReport('${r.unified_id}')">查看</button></td>
+        </tr>`;
+      }).join('');
+    }catch{ tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-4 small">加载失败，请刷新重试</td></tr>'; }
+  }
+
+  async function updateStatusStrip(){
+    const runEl = document.getElementById('unified_runs_status');
+    const devEl = document.getElementById('unified_devices_usage');
+    if (!runEl || !devEl) return;
+    try{
+      const [runsRes, usageRes] = await Promise.all([
+        ApiClient.get('/api/runs/active', { showLoading: false, showError: false }),
+        ApiClient.get('/api/devices/usage', { showLoading: false, showError: false })
+      ]);
+      const runs = runsRes.data?.runs || [];
+      const usage = usageRes.data?.usage || [];
+      runEl.textContent = '运行中: ' + runs.length + ' 个任务';
+      devEl.textContent = usage.length ? ('设备占用: ' + usage.map(u => { const rid = String(u.runtime_id || ''); return u.device_id + (rid ? ' → ' + rid.substring(0, 24) + (rid.length > 24 ? '…' : '') : ''); }).join('；')) : '设备占用: 无';
+    }catch{
+      runEl.textContent = '运行中: --';
+      devEl.textContent = '设备占用: --';
+    }
+  }
+
+  function refreshAll(){ updateStatusStrip(); refreshRuns(); loadReports(); }
+
+  async function refreshDevices(){
+    const sel = document.getElementById('u_device_select');
+    if (!sel) return;
+    try{
+      const res = await ApiClient.get('/log_monitor/api/devices', { showLoading: false, showError: false });
+      const devices = res.data?.devices || [];
+      const current = sel.value;
+      sel.innerHTML = '<option value="">选择在线设备...</option>';
+      devices.forEach(d => { const opt = document.createElement('option'); opt.value = d; opt.textContent = d; sel.appendChild(opt); });
+      if (current) sel.value = current;
+      sel.onchange = () => { if (sel.value) document.getElementById('u_device_id').value = sel.value; };
+    }catch{}
+  }
+
+  function boot(){
+    refreshDevices();
+    refreshAll();
+    if (updater) updater.stop();
+    updater = StatusUpdater.create(refreshRuns, 3000);
+    updater.start();
+  }
+
+  return { start, refreshAll, refreshRuns, loadReports, stop, remove, clearInvalidRuns, openReport, clearLocalRuns, refreshDevices, boot };
+})();
+
+document.addEventListener('DOMContentLoaded', () => UnifiedUI.boot());
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+{
+  "comment": "压测推荐引擎阈值，可按项目/环境调整",
+  "cpu_high_avg": 80,
+  "cpu_high_app": 70,
+  "mem_delta_mb_leak": 50,
+  "mem_max_mb_high": 400,
+  "fps_low_avg": 45,
+  "jank_total_high": 30
+}

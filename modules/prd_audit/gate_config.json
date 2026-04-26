@@ -1,0 +1,5 @@
+{
+  "min_score": 80,
+  "block_on_p0": true,
+  "max_failed_rules": 12
+}

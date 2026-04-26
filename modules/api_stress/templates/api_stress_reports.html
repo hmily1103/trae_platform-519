@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}API 压测报告 - Trae 运维平台{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-file-earmark-text"></i> API 压测报告</h2>
+        <p class="text-muted">历史压测报告，点击查看详情。</p>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <a href="/api_stress/" class="btn btn-outline-primary"><i class="bi bi-arrow-left"></i> 返回压测</a>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                {% if not reports %}
+                <div class="text-center text-muted py-5">暂无报告，请先执行压测。</div>
+                {% else %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>报告 ID</th>
+                                <th>时间</th>
+                                <th>接口</th>
+                                <th>结束方式</th>
+                                <th>QPS</th>
+                                <th>成功率</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in reports %}
+                            <tr>
+                                <td><code>{{ r.report_id }}</code></td>
+                                <td>{{ r.created_at_str }}</td>
+                                <td class="text-truncate" style="max-width:200px" title="{{ r.config.url }}">{{ r.config.url or '-' }}</td>
+                                <td><span class="badge bg-{{ 'success' if r.end_reason == 'completed' else 'secondary' }}">{{ '定时结束' if r.end_reason == 'completed' else '手动停止' }}</span></td>
+                                <td>{{ r.results.qps|default(0) }}</td>
+                                <td>{% set total = r.results.total_requests|default(0) %}{% set ok = r.results.success_count|default(0) %}{{ (ok/total*100)|round(1) if total else 0 }}%</td>
+                                <td><a href="/api_stress/reports/{{ r.report_id }}" class="btn btn-sm btn-outline-primary">查看</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

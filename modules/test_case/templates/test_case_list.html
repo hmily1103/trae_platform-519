@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-list-alt text-primary me-2"></i>测试用例库</h2>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary" onclick="openCreateModal()">
+                <i class="fas fa-plus me-1"></i> 新建用例
+            </button>
+            <a href="/test_case/" class="btn btn-outline-secondary">
+                <i class="fas fa-magic me-1"></i> 智能生成
+            </a>
+            <label class="btn btn-outline-success mb-0" for="xmindImportInput" title="从 XMind 导入用例">
+                <i class="fas fa-file-import me-1"></i> 导入 XMind
+            </label>
+            <input type="file" id="xmindImportInput" accept=".xmind" class="d-none" onchange="handleXmindImport(this)">
+            <button class="btn btn-outline-info" onclick="exportXmind()" title="导出为 XMind 文件">
+                <i class="fas fa-file-export me-1"></i> 导出 XMind
+            </button>
+        </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="card mb-4 shadow-sm border-0">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" class="form-control" id="searchName" placeholder="搜索用例名称/ID...">
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" id="searchCategory">
+                        <option value="">所有分类</option>
+                        <option value="功能测试">功能测试</option>
+                        <option value="AI生成">AI生成</option>
+                        <option value="性能测试">性能测试</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100" onclick="loadCases(1)">
+                        <i class="fas fa-search"></i> 查询
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用例列表 -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">ID</th>
+                            <th>用例名称</th>
+                            <th>分类</th>
+                            <th>优先级</th>
+                            <th>状态</th>
+                            <th>更新时间</th>
+                            <th class="text-end pe-4">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="caseListBody">
+                        <!-- 动态加载 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 空状态 -->
+            <div id="emptyState" class="text-center py-5" style="display: none;">
+                <div class="text-muted mb-3">
+                    <i class="fas fa-folder-open fa-3x"></i>
+                </div>
+                <p class="text-muted">暂无测试用例</p>
+            </div>
+        </div>
+        <div class="card-footer bg-white border-top-0 py-3">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-end mb-0" id="pagination">
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 失败执行 → 缺陷描述（AI） -->
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-header bg-light py-2">
+            <button class="btn btn-link btn-sm text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#defectGenBlock">
+                <i class="fas fa-bug text-danger me-1"></i>失败执行记录 → 生成缺陷描述
+            </button>
+        </div>
+        <div class="collapse" id="defectGenBlock">
+            <div class="card-body">
+                <p class="text-muted small mb-2">输入失败状态的执行记录 ID（如 EXEC_xxx），由系统生成缺陷标题、复现步骤、预期/实际结果。</p>
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <input type="text" class="form-control form-control-sm" id="defectExecId" placeholder="执行记录 ID" style="max-width: 220px;">
+                    <button class="btn btn-outline-danger btn-sm" type="button" onclick="generateDefectFromExecution()">
+                        <i class="fas fa-magic me-1"></i>生成缺陷描述
+                    </button>
+                </div>
+                <div id="defectResultBlock" class="mt-3 d-none">
+                    <label class="form-label small text-muted">生成结果（可复制到缺陷系统）</label>
+                    <pre id="defectResultText" class="bg-light p-3 small rounded mb-0" style="white-space: pre-wrap; max-height: 300px; overflow: auto;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新建用例模态框 -->
+    <div class="modal fade" id="createCaseModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>新建测试用例</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createCaseForm">
+                        <div class="mb-3">
+                            <label class="form-label">用例名称</label>
+                            <input type="text" class="form-control" id="createName" required placeholder="请输入用例名称">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">用例内容 (Markdown)</label>
+                            <textarea class="form-control" id="createDescription" rows="10" placeholder="在此处编写用例内容..."></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">分类</label>
+                                <select class="form-select" id="createCategory">
+                                    <option value="功能测试">功能测试</option>
+                                    <option value="性能测试">性能测试</option>
+                                    <option value="AI生成">AI生成</option>
+                                    <option value="其他">其他</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">优先级</label>
+                                <select class="form-select" id="createPriority">
+                                    <option value="high">高 (High)</option>
+                                    <option value="medium" selected>中 (Medium)</option>
+                                    <option value="low">低 (Low)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="submitCreateCase()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用例详情模态框 -->
+<div class="modal fade" id="caseDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailTitle">用例详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <span class="text-muted me-2">ID:</span> <span id="detailId" class="fw-bold"></span>
+                        </div>
+                        <div>
+                             <span id="detailCategory" class="badge bg-info me-2"></span>
+                             <span id="detailPriority" class="badge bg-secondary"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <ul class="nav nav-tabs mb-3" id="detailTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="content-tab" data-bs-toggle="tab" data-bs-target="#content-pane" type="button">详细内容</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="steps-tab" data-bs-toggle="tab" data-bs-target="#steps-pane" type="button">步骤视图</button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content" id="detailTabContent">
+                    <div class="tab-pane fade show active" id="content-pane">
+                        <div id="detailDescription" class="bg-light p-3 rounded" style="min-height: 200px; white-space: pre-wrap; font-family: monospace;"></div>
+                    </div>
+                    <div class="tab-pane fade" id="steps-pane">
+                        <div id="stepsContainer">
+                            <div id="detailGivenBlock" class="mb-3 p-3 bg-light rounded small" style="display:none;">
+                                <strong class="text-primary">Given（前置条件）</strong>
+                                <div id="detailGivenText" class="mt-1"></div>
+                            </div>
+                            <table class="table table-bordered table-sm">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 60px;">#</th>
+                                        <th>When（操作步骤）</th>
+                                        <th>Then（预期结果）</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detailStepsBody">
+                                </tbody>
+                            </table>
+                            <div id="noStepsMsg" class="text-center text-muted py-3" style="display:none;">无结构化步骤</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    let currentPage = 1;
+    const pageSize = 15;
+    let createModal;
+    let detailModal;
+
+    $(document).ready(function() {
+        createModal = new bootstrap.Modal(document.getElementById('createCaseModal'));
+        detailModal = new bootstrap.Modal(document.getElementById('caseDetailModal'));
+        loadCases(1);
+        
+        // 绑定回车搜索
+        $('#searchName').on('keypress', function(e) {
+            if (e.which === 13) loadCases(1);
+        });
+    });
+
+    function openCreateModal() {
+        $('#createName').val('');
+        $('#createDescription').val('');
+        $('#createCategory').val('功能测试');
+        $('#createPriority').val('medium');
+        createModal.show();
+    }
+
+    async function submitCreateCase() {
+        const name = $('#createName').val();
+        const description = $('#createDescription').val();
+        
+        if (!name) {
+            toast.warning('请输入用例名称');
+            return;
+        }
+        
+        const data = {
+            name: name,
+            description: description,
+            category: $('#createCategory').val(),
+            priority: $('#createPriority').val(),
+            status: 'active',
+            test_type: 'manual'
+        };
+        
+        try {
+            await ApiClient.post('/test_case/api/test-cases', data);
+            toast.success('新建用例成功');
+            createModal.hide();
+            loadCases(1); // 刷新列表
+        } catch (error) {
+            console.error(error);
+            toast.error('新建失败: ' + (error.message || '未知错误'));
+        }
+    }
+
+    async function loadCases(page) {
+        currentPage = page;
+        const name = $('#searchName').val();
+        const category = $('#searchCategory').val();
+        
+        // Show loading state
+        $('#caseListBody').html('<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>');
+        
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                page_size: pageSize,
+                search: name,
+                category: category
+            });
+            
+            const res = await ApiClient.get(`/test_case/api/test-cases?${params.toString()}`, { showLoading: false });
+            window.currentCasesData = res.data.test_cases || [];
+            renderTable(res.data.test_cases);
+            renderPagination(res.data.pagination);
+            
+            if (res.data.test_cases.length === 0) {
+                $('#emptyState').show();
+                $('#caseListBody').hide();
+            } else {
+                $('#emptyState').hide();
+                $('#caseListBody').show();
+            }
+        } catch (error) {
+            console.error(error);
+            window.currentCasesData = [];
+            toast.error('加载列表失败');
+            $('#caseListBody').html('<tr><td colspan="7" class="text-center text-danger py-4">加载失败</td></tr>');
+        }
+    }
+
+    function renderTable(cases) {
+        const tbody = $('#caseListBody');
+        tbody.empty();
+        
+        cases.forEach(c => {
+            const statusBadge = c.status === 'active' ? '<span class="badge bg-success">启用</span>' : 
+                               (c.status === 'deprecated' ? '<span class="badge bg-warning">废弃</span>' : '<span class="badge bg-secondary">归档</span>');
+            
+            const priorityMap = {
+                'high': '<span class="text-danger fw-bold">P0</span>',
+                'medium': '<span class="text-warning fw-bold">P1</span>',
+                'low': '<span class="text-info fw-bold">P2</span>'
+            };
+            
+            const tr = `
+                <tr onclick="showDetail('${c.id}')" style="cursor: pointer;">
+                    <td class="ps-4"><small class="text-muted">${c.id}</small></td>
+                    <td><div class="fw-bold text-truncate" style="max-width: 300px;">${c.name}</div></td>
+                    <td><span class="badge bg-light text-dark border">${c.category}</span></td>
+                    <td>${priorityMap[c.priority] || c.priority}</td>
+                    <td>${statusBadge}</td>
+                    <td><small class="text-muted">${formatDate(c.updated_at)}</small></td>
+                    <td class="text-end pe-4" onclick="event.stopPropagation()">
+                        <button class="btn btn-sm btn-link text-primary" onclick="showDetail('${c.id}')">查看</button>
+                    </td>
+                </tr>
+            `;
+            tbody.append(tr);
+        });
+    }
+
+    function renderPagination(pagination) {
+        const ul = $('#pagination');
+        ul.empty();
+        
+        if (pagination.total_pages <= 1) return;
+        
+        // Prev
+        ul.append(`
+            <li class="page-item ${pagination.page === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadCases(${pagination.page - 1})">上一页</a>
+            </li>
+        `);
+        
+        // Pages
+        for (let i = 1; i <= pagination.total_pages; i++) {
+            if (i === 1 || i === pagination.total_pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+                ul.append(`
+                    <li class="page-item ${i === pagination.page ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="loadCases(${i})">${i}</a>
+                    </li>
+                `);
+            } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+                ul.append('<li class="page-item disabled"><span class="page-link">...</span></li>');
+            }
+        }
+        
+        // Next
+        ul.append(`
+            <li class="page-item ${pagination.page === pagination.total_pages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadCases(${pagination.page + 1})">下一页</a>
+            </li>
+        `);
+    }
+
+    let currentCase = null;
+
+    function showDetail(id) {
+        const caseData = (window.currentCasesData || []).find(c => c.id === id);
+        if (!caseData) return;
+        
+        currentCase = caseData;
+        
+        $('#detailId').text(caseData.id);
+        $('#detailCategory').text(caseData.category);
+        $('#detailPriority').text(caseData.priority);
+        $('#detailTitle .modal-title').text('用例详情: ' + caseData.name);
+        
+        // 渲染描述 (Markdown)
+        const desc = caseData.description || '';
+        if (window.marked) {
+            $('#detailDescription').html(marked.parse(desc));
+        } else {
+            $('#detailDescription').text(desc);
+        }
+        
+        // 渲染 Given（前置条件）
+        const givenBlock = $('#detailGivenBlock');
+        const givenText = $('#detailGivenText');
+        if (caseData.preconditions && caseData.preconditions.trim()) {
+            givenBlock.show();
+            givenText.text(caseData.preconditions.trim());
+        } else {
+            givenBlock.hide();
+        }
+        // 渲染步骤 (When / Then)
+        const stepsBody = $('#detailStepsBody');
+        stepsBody.empty();
+        if (caseData.steps && caseData.steps.length > 0) {
+            $('#noStepsMsg').hide();
+            $('#stepsContainer table').show();
+            caseData.steps.forEach(s => {
+                stepsBody.append(`
+                    <tr>
+                        <td>${s.step_num}</td>
+                        <td>${escapeHtml(s.action)}</td>
+                        <td>${escapeHtml(s.expected)}</td>
+                    </tr>
+                `);
+            });
+            // 默认显示步骤 Tab 如果有步骤
+            // var triggerEl = document.querySelector('#steps-tab')
+            // bootstrap.Tab.getInstance(triggerEl).show()
+        } else {
+            $('#noStepsMsg').show();
+            $('#stepsContainer table').hide();
+            // 默认显示内容 Tab
+            var triggerEl = document.querySelector('#content-tab');
+            if (triggerEl) {
+                const tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+        
+        detailModal.show();
+    }
+
+    async function handleXmindImport(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        if (!file.name.toLowerCase().endsWith('.xmind')) {
+            toast.error('请选择 .xmind 文件');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('file', file);
+        toast.info('正在解析 XMind...');
+        try {
+            const res = await fetch('/test_case/api/import_xmind', { method: 'POST', body: formData });
+            const result = await res.json();
+            if (!res.ok || !(result.success || result.ok)) {
+                throw new Error(result.message || '解析失败');
+            }
+            const cases = result.data?.cases || [];
+            if (cases.length === 0) {
+                toast.warning('未解析到测试用例');
+                input.value = '';
+                return;
+            }
+            const batchRes = await ApiClient.post('/test_case/api/test-cases/batch', { cases }, { showLoading: false });
+            const created = batchRes.data?.created_count || 0;
+            const errors = batchRes.data?.errors || [];
+            if (errors.length > 0) {
+                toast.warning(`导入完成：成功 ${created} 个，失败 ${errors.length} 个`);
+            } else {
+                toast.success(`成功导入 ${created} 个测试用例`);
+            }
+            loadCases(1);
+        } catch (e) {
+            console.error(e);
+            toast.error(e.message || 'XMind 导入失败');
+        } finally {
+            input.value = '';
+        }
+    }
+
+    async function exportXmind() {
+        try {
+            const res = await fetch('/test_case/api/export_xmind', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ export_all: true })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || '导出失败');
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '测试用例.xmind';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast.success('导出成功');
+        } catch (e) {
+            console.error(e);
+            toast.error(e.message || '导出失败');
+        }
+    }
+
+    function formatDate(isoString) {
+        if (!isoString) return '-';
+        const date = new Date(isoString);
+        return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    async function generateDefectFromExecution() {
+        const execId = $('#defectExecId').val()?.trim();
+        if (!execId) {
+            toast.warning('请输入执行记录 ID');
+            return;
+        }
+        try {
+            const res = await ApiClient.post(`/test_case/api/test-executions/${encodeURIComponent(execId)}/generate_defect`, {}, { loadingMessage: '生成中...', timeout: 65000 });
+            const text = res.data?.defect_description || '';
+            $('#defectResultText').text(text);
+            $('#defectResultBlock').removeClass('d-none');
+        } catch (e) {
+            toast.error(e.message || e.response?.data?.message || '生成失败');
+        }
+    }
+</script>
+{% endblock %}

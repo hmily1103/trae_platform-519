@@ -1,0 +1,277 @@
+{
+  "id": "recording_1770944293889",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-02-13T08:58:13.895519",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": {
+        "strategy": "resource_id",
+        "value": "com.thunder.ktv:id/song_name",
+        "fallbacks": [
+          {
+            "strategy": "text",
+            "value": "留什么给你"
+          },
+          {
+            "strategy": "coordinates",
+            "value": "225,140"
+          }
+        ],
+        "bounds": {
+          "left": 180,
+          "top": 130,
+          "right": 270,
+          "bottom": 151,
+          "center_x": 225,
+          "center_y": 140
+        },
+        "class_name": "android.widget.TextView"
+      },
+      "value": null,
+      "coordinates": {
+        "x": 203,
+        "y": 141
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770944293889\\step_1.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770944293889\\step_1.xml",
+      "timestamp": 1770944296.997764,
+      "wait_after": 1000,
+      "description": "点击 song_name",
+      "status": "completed"
+    },
+    {
+      "step_num": 2,
+      "action_type": "click",
+      "selector": {
+        "strategy": "resource_id",
+        "value": "com.thunder.ktv:id/song_name",
+        "fallbacks": [
+          {
+            "strategy": "text",
+            "value": "美丽的神话"
+          },
+          {
+            "strategy": "coordinates",
+            "value": "225,231"
+          }
+        ],
+        "bounds": {
+          "left": 180,
+          "top": 221,
+          "right": 270,
+          "bottom": 242,
+          "center_x": 225,
+          "center_y": 231
+        },
+        "class_name": "android.widget.TextView"
+      },
+      "value": null,
+      "coordinates": {
+        "x": 214,
+        "y": 238
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770944293889\\step_2.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770944293889\\step_2.xml",
+      "timestamp": 1770944299.8630872,
+      "wait_after": 1000,
+      "description": "点击 song_name",
+      "status": "completed"
+    },
+    {
+      "step_num": 3,
+      "action_type": "click",
+      "selector": {
+        "strategy": "resource_id",
+        "value": "com.thunder.ktv:id/textview_by_singer",
+        "fallbacks": [
+          {
+            "strategy": "text",
+            "value": "孙楠  韩红"
+          },
+          {
+            "strategy": "coordinates",
+            "value": "216,262"
+          }
+        ],
+        "bounds": {
+          "left": 180,
+          "top": 253,
+          "right": 252,
+          "bottom": 272,
+          "center_x": 216,
+          "center_y": 262
+        },
+        "class_name": "android.widget.TextView"
+      },
+      "value": null,
+      "coordinates": {
+        "x": 194,
+        "y": 264
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770944293889\\step_3.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770944293889\\step_3.xml",
+      "timestamp": 1770944303.610634,
+      "wait_after": 1000,
+      "description": "点击 textview_by_singer",
+      "status": "completed"
+    },
+    {
+      "step_num": 4,
+      "action_type": "click",
+      "selector": {
+        "strategy": "resource_id",
+        "value": "com.thunder.ktv:id/textview_by_singer",
+        "fallbacks": [
+          {
+            "strategy": "text",
+            "value": "孙楠  韩红"
+          },
+          {
+            "strategy": "coordinates",
+            "value": "216,262"
+          }
+        ],
+        "bounds": {
+          "left": 180,
+          "top": 253,
+          "right": 252,
+          "bottom": 272,
+          "center_x": 216,
+          "center_y": 262
+        },
+        "class_name": "android.widget.TextView"
+      },
+      "value": null,
+      "coordinates": {
+        "x": 194,
+        "y": 264
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770944293889\\step_4.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770944293889\\step_4.xml",
+      "timestamp": 1770944303.9104035,
+      "wait_after": 1000,
+      "description": "点击 textview_by_singer",
+      "status": "completed"
+    },
+    {
+      "step_num": 5,
+      "action_type": "click",
+      "selector": {
+        "strategy": "resource_id",
+        "value": "com.thunder.ktv:id/textview_by_singer",
+        "fallbacks": [
+          {
+            "strategy": "text",
+            "value": "孙楠  韩红"
+          },
+          {
+            "strategy": "coordinates",
+            "value": "216,262"
+          }
+        ],
+        "bounds": {
+          "left": 180,
+          "top": 253,
+          "right": 252,
+          "bottom": 272,
+          "center_x": 216,
+          "center_y": 262
+        },
+        "class_name": "android.widget.TextView"
+      },
+      "value": null,
+      "coordinates": {
+        "x": 241,
+        "y": 269
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770944293889\\step_5.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770944293889\\step_5.xml",
+      "timestamp": 1770944309.5373375,
+      "wait_after": 1000,
+      "description": "点击 textview_by_singer",
+      "status": "completed"
+    },
+    {
+      "step_num": 6,
+      "action_type": "click",
+      "selector": {
+        "strategy": "resource_id",
+        "value": "com.thunder.ktv:id/add_to_top",
+        "fallbacks": [
+          {
+            "strategy": "text",
+            "value": "置顶"
+          },
+          {
+            "strategy": "coordinates",
+            "value": "651,337"
+          }
+        ],
+        "bounds": {
+          "left": 606,
+          "top": 314,
+          "right": 696,
+          "bottom": 360,
+          "center_x": 651,
+          "center_y": 337
+        },
+        "class_name": "android.widget.TextView"
+      },
+      "value": null,
+      "coordinates": {
+        "x": 659,
+        "y": 337
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770944293889\\step_6.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770944293889\\step_6.xml",
+      "timestamp": 1770944315.024434,
+      "wait_after": 1000,
+      "description": "点击 add_to_top",
+      "status": "completed"
+    },
+    {
+      "step_num": 7,
+      "action_type": "click",
+      "selector": {
+        "strategy": "resource_id",
+        "value": "com.thunder.ktv:id/tv_type",
+        "fallbacks": [
+          {
+            "strategy": "text",
+            "value": "情歌对唱"
+          },
+          {
+            "strategy": "coordinates",
+            "value": "832,524"
+          }
+        ],
+        "bounds": {
+          "left": 774,
+          "top": 500,
+          "right": 890,
+          "bottom": 548,
+          "center_x": 832,
+          "center_y": 524
+        },
+        "class_name": "android.widget.TextView"
+      },
+      "value": null,
+      "coordinates": {
+        "x": 828,
+        "y": 522
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770944293889\\step_7.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770944293889\\step_7.xml",
+      "timestamp": 1770944316.877066,
+      "wait_after": 1000,
+      "description": "点击 tv_type",
+      "status": "completed"
+    }
+  ],
+  "description": "",
+  "project_id": "",
+  "name": ""
+}

@@ -1,0 +1,2944 @@
+{
+  "items": [
+    {
+      "id": "B_cc0e1111",
+      "bug_desc": "投屏过程中黑屏",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f4612dc7",
+      "bug_desc": "广告切换后卡死",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9465839d",
+      "bug_desc": "投屏过程中黑屏",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2b4e40c5",
+      "bug_desc": "广告切换后卡死",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_28f95463",
+      "bug_desc": "语音弹出时，房台二维码不消失，重叠展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_de76e25a",
+      "bug_desc": "多次语音唤醒后，语音没有任何响应了",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8930054f",
+      "bug_desc": "喊小麦可以唤醒，但说点歌无反馈",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5000cf8b",
+      "bug_desc": "语音点歌和实际播放不一致",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5a6505cd",
+      "bug_desc": "唤醒小麦或者小爱，没有语音应答",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8bd75311",
+      "bug_desc": "最大音量下无法唤醒语音",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_fd0aa901",
+      "bug_desc": "喊小麦小麦不能唤醒语音",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e13a5c15",
+      "bug_desc": "语音，直接说 点歌或点一首歌，没有说歌名，会提示没有听懂或者没有找到相关结果",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_fa744d6a",
+      "bug_desc": "投屏 android手机使用miracast投屏还是没反应",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6a9bb8f8",
+      "bug_desc": "投屏，点击电视端投屏，电视黑屏没有展示二维码",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e31d1b64",
+      "bug_desc": "语音，音量调到 这个语音不能识别",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0035d025",
+      "bug_desc": "剧本杀app，横版展示问题，只在屏幕中间展示一条",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_361f356c",
+      "bug_desc": "星耀屏，选择网红墙，第三屏没有展示网红墙图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4120c0d4",
+      "bug_desc": "日志里有大量相同数据，需要查看",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2cf9f197",
+      "bug_desc": "投屏，星耀屏投屏bilibili后 出现 声音是bilibili的，电视端播放mv画面",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4aec88e6",
+      "bug_desc": "投屏，选择miracast投屏，手机端选择房台号后 机顶盒端退出投屏",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_77623395",
+      "bug_desc": "投屏，鸿蒙系统扫码后无反应",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f2189bf8",
+      "bug_desc": "大厅转播无声",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7b0e5bea",
+      "bug_desc": "【我的作品-AI修音作品】我已经付费成功，修音完成提示修音失败。没有后续闭环流程。",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e59bfdda",
+      "bug_desc": "广告，触摸屏暂停广告应改为TV屏暂停广告",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1a588c3a",
+      "bug_desc": "【K歌比赛-制作你的专属作品】上层是两个功能入口进同一个页面，建议优化，页面分开。兜底：从功能入口进入后，锚点到顶部",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9f958328",
+      "bug_desc": "广告，web端没有曝光数展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_04e4e83f",
+      "bug_desc": "广告，开台广告应只有一个，不需要区分横竖版",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ba03180c",
+      "bug_desc": "广告，后台设置 banner应该是只有竖版有",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d4e71559",
+      "bug_desc": "广告，选择图片后 会显示两张图样图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_cd4cda3a",
+      "bug_desc": "歌曲翻页，歌名点歌下 翻页时感觉加载速度比较慢",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b7b6d238",
+      "bug_desc": "小爱，提示token不存在",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0ca53b90",
+      "bug_desc": "pk，erp小程序中查看对战记录，有进行中的记录但实际已经结束了",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a43bef3c",
+      "bug_desc": "pk，测试结果不展示，只提示未拿到结果需要再小程序上查看",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5d2f326e",
+      "bug_desc": "广告，星耀屏广告尺寸为 1280*1080，web端写的尺寸错误不能上传",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9b972a4c",
+      "bug_desc": "皮肤选择，web端 选择屏蔽功能，重启机顶盒，该功能仍然在",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_36cffa5e",
+      "bug_desc": "自助，能看中 派对的背景图片都被压缩了，建议重新制作",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_45aafeef",
+      "bug_desc": "商k，派对页面 导航按钮看不清",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_844efb9f",
+      "bug_desc": "派对，进入派对后 底图比较模糊，建议更换",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f8aaee48",
+      "bug_desc": "刷机，刷机后重启机顶后 报 蓝牙屡次停止运行",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_67b369c2",
+      "bug_desc": "投屏，手机微信扫码 提示请用手机扫码 检测到用的是电脑端微信",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_70e5643d",
+      "bug_desc": "语音，多次语音唤醒后，语音没有任何响应了",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a8eeb95c",
+      "bug_desc": "pk，选择酒水显示0元，选择歌曲后酒水展示 19.9元",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0d30ee8e",
+      "bug_desc": "语音， 喊 小麦小麦不能唤醒语音",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_183e2f55",
+      "bug_desc": "投屏，手机端提示不明显，第一次用不知道下一步怎样操作，建议有详细说明",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_134e28eb",
+      "bug_desc": "点击暂停，电视端暂停图标比较大，对比静音图标",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7d7e77bb",
+      "bug_desc": "竖版电子人视频不播放 只展示图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_07997501",
+      "bug_desc": "录音，不能修音的没有提示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_babd1534",
+      "bug_desc": "广告，设置了banner广告，自助模式下没有展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_36b9855a",
+      "bug_desc": "k歌，k歌中点选歌曲是云端歌曲，机顶盒端没有下载动作需要自己下载",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_69fc1613",
+      "bug_desc": "x9，手动选择原唱后，再点k歌大赛歌曲，歌曲仍然是原唱",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0238c87d",
+      "bug_desc": "x9  自助横版界面 歌星和歌曲背景比对有点强烈  ，建议调整",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_202b3a5e",
+      "bug_desc": "导唱，开启导唱 调整伴奏音量比较低，到下一首歌后 导唱音量比伴奏音量大",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_99d97e62",
+      "bug_desc": "【录音详情】K歌大赛，进入歌曲页面，歌曲时长显示为0:00 。",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7896d3be",
+      "bug_desc": "pk，开始pk 小程序端展示了两个发起记录，一个带金额，另一个为0元",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_56127611",
+      "bug_desc": "第三屏， 进入求婚和生日后，第三屏仍然展示 手机扫码图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_85035cc8",
+      "bug_desc": "第三屏，进入清吧，第三屏仍然展示 手机二维码，不展示清吧图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_301d6e0e",
+      "bug_desc": "第三屏，进入电音派对后，第三屏展示黑屏",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_bc24e32f",
+      "bug_desc": "pk，pk获胜方展示 获得酒水 金额原路退回",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0dbf0fea",
+      "bug_desc": "pk，一个房台发起pk并erp支付成功后，小程序pk广场中看不到pk信息",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_cf58b8e7",
+      "bug_desc": "pk，pk扫码在erp端支付后，另一个房台内看不到pk信息",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5cd57955",
+      "bug_desc": "量贩，数字人触摸屏首页视频不能播放，数字人是固定展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_37bc3fb2",
+      "bug_desc": "录音，在录音列表中看到录音，但是点击后 无时间也没有声音",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3d9afabf",
+      "bug_desc": "录音，小程序中 删除录音，提示unionid不能为空",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_facdd0fd",
+      "bug_desc": "pk，发起pk后，参赛金额显示0元",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_89b32408",
+      "bug_desc": "pk，erp端付款 提示 创建订单失败",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_01aa82c8",
+      "bug_desc": "导唱，开启导唱后 切换到下一首歌曲 关闭导唱，但是人声仍然有",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9e55d626",
+      "bug_desc": "k歌，小程序中搜索k歌歌曲，结果展示错误",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b844e6e6",
+      "bug_desc": "k歌，付费k歌 设置中为1元，点歌时显示100元",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_fee256b1",
+      "bug_desc": "k歌，设置k歌大赛付费为0.01，确认时提示invalid params: json: cannot unmarshal number 0.01 into Go struct field CompetitionConfig.songFeeAmount of type int",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5eb80ab8",
+      "bug_desc": "k歌，打分时点击静音，osd大于录音中按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f7578dc8",
+      "bug_desc": "pk，礼物二维码扫码后跳转错误",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_fa1b5d0c",
+      "bug_desc": "开机画面，建议将进度条展示位置调整到logo上面",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_69d52c4d",
+      "bug_desc": "k歌，大赛增加全部歌曲，小程序报错",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f9e3bf53",
+      "bug_desc": "导唱，音量弹窗背景需要调整，页面按钮不清晰",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b24d5d0f",
+      "bug_desc": "自助，悬浮窗在页面右侧点击下拉箭头可以正常展示，在页面左侧会被压住一半按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_62fd0de6",
+      "bug_desc": "自助，页面上  小爱提醒与和页面按钮重叠",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_35e85f6f",
+      "bug_desc": "自助，点击歌名 歌星 排行等 跳转页面后，导航会有空白按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_bda8d721",
+      "bug_desc": "息屏，点击息屏后，第三屏仍然展示视频",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ed065bef",
+      "bug_desc": "歌星展示，歌星图片展示不完整",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3e5c89ec",
+      "bug_desc": "商k，点搜索  返回按钮边弹出首页按钮",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_90527e5b",
+      "bug_desc": "商k，竖版 搜索歌星 歌曲框 会有光标在  “曲”字上闪，建议修改光标位置",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0cef94c5",
+      "bug_desc": "pk，两个房台pk 结果展示错误",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8c425f1a",
+      "bug_desc": "商k，点击搜歌手，但页面没有搜索框入口",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_00a2c5bc",
+      "bug_desc": "竖版，进入歌名点歌，导航栏 展示空白按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_54e78710",
+      "bug_desc": "打分，没有开启打分功能，但是点歌会展示五维打分页面",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_32f94588",
+      "bug_desc": "k歌，首页展示 唱功评分达到a级和s级的提示语，字迹有些模糊",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8ecfe06a",
+      "bug_desc": "k歌，结果页 最底边的句子显示不完整",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_907f5f30",
+      "bug_desc": "k歌，小程序端可以切换原伴唱",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_89f5025a",
+      "bug_desc": "k歌，小程序可以重唱和切歌操作",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8108c28b",
+      "bug_desc": "k歌，开启k歌大赛后  电视端左上角二维码太复杂不容易扫码",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_06f95a06",
+      "bug_desc": "pk，pk时 电视端没有五维打分展示  脚本测试",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_477eb74b",
+      "bug_desc": "屏保，选择图片轮播后出现页面重叠现象",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_292db96f",
+      "bug_desc": "量贩，三方退出后，应用出所有app都不可见",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0f3268ce",
+      "bug_desc": "商k，搜索页面-猜你想唱歌曲最后一行展示不全",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_30b20cad",
+      "bug_desc": "竖版，三方应用界面全部按钮压在app上",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_67c0bbfd",
+      "bug_desc": "三方，进入三方app后控制面板无按钮展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5e227e16",
+      "bug_desc": "打分，打分时点击静音，osd在电视端展示是被拉伸的",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_63a62bd8",
+      "bug_desc": "横版，从派对退出后 首页视频不再展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1810bfde",
+      "bug_desc": "打分，歌曲打分中开启画中画或者壁画模式，歌词会展示两层",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7ee0e000",
+      "bug_desc": "量贩，歌名点歌中 字数多的歌名压住了 参赛歌曲按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f802f770",
+      "bug_desc": "量贩，首页我的常唱，歌曲名展示了两次",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b964b819",
+      "bug_desc": "语音，语音弹出弹出时 房台二维码不消失 会重叠展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a2e60c48",
+      "bug_desc": "广告，设置星耀屏广告，点歌后 无任何展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_55f85f6e",
+      "bug_desc": "【K歌比赛-制作你的专属作品】可修音的歌曲，音频处理这里选中框不应该置灰。",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3b30e070",
+      "bug_desc": "3-12版本，验证pk 酒水展示为0元，并且无歌可选",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8b1b9f1d",
+      "bug_desc": "活动设置，pk搜索酒水时无反应",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7fa39661",
+      "bug_desc": "广告，广告偶遇一次出发后不播放",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e89d7b1a",
+      "bug_desc": "【我的录音】比赛录音，未获取到K歌文件封面图",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_29c36440",
+      "bug_desc": "投屏，iphone 屏幕镜像功能搜不到机顶盒",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4960f4eb",
+      "bug_desc": "生日布置，在手机端已取消，但是电视端仍然展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_57705eda",
+      "bug_desc": "pk，创建pk活动，选择全部歌曲，扫码参赛后没有歌曲展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e2691bac",
+      "bug_desc": "投屏，播控页面的 快进快退 暂停按钮比较模糊",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7d2fa22d",
+      "bug_desc": "投屏，点击弹出播控页面，会浮在屏保上",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d34f865c",
+      "bug_desc": "【K歌比赛-录音详情】在录音详情点播放。如果跳转到另一个页面，则播放应该暂停。已经与产品确认了。不然调走之后没地方暂停音乐。",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_226139dd",
+      "bug_desc": "【K歌比赛-制作你的专属作品】制作MV，未上传照片，tosat直接给明确：请上传照片，目前给的是处理选项",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1fca3040",
+      "bug_desc": "【K歌比赛-制作你的专属作品】制作中，未显示制作封面",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7a3535bb",
+      "bug_desc": "【K歌比赛-排行榜-作品录制】点击分享无响应，小程序没有做任何请求。",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ed972e08",
+      "bug_desc": "【K歌比赛-排行榜-作品录音】参赛作品录制门店名称显示错误。列表中显示未90后测试，进入详情显示错误",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_70ca7949",
+      "bug_desc": "【K歌比赛-排行榜】进入录音作品，提示加载失败",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f87a0c1f",
+      "bug_desc": "修音，付费后在小程序 我的作品中并没有展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_59960ecc",
+      "bug_desc": "pk，礼物扫码付款后，机顶盒无没有展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0dc7a9da",
+      "bug_desc": "pk，pk过程中 二维码重叠",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_dd4f1c7e",
+      "bug_desc": "自助，能看页面左右滑动 容易触发 整个页面滑动",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4c1ff8b2",
+      "bug_desc": "【K歌大赛】制作专属作品，支付成功/失败留在当前，页面不做跳转。详见视屏",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2bf100ac",
+      "bug_desc": "【K歌比赛】在搜索框输入框输入内容并未发送请求。",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_074ee796",
+      "bug_desc": "【K歌比赛】在搜索参赛歌曲输入框输入内容后删除，K歌列表数据立马为空。详见视频",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ddd0251c",
+      "bug_desc": "导唱，出现 轮播歌曲可以打开或者关闭导唱功能",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b6fbaf60",
+      "bug_desc": "参赛记录，微信小程序中 pk有参赛记录，k歌大赛中没有",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_66dff533",
+      "bug_desc": "pk，微信小程序中参赛记录数据和 实际页面展示数据不相符",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9e5efacc",
+      "bug_desc": "pk，发起挑战后 在pk广场显示两个比赛",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2233bd21",
+      "bug_desc": "导唱，开启导唱后第一首歌曲正常，第二首歌曲不能正常进行导唱",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_01ab27f1",
+      "bug_desc": "画中画，开启画中画后歌词位置展示错误",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d77d9de2",
+      "bug_desc": "息屏，点击息屏后，首页导航出会有息屏和全屏按钮出现",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_72ed4921",
+      "bug_desc": "k歌，小程序端  我的作品按钮不能挪动，会挡住点歌按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ca41108d",
+      "bug_desc": "三方，音量调整后再次进入后，音量图和实际声音不一致",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_290b1d67",
+      "bug_desc": "录音，小程序端 开启是勾选支持录音，但歌曲唱完没有录音功能",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f133383f",
+      "bug_desc": "点击酒水后，出现crash和anr，界面不能操作，电视端黑屏",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1397008e",
+      "bug_desc": "键盘，点击语言，弹出语言选择框，再次点击收起，键盘收起但是语言框仍然展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_189751ba",
+      "bug_desc": "商k，设置界面 导航 返回和首页按钮不在一行展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f7b6b315",
+      "bug_desc": "k歌，进行比赛时 应该不支持切换到画中画或者壁画模式下",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_dd0a6f52",
+      "bug_desc": "语音，唤醒 小麦或者小爱，没有语音应答",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e4355491",
+      "bug_desc": "语音，喊小麦可以唤醒，但是说点歌已经没有反馈了",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0d988168",
+      "bug_desc": "语音，语音点歌和实际播放不一致",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6e8181db",
+      "bug_desc": "屏保，播控的图标和系统中三方app的不一致，建议保持一致",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7465d3c5",
+      "bug_desc": "x9，投屏操作说明不明确，使用者不知道 手机要连接这个wifi，需要说明",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_137fb133",
+      "bug_desc": "投屏，触摸屏端 点击进入后 显示主屏幕和星耀屏，主屏幕建议修改为电视端",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ffd373e1",
+      "bug_desc": "娱乐，网红墙打卡时，如果在打分情况下会显示 录音osd，建议去掉",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6d07d33f",
+      "bug_desc": "导唱，音量调节页面一直打开，播放第二首歌曲时 导唱功能不能调节音量和开关",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5f8161cd",
+      "bug_desc": "我的常唱，点击歌星下的更多按钮，点到最后一页仍显示更多，但点击后会收起",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d3850786",
+      "bug_desc": "自助、商k中都没有娱乐内容，是空白的",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_19113a5e",
+      "bug_desc": "k歌，结果页 显示的字建议重新排版",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7fd94a37",
+      "bug_desc": "打分，打分歌曲可以暂停",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a227f4ee",
+      "bug_desc": "打分，点击参赛歌曲，电视端开启五维打分功能，可以点击静音",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_82b55fcf",
+      "bug_desc": "横版，进入歌星页面，第一行歌星展示被导航栏压住",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_bd06fa2e",
+      "bug_desc": "商K_派对背景素材挤压",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9792bdbe",
+      "bug_desc": "商 K_排行榜、歌单背景错乱",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_acb2e28e",
+      "bug_desc": "商 K_选中态错误",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4a2befeb",
+      "bug_desc": "商K_歌手搜索_左侧 tab 选中态错误",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_fb558800",
+      "bug_desc": "商 K_清吧缩略图跳变",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9eed13c9",
+      "bug_desc": "商K_首页_画中画控件残留在屏幕",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_31e03ebf",
+      "bug_desc": "商K_声光_主题换肤为空",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ad9cecc8",
+      "bug_desc": "商 K_全屏 MV_黑屏",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8775757a",
+      "bug_desc": "商 K_gogo秀_弹窗返回路径错误",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e8cef381",
+      "bug_desc": "商K_竖版_首页视频畸变",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_cbb6e871",
+      "bug_desc": "自助-竖版-空间",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_022dc128",
+      "bug_desc": "自助-竖版-能看",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d3431155",
+      "bug_desc": "自助-竖版-首页",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ac3e4845",
+      "bug_desc": "自助-横版-娱乐",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9fc5a38a",
+      "bug_desc": "自助-横版-歌手",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ae8dc950",
+      "bug_desc": "自助-横版-搜索",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f70c14c9",
+      "bug_desc": "自助-横版-能看",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_46ca8c4a",
+      "bug_desc": "自助-横版-首页",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_15fae9cc",
+      "bug_desc": "语音，关台后仍然可以点歌",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_90d8ba57",
+      "bug_desc": "导唱，点多首打分歌曲，打开导唱 切到下一首 导唱就自动关闭了",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0a8f1f0a",
+      "bug_desc": "打分，进入歌名后，扫码我的常唱，出现进入歌星后 点歌没有评分标识但是可以评分",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_74aeb705",
+      "bug_desc": "导唱，导唱条按钮展示错误 ，只展示一半",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a588f101",
+      "bug_desc": "pk，获胜方并没有退回付的费用，需要修改文案",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_345647c4",
+      "bug_desc": "pk，失败方 第三屏没有结果页展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9d242c16",
+      "bug_desc": "商k，歌星界面需要增加歌星搜索",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_66a978d5",
+      "bug_desc": "pk，erp小程序中查看对战数据，展示错误",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b5e9a3d3",
+      "bug_desc": "pk erp领取奖品，提示非获胜者不能查看奖品",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3b480fa2",
+      "bug_desc": "广告，星耀屏广告尺寸应该为  1080*1920",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9d65f22c",
+      "bug_desc": "声光控制，竖版 点击声光控制后再缩回，导航出留息屏和全屏的按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_af460b4e",
+      "bug_desc": "自助，投屏按钮 图片和其他不一致",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2757e93e",
+      "bug_desc": "pk 设置活动，如果是一天的活动起始和结束时同一天，在参加活动时判断为已结束",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9d8c8225",
+      "bug_desc": "mv换脸，录音做的mv没有实现换脸功能",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9a204a9f",
+      "bug_desc": "pk 支付订单时提示 创建订单失败",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_aa0de7b7",
+      "bug_desc": "pk，设置活动时 选择指定歌曲，歌曲不能被选中",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_605e141e",
+      "bug_desc": "pk，我的奖品中 获奖信息 矿泉水显示0元",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_167402a0",
+      "bug_desc": "pk，平局没有处理退款",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6f8c8a14",
+      "bug_desc": "pk，pk过程中送礼物 有  送礼物的对话框，建议去掉",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4a5f7095",
+      "bug_desc": "pk，赠送礼物，礼物票数没有增加",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_79aceb0e",
+      "bug_desc": "修音，修音失败的作品在我的作品中 不能听也不能删除，也不再做",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9733453a",
+      "bug_desc": "酒水：erp汇金pro 进入界面后 界面不适配",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5d2bf105",
+      "bug_desc": "大厅转播，用vlc转播 有时会出现无声情况，需要退出后再次进入",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e7a823d2",
+      "bug_desc": "语音，需要调整灵敏度，现在唱歌过程中很容易就唤醒，影响唱歌",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_71ca47f1",
+      "bug_desc": "投屏，miracast  鸿蒙手机投屏效果很差",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d45b1359",
+      "bug_desc": "剧本杀app，横版展示问题，只在屏幕中间展示一条",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_266210fb",
+      "bug_desc": "星耀屏，选择网红墙，第三屏没有展示网红墙图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ecd8d18f",
+      "bug_desc": "投屏，星耀屏投屏bilibili后 出现 声音是bilibili的，电视端播放mv画面",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_12729f8a",
+      "bug_desc": "投屏，选择miracast投屏，手机端选择房台号后 机顶盒端退出投屏",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_940d2f41",
+      "bug_desc": "投屏，鸿蒙系统扫码后无反应",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7ba3fad6",
+      "bug_desc": "歌曲翻页，歌名点歌下 翻页时感觉加载速度比较慢",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9e6150d4",
+      "bug_desc": "pk，erp小程序中查看对战记录，有进行中的记录但实际已经结束了",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4c2439b0",
+      "bug_desc": "pk，测试结果不展示，只提示未拿到结果需要再小程序上查看",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_76752ef1",
+      "bug_desc": "自助，能看中 派对的背景图片都被压缩了，建议重新制作",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d68f77b8",
+      "bug_desc": "派对，进入派对后 底图比较模糊，建议更换",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_40202744",
+      "bug_desc": "刷机，刷机后重启机顶后 报 蓝牙屡次停止运行",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_bccca350",
+      "bug_desc": "生日派对，输入姓名时  键盘上 输入按钮不应该是 “搜索”字样",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e27f58f6",
+      "bug_desc": "清吧，音量调节 展示的是 导唱调节",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_afc3eaaf",
+      "bug_desc": "画中画，在k歌大赛过程中点击画中画，在k歌结束后 电视端歌词重叠",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_22916009",
+      "bug_desc": "数字人，星耀屏上的数字人被被压扁了 和原图相比",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4a9c8ffa",
+      "bug_desc": "数字人，首页数字人被拉伸了",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3dccd660",
+      "bug_desc": "分享录音，建议可以拖拽进度",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b1f200e4",
+      "bug_desc": "pk，小程序中pk对战详情 歌名为空，不能听录音，录音时间为空",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_42a85bd8",
+      "bug_desc": "数字人，已经静音，但是数字人还是有声音播放",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_724f3b34",
+      "bug_desc": "已点，打开已点界面，刚好压着 重唱 暂停 切歌按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_eda66fdf",
+      "bug_desc": "pk，获胜方在雷石小程序中 点 立即使用，没有任何跳转",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2da3d7a1",
+      "bug_desc": "pk，获胜方 最后获取奖品应该有更好的文字提示，目前只展示商品名",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_374c54c4",
+      "bug_desc": "pk，结果展示错误，获胜房台展示失败",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c3ba0d17",
+      "bug_desc": "pk，申请pk后，其他房台看不到pk消息。只能在手机端pk广场中查看",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_131f24cf",
+      "bug_desc": "pk，发起pk的的房间 弹出通知，没有商品图片展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9f2981bb",
+      "bug_desc": "打分，从五维打分切换到轮播，电视界面仍然是打分界面",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0c5b1bf3",
+      "bug_desc": "画中画，五维打分歌曲接到轮播时切换画中画，出现界面重叠",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_32679e43",
+      "bug_desc": "派对，开启导唱，从打分歌曲直接切换到电音，五维打分界面没有消失 ，导唱声音也没有消失",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f61f79a6",
+      "bug_desc": "投屏，星耀屏和电视屏 在投屏展示二维码图片是和原设计图不一致",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_79e69a4b",
+      "bug_desc": "暂停，暂停是会出现反复播放声音，开启打分，点暂停",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0eea0384",
+      "bug_desc": "导唱，开启静音，导唱的人声仍然有",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ecdb4082",
+      "bug_desc": "ai灯光，点播已有鼓点的音乐，ai灯光并没有反馈",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_75056f56",
+      "bug_desc": "pk和k歌过程中，需要屏蔽语音指令",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_56e8025e",
+      "bug_desc": "pk，过程中 语音出发了暂停，应屏蔽",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1dc73461",
+      "bug_desc": "pk，小程序中酒水图片为空",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4213fa30",
+      "bug_desc": "投屏，关闭投屏后 电视端已退出，但声音未退出  miracast模式",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4a3dc7a2",
+      "bug_desc": "投屏，pk和k歌时需要屏蔽投屏",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_efef78f0",
+      "bug_desc": "语音，直接说 点歌或点一首歌，没有说歌名，会提示没有听懂或者没有找到相关结果",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_51859aa9",
+      "bug_desc": "投屏，iphone 屏幕镜像功能搜不到机顶盒",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f8b6a93d",
+      "bug_desc": "投屏 android手机使用miracast投屏还是没反应",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_13c218b4",
+      "bug_desc": "投屏，点击电视端投屏，电视黑屏没有展示二维码",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2355b0a2",
+      "bug_desc": "投屏，手机微信扫码 提示请用手机扫码 检测到用的是电脑端微信",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b957295c",
+      "bug_desc": "语音，多次语音唤醒后，语音没有任何响应了",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f7e384b6",
+      "bug_desc": "语音，音量调到 这个语音不能识别",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f051ef83",
+      "bug_desc": "语音，唤醒 小麦或者小爱，没有语音应答",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_840cbf45",
+      "bug_desc": "语音，喊小麦可以唤醒，但是说点歌已经没有反馈了",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f6c54c3e",
+      "bug_desc": "语音，语音点歌和实际播放不一致",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ba2379d8",
+      "bug_desc": "生日布置，在手机端已取消，但是电视端仍然展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b2bffb67",
+      "bug_desc": "pk，选择酒水显示0元，选择歌曲后酒水展示 19.9元",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_16eace5c",
+      "bug_desc": "pk，创建pk活动，选择全部歌曲，扫码参赛后没有歌曲展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_68c74f80",
+      "bug_desc": "语音， 喊 小麦小麦不能唤醒语音",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e45c8c5d",
+      "bug_desc": "投屏，手机端提示不明显，第一次用不知道下一步怎样操作，建议有详细说明",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5a20510e",
+      "bug_desc": "投屏，播控页面的 快进快退 暂停按钮比较模糊",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_32e76160",
+      "bug_desc": "广告，触摸屏暂停广告应改为TV屏暂停广告",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_11513d62",
+      "bug_desc": "点击暂停，电视端暂停图标比较大，对比静音图标",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_72687505",
+      "bug_desc": "竖版电子人视频不播放 只展示图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9f89daea",
+      "bug_desc": "录音，不能修音的没有提示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_63b1add5",
+      "bug_desc": "广告，设置了banner广告，自助模式下没有展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6fbe5ee6",
+      "bug_desc": "广告，开台广告应只有一个，不需要区分横竖版",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_017719a5",
+      "bug_desc": "广告，后台设置 banner应该是只有竖版有",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0830ab60",
+      "bug_desc": "广告，选择图片后 会显示两张图样图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_aa61c3db",
+      "bug_desc": "修音，付费后在小程序 我的作品中并没有展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ac6c21df",
+      "bug_desc": "k歌，k歌中点选歌曲是云端歌曲，机顶盒端没有下载动作需要自己下载",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_31f21a71",
+      "bug_desc": "x9，手动选择原唱后，再点k歌大赛歌曲，歌曲仍然是原唱",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_04258614",
+      "bug_desc": "x9  自助横版界面 歌星和歌曲背景比对有点强烈  ，建议调整",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e0b0ca59",
+      "bug_desc": "pk，礼物扫码付款后，机顶盒无没有展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_48bd59d3",
+      "bug_desc": "pk，pk过程中 二维码重叠",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_53baec18",
+      "bug_desc": "自助，能看页面左右滑动 容易触发 整个页面滑动",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0b9ac9ef",
+      "bug_desc": "导唱，开启导唱 调整伴奏音量比较低，到下一首歌后 导唱音量比伴奏音量大",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_42d89fca",
+      "bug_desc": "导唱，出现 轮播歌曲可以打开或者关闭导唱功能",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1cf0eabd",
+      "bug_desc": "参赛记录，微信小程序中 pk有参赛记录，k歌大赛中没有",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_83a177bd",
+      "bug_desc": "pk，微信小程序中参赛记录数据和 实际页面展示数据不相符",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_930ad2b2",
+      "bug_desc": "pk，开始pk 小程序端展示了两个发起记录，一个带金额，另一个为0元",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f9835a53",
+      "bug_desc": "第三屏， 进入求婚和生日后，第三屏仍然展示 手机扫码图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_77fba3d3",
+      "bug_desc": "第三屏，进入清吧，第三屏仍然展示 手机二维码，不展示清吧图片",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_fdf65047",
+      "bug_desc": "第三屏，进入电音派对后，第三屏展示黑屏",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_876f0176",
+      "bug_desc": "pk，pk获胜方展示 获得酒水 金额原路退回",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b10a5c1d",
+      "bug_desc": "pk，一个房台发起pk并erp支付成功后，小程序pk广场中看不到pk信息",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_52e64c79",
+      "bug_desc": "pk，pk扫码在erp端支付后，另一个房台内看不到pk信息",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6d9e2063",
+      "bug_desc": "量贩，数字人触摸屏首页视频不能播放，数字人是固定展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_40e481af",
+      "bug_desc": "录音，在录音列表中看到录音，但是点击后 无时间也没有声音",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_29e1bd11",
+      "bug_desc": "录音，小程序中 删除录音，提示unionid不能为空",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f1e7fc5e",
+      "bug_desc": "pk，发起pk后，参赛金额显示0元",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b601b531",
+      "bug_desc": "pk，发起挑战后 在pk广场显示两个比赛",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_cb900ce2",
+      "bug_desc": "pk，erp端付款 提示 创建订单失败",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8c57ee7d",
+      "bug_desc": "导唱，开启导唱后 切换到下一首歌曲 关闭导唱，但是人声仍然有",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_870b20d0",
+      "bug_desc": "k歌，小程序中搜索k歌歌曲，结果展示错误",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_10555fee",
+      "bug_desc": "k歌，付费k歌 设置中为1元，点歌时显示100元",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0970fd5c",
+      "bug_desc": "k歌，设置k歌大赛付费为0.01，确认时提示invalid params: json: cannot unmarshal number 0.01 into Go struct field CompetitionConfig.songFeeAmount of type int",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d6603838",
+      "bug_desc": "导唱，开启导唱后第一首歌曲正常，第二首歌曲不能正常进行导唱",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_82c9639b",
+      "bug_desc": "k歌，打分时点击静音，osd大于录音中按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_bedea1e6",
+      "bug_desc": "pk，礼物二维码扫码后跳转错误",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_37fa0d08",
+      "bug_desc": "画中画，开启画中画后歌词位置展示错误",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8f80f04d",
+      "bug_desc": "开机画面，建议将进度条展示位置调整到logo上面",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5ef0edd4",
+      "bug_desc": "息屏，点击息屏后，首页导航出会有息屏和全屏按钮出现",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ec731bbd",
+      "bug_desc": "k歌，小程序端  我的作品按钮不能挪动，会挡住点歌按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9a3117ab",
+      "bug_desc": "k歌，大赛增加全部歌曲，小程序报错",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_74008019",
+      "bug_desc": "导唱，音量弹窗背景需要调整，页面按钮不清晰",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_fae36383",
+      "bug_desc": "三方，音量调整后再次进入后，音量图和实际声音不一致",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b24922cf",
+      "bug_desc": "广告，星耀屏广告尺寸为 1280*1080，web端写的尺寸错误不能上传",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7b823560",
+      "bug_desc": "录音，小程序端 开启是勾选支持录音，但歌曲唱完没有录音功能",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_667628aa",
+      "bug_desc": "皮肤选择，web端 选择屏蔽功能，重启机顶盒，该功能仍然在",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5da4fe86",
+      "bug_desc": "点击酒水后，出现crash和anr，界面不能操作，电视端黑屏",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_df9f341f",
+      "bug_desc": "自助，悬浮窗在页面右侧点击下拉箭头可以正常展示，在页面左侧会被压住一半按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_064020c9",
+      "bug_desc": "自助，页面上  小爱提醒与和页面按钮重叠",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_43e9f559",
+      "bug_desc": "自助，点击歌名 歌星 排行等 跳转页面后，导航会有空白按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_248e482d",
+      "bug_desc": "息屏，点击息屏后，第三屏仍然展示视频",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2d5a57cc",
+      "bug_desc": "键盘，点击语言，弹出语言选择框，再次点击收起，键盘收起但是语言框仍然展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_07557964",
+      "bug_desc": "歌星展示，歌星图片展示不完整",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_91b92548",
+      "bug_desc": "商k，设置界面 导航 返回和首页按钮不在一行展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d89264c3",
+      "bug_desc": "商k，点搜索  返回按钮边弹出首页按钮",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2563535c",
+      "bug_desc": "商k，竖版 搜索歌星 歌曲框 会有光标在  “曲”字上闪，建议修改光标位置",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8398c2c1",
+      "bug_desc": "商k，派对页面 导航按钮看不清",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b13f5dd9",
+      "bug_desc": "pk，两个房台pk 结果展示错误",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_dca3dad3",
+      "bug_desc": "商k，点击搜歌手，但页面没有搜索框入口",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f3442887",
+      "bug_desc": "竖版，进入歌名点歌，导航栏 展示空白按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8f556b17",
+      "bug_desc": "打分，没有开启打分功能，但是点歌会展示五维打分页面",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e149298b",
+      "bug_desc": "k歌，首页展示 唱功评分达到a级和s级的提示语，字迹有些模糊",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_159c9e9d",
+      "bug_desc": "k歌，结果页 最底边的句子显示不完整",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d2da03d3",
+      "bug_desc": "k歌，小程序端可以切换原伴唱",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e78b4f93",
+      "bug_desc": "k歌，小程序可以重唱和切歌操作",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b021da24",
+      "bug_desc": "k歌，开启k歌大赛后  电视端左上角二维码太复杂不容易扫码",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_64b344a4",
+      "bug_desc": "pk，pk时 电视端没有五维打分展示  脚本测试",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7142896b",
+      "bug_desc": "屏保，选择图片轮播后出现页面重叠现象",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a2b1bf97",
+      "bug_desc": "k歌，进行比赛时 应该不支持切换到画中画或者壁画模式下",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d2541a9f",
+      "bug_desc": "量贩，三方退出后，应用出所有app都不可见",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c37b7c05",
+      "bug_desc": "商k，搜索页面-猜你想唱歌曲最后一行展示不全",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_70af4b85",
+      "bug_desc": "竖版，三方应用界面全部按钮压在app上",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b0a93e43",
+      "bug_desc": "三方，进入三方app后控制面板无按钮展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9f774164",
+      "bug_desc": "打分，打分时点击静音，osd在电视端展示是被拉伸的",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9467666e",
+      "bug_desc": "横版，从派对退出后 首页视频不再展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_62296a84",
+      "bug_desc": "打分，歌曲打分中开启画中画或者壁画模式，歌词会展示两层",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c594011c",
+      "bug_desc": "量贩，歌名点歌中 字数多的歌名压住了 参赛歌曲按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4f5d27be",
+      "bug_desc": "量贩，首页我的常唱，歌曲名展示了两次",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_38977ca9",
+      "bug_desc": "小程序 我的录音，数据只有第一页有歌曲图片，第二页就没有了",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_cf374c5d",
+      "bug_desc": "打分，系统中仍有旧版打分歌曲",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3888fee1",
+      "bug_desc": "星耀屏，从歌曲进入到大厅转播，星耀屏仍然展示歌星图片，建议修改成点歌二维码",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0d43da1e",
+      "bug_desc": "星耀屏，从歌曲进入到三方，星耀屏仍然展示歌星图片，建议修改成点歌二维码",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_fba6b1e7",
+      "bug_desc": "语音，语音弹出弹出时 房台二维码不消失 会重叠展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e2359133",
+      "bug_desc": "大厅转播无声",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_95eb81c3",
+      "bug_desc": "广告，设置星耀屏广告，点歌后 无任何展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_617c02bf",
+      "bug_desc": "3-12版本，验证pk 酒水展示为0元，并且无歌可选",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ce9fca90",
+      "bug_desc": "活动设置，pk搜索酒水时无反应",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ff5e8275",
+      "bug_desc": "广告，web端没有曝光数展示",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_496426c2",
+      "bug_desc": "广告，广告偶遇一次出发后不播放",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d94ff206",
+      "bug_desc": "小爱，提示token不存在",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_153902c9",
+      "bug_desc": "投屏，投屏出现 电视和星耀屏同时黑屏，手机端退出后 星耀屏仍然黑屏",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5f88b141",
+      "bug_desc": "中控，x9开机后 会发送  一串码值，需要查明是否有影响",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e4db2331",
+      "bug_desc": "数字人，点酒水 触摸屏端提示未安装，但是数字人出来说 来了来了",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b84b1f0c",
+      "bug_desc": "投屏，从投屏界面退出后，第三屏黑屏",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_be991eb9",
+      "bug_desc": "投屏，用iphone镜像投屏，手机退出爱奇艺时第三屏没有镜像展示手机屏幕内容",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ca88d3a8",
+      "bug_desc": "日志里有大量相同数据，需要查看",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8bacda08",
+      "bug_desc": "投屏，点击弹出播控页面，会浮在屏保上",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_988aab8b",
+      "bug_desc": "投屏，投屏音量建议适当调小，不要默认100%",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4f3024cc",
+      "bug_desc": "导唱，不够灵敏，开启导唱后 人唱歌后  仍然有原声一起",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1b6ed766",
+      "bug_desc": "打分，结果页展示时间比较长，并且不能切歌",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9e0f9f16",
+      "bug_desc": "屏保，播控的图标和系统中三方app的不一致，建议保持一致",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0a58c058",
+      "bug_desc": "x9，投屏操作说明不明确，使用者不知道 手机要连接这个wifi，需要说明",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1f2b8de8",
+      "bug_desc": "投屏，触摸屏端 点击进入后 显示主屏幕和星耀屏，主屏幕建议修改为电视端",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_db7cc9a0",
+      "bug_desc": "娱乐，网红墙打卡时，如果在打分情况下会显示 录音osd，建议去掉",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6449b526",
+      "bug_desc": "导唱，音量调节页面一直打开，播放第二首歌曲时 导唱功能不能调节音量和开关",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_89fa8074",
+      "bug_desc": "我的常唱，点击歌星下的更多按钮，点到最后一页仍显示更多，但点击后会收起",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_446030c8",
+      "bug_desc": "自助、商k中都没有娱乐内容，是空白的",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_671ba1ea",
+      "bug_desc": "k歌，结果页 显示的字建议重新排版",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7d72d681",
+      "bug_desc": "打分，打分歌曲可以暂停",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b8709e86",
+      "bug_desc": "打分，点击参赛歌曲，电视端开启五维打分功能，可以点击静音",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d0380cfd",
+      "bug_desc": "横版，进入歌星页面，第一行歌星展示被导航栏压住",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_50369e51",
+      "bug_desc": "【我的作品-AI修音作品】我已经付费成功，修音完成提示修音失败。没有后续闭环流程。",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b20aa87e",
+      "bug_desc": "【K歌比赛-制作你的专属作品】上层是两个功能入口进同一个页面，建议优化，页面分开。兜底：从功能入口进入后，锚点到顶部",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_35febaa2",
+      "bug_desc": "【K歌比赛-录音作品】等级标签展示错误。",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_39c056fd",
+      "bug_desc": "【K歌比赛】在搜索框输入框输入内容并未发送请求。",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_cf4ea6c4",
+      "bug_desc": "【K歌比赛】在搜索参赛歌曲输入框输入内容后删除，K歌列表数据立马为空。详见视频",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_204caaf3",
+      "bug_desc": "【录音详情】K歌大赛，进入歌曲页面，歌曲时长显示为0:00 。",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5f71d9af",
+      "bug_desc": "【K歌比赛-制作你的专属作品】可修音的歌曲，音频处理这里选中框不应该置灰。",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_34092cbd",
+      "bug_desc": "【我的录音】比赛录音，未获取到K歌文件封面图",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3cb2b49e",
+      "bug_desc": "【k歌大赛-比赛总榜】向下滑动，会出现有一条记录无法展示。详见视屏",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c3ef34b0",
+      "bug_desc": "【K歌大赛】分享后的页面，去掉返回上一层按钮。",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0704f18d",
+      "bug_desc": "【K歌大赛-制作你的专属作品】制作MV不是必选项，可支持修音或者制作MV。",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ea7b06a3",
+      "bug_desc": "【K歌比赛-录音详情】在录音详情点播放。如果跳转到另一个页面，则播放应该暂停。已经与产品确认了。不然调走之后没地方暂停音乐。",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_12c73967",
+      "bug_desc": "【K歌比赛-制作你的专属作品】制作MV，未上传照片，tosat直接给明确：请上传照片，目前给的是处理选项",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2fde66fe",
+      "bug_desc": "【K歌比赛-制作你的专属作品】制作中，未显示制作封面",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c9004532",
+      "bug_desc": "【K歌比赛-排行榜-作品录制】点击分享无响应，小程序没有做任何请求。",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2350dfec",
+      "bug_desc": "【K歌比赛-排行榜-作品录音】参赛作品录制门店名称显示错误。列表中显示未90后测试，进入详情显示错误",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_540dae2d",
+      "bug_desc": "【K歌比赛-排行榜】进入录音作品，提示加载失败",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_12d16c3c",
+      "bug_desc": "【K歌大赛】制作专属作品，支付成功/失败留在当前，页面不做跳转。详见视屏",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d8f90835",
+      "bug_desc": "竖版-量贩-歌星列表页",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_46b13371",
+      "bug_desc": "量贩-竖版-我的常唱无数据展示逻辑待确认",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4f89612e",
+      "bug_desc": "量贩-竖版-音量",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5b17b98b",
+      "bug_desc": "首页数字人人物比例偏小，视频调整完后需更新",
+      "severity": "P0",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c830d0c7",
+      "bug_desc": "[VX-184] pk，pk过程中送礼物 有  送礼物的对话框，建议去掉",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9b249fb4",
+      "bug_desc": "[VX-183] pk，赠送礼物，礼物票数没有增加",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6956ac79",
+      "bug_desc": "[VX-91] pk，礼物扫码付款后，机顶盒无没有展示  ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_00d62a4b",
+      "bug_desc": "[VX-55] pk，礼物二维码扫码后跳转错误  ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2de8dc49",
+      "bug_desc": "[VX-251] 投屏，andriod手机投屏 腾讯视频，电视端黑屏，触摸屏端只在竖屏上端展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e1a1b211",
+      "bug_desc": "[VX-123] 投屏，星耀屏投屏bilibili后 出现 声音是bilibili的，电视端播放mv画面",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_02068c9f",
+      "bug_desc": "[VX-122] 投屏，选择miracast投屏，手机端选择房台号后 机顶盒端退出投屏",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f751c2e4",
+      "bug_desc": "[VX-224] pk，获胜方并没有退回付的费用，需要修改文案",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_20a69f8d",
+      "bug_desc": "[VX-220] 商k，歌星界面需要增加歌星搜索",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7d7c88b4",
+      "bug_desc": "[VX-194] mv换脸，录音做的mv没有实现换脸功能",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4551b52a",
+      "bug_desc": "[VX-175] 修音，修音失败的作品在我的作品中 不能听也不能删除，也不再做",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_07a35c4d",
+      "bug_desc": "[VX-117] 【我的作品-AI修音作品】我已经付费成功，修音完成提示修音失败。没有后续闭环流程。",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6181b246",
+      "bug_desc": "[VX-113] 【K歌比赛-制作你的专属作品】上层是两个功能入口进同一个页面，建议优化，页面分开。兜底：从功能入口进入后，锚点到顶部",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_385675a2",
+      "bug_desc": "[VX-174] 酒水：erp汇金pro 进入界面后 界面不适配",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5c74f8af",
+      "bug_desc": "[VX-257] 竖版，电音轰趴进入派对按钮被压缩",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1b06fa21",
+      "bug_desc": "[VX-241] TV-多维评分-高光时刻动效颜色未还原设计稿",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a2d90366",
+      "bug_desc": "[VX-239] 竖版-量贩-歌星列表页",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7b0cb072",
+      "bug_desc": "[VX-238] 量贩-竖版-我的常唱无数据展示逻辑待确认",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7858aa35",
+      "bug_desc": "[VX-237] 量贩-竖版-音量",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d5df6d24",
+      "bug_desc": "[VX-236] 量贩-竖版-首页UI还原问题",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1899fbcc",
+      "bug_desc": "[VX-217] 投屏，投屏出现 电视和星耀屏同时黑屏，手机端退出后 星耀屏仍然黑屏",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_cbeb65d5",
+      "bug_desc": "[VX-240] 打分，进入歌名后，扫码我的常唱，出现进入歌星后 点歌没有评分标识但是可以评分",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_697f6bbf",
+      "bug_desc": "[VX-184] pk，pk过程中送礼物 有  送礼物的对话框，建议去掉",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_2277fe22",
+      "bug_desc": "[VX-255] 语音，十七岁的雨季 触发音量70",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9ace8041",
+      "bug_desc": "[VX-254] 语音，唱歌过程中 触发“重唱” 播控",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6546020f",
+      "bug_desc": "[VX-248] 语音，语音在电视端弹窗 有两句 “也可以说 “退下”关闭对话”的提示词",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_be56f21d",
+      "bug_desc": "[VX-247] 语音，点歌星歌曲后，没有推荐这个歌星的其他歌曲",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c072120b",
+      "bug_desc": "[VX-246] 语音， 说 我想点一首周杰伦的晴天，目前不能正常点播",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7eb9a115",
+      "bug_desc": "[VX-153] 语音，需要调整灵敏度，现在唱歌过程中很容易就唤醒，影响唱歌",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c1c8de4e",
+      "bug_desc": "[VX-244] 数字人 播放声音不受系统声音调整，有时会比音乐声音大",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a99d3929",
+      "bug_desc": "[VX-183] pk，赠送礼物，礼物票数没有增加",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_ef2e5681",
+      "bug_desc": "[VX-164] 大厅转播，用vlc转播 有时会出现无声情况，需要退出后再次进入",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_812c833b",
+      "bug_desc": "[VX-207] 广告，星耀屏广告尺寸应该为  1080*1920",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_71368636",
+      "bug_desc": "[VX-233] 自助-竖版-空间",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8c8c9b59",
+      "bug_desc": "[VX-232] 自助-竖版-能看",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a73830f6",
+      "bug_desc": "[VX-231] 自助-竖版-首页",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d1dc4cde",
+      "bug_desc": "[VX-230] 自助-横版-娱乐",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_44a751bf",
+      "bug_desc": "[VX-229] 自助-横版-歌手",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_96f52bbb",
+      "bug_desc": "[VX-228] 自助-横版-搜索",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f3a6d0cf",
+      "bug_desc": "[VX-227] 自助-横版-能看",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0b6b2117",
+      "bug_desc": "[VX-225] 自助-横版-首页",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_cdb56268",
+      "bug_desc": "[VX-216] pk，erp小程序中查看对战数据，展示错误 ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_86dc5296",
+      "bug_desc": "[VX-215] pk erp领取奖品，提示非获胜者不能查看奖品",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7ea5b87e",
+      "bug_desc": "[VX-76] pk，erp小程序中查看对战记录，有进行中的记录但实际已经结束了 ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6154204a",
+      "bug_desc": "[VX-144] 投屏 android手机使用miracast投屏还是没反应",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_42484a06",
+      "bug_desc": "[VX-134] 剧本杀app，横版展示问题，只在屏幕中间展示一条",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d99b4c6e",
+      "bug_desc": "[VX-1] 刷机，刷机后重启机顶后 报 蓝牙屡次停止运行",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e9575bbf",
+      "bug_desc": "[VX-196] 分享录音，建议可以拖拽进度",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a36e86fa",
+      "bug_desc": "[VX-189] 【K歌比赛-录音作品】等级标签展示错误。",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_783d42e9",
+      "bug_desc": "[VX-188] 【k歌大赛-比赛总榜】向下滑动，会出现有一条记录无法展示。详见视屏",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e282ca3b",
+      "bug_desc": "[VX-186] 【K歌大赛】分享后的页面，去掉返回上一层按钮。",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_547bad55",
+      "bug_desc": "[VX-182] pk，小程序中pk对战详情 歌名为空，不能听录音，录音时间为空",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4f60f85b",
+      "bug_desc": "[VX-178] pk，获胜方在雷石小程序中 点 立即使用，没有任何跳转",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_347f4a90",
+      "bug_desc": "[VX-155] 【K歌大赛-制作你的专属作品】制作MV不是必选项，可支持修音或者制作MV。",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_4afeeadf",
+      "bug_desc": "[VX-150] pk，小程序中酒水图片为空",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_95ef631d",
+      "bug_desc": "[VX-131] pk，选择酒水显示0元，选择歌曲后酒水展示 19.9元",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9f12ed2b",
+      "bug_desc": "[VX-130] pk，创建pk活动，选择全部歌曲，扫码参赛后没有歌曲展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a556818f",
+      "bug_desc": "[VX-114] 【K歌比赛-录音详情】在录音详情点播放。如果跳转到另一个页面，则播放应该暂停。已经与产品确认了。不然调走之后没地方暂停音乐。",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_7fbd7f4f",
+      "bug_desc": "[VX-112] 【K歌比赛-制作你的专属作品】制作MV，未上传照片，tosat直接给明确：请上传照片，目前给的是处理选项",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6d994a00",
+      "bug_desc": "[VX-109] 【K歌比赛-制作你的专属作品】制作中，未显示制作封面",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e10839d7",
+      "bug_desc": "[VX-108] 【K歌比赛-排行榜-作品录制】点击分享无响应，小程序没有做任何请求。",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_dd542631",
+      "bug_desc": "[VX-107] 【K歌比赛-排行榜-作品录音】参赛作品录制门店名称显示错误。列表中显示未90后测试，进入详情显示错误",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_647c6a58",
+      "bug_desc": "[VX-105] 【K歌比赛-排行榜】进入录音作品，提示加载失败",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_95b19cd2",
+      "bug_desc": "[VX-101] 录音，不能修音的没有提示 ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_bc9837a5",
+      "bug_desc": "[VX-95] 修音，付费后在小程序 我的作品中并没有展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_966e0ecb",
+      "bug_desc": "[VX-91] pk，礼物扫码付款后，机顶盒无没有展示  ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8a16f950",
+      "bug_desc": "[VX-86] 【K歌大赛】制作专属作品，支付成功/失败留在当前，页面不做跳转。详见视屏",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_9680634d",
+      "bug_desc": "[VX-85] 【K歌比赛】在搜索框输入框输入内容并未发送请求。",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_bd059b8e",
+      "bug_desc": "[VX-84] 【K歌比赛】在搜索参赛歌曲输入框输入内容后删除，K歌列表数据立马为空。详见视频",
+      "severity": "P2",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3b999da5",
+      "bug_desc": "[VX-78] 参赛记录，微信小程序中 pk有参赛记录，k歌大赛中没有",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_f9c4d079",
+      "bug_desc": "[VX-77] pk，微信小程序中参赛记录数据和 实际页面展示数据不相符",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_99d1a8de",
+      "bug_desc": "[VX-74] pk，开始pk 小程序端展示了两个发起记录，一个带金额，另一个为0元",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5c735510",
+      "bug_desc": "[VX-70] pk，pk获胜方展示 获得酒水 金额原路退回",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3531a405",
+      "bug_desc": "[VX-69] pk，一个房台发起pk并erp支付成功后，小程序pk广场中看不到pk信息",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_10de61af",
+      "bug_desc": "[VX-68] pk，pk扫码在erp端支付后，另一个房台内看不到pk信息",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0fd07331",
+      "bug_desc": "[VX-66] 录音，在录音列表中看到录音，但是点击后 无时间也没有声音",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_08cd8471",
+      "bug_desc": "[VX-65] 录音，小程序中 删除录音，提示unionid不能为空",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_b00d84ce",
+      "bug_desc": "[VX-64] pk，发起pk后，参赛金额显示0元",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_e83a6a98",
+      "bug_desc": "[VX-63] pk，发起挑战后 在pk广场显示两个比赛",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3e55d140",
+      "bug_desc": "[VX-60] k歌，小程序中搜索k歌歌曲，结果展示错误 ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_3655107d",
+      "bug_desc": "[VX-59] k歌，付费k歌 设置中为1元，点歌时显示100元 ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_636fc8df",
+      "bug_desc": "[VX-58] k歌，设置k歌大赛付费为0.01，确认时提示invalid params: json: cannot unmarshal number 0.01 into Go struct field CompetitionConfig.songFeeAmount of type int",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6de9ce33",
+      "bug_desc": "[VX-55] pk，礼物二维码扫码后跳转错误  ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_870b600b",
+      "bug_desc": "[VX-50] k歌，小程序端  我的作品按钮不能挪动，会挡住点歌按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_1f5cf246",
+      "bug_desc": "[VX-49] k歌，大赛增加全部歌曲，小程序报错",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_a428dd4b",
+      "bug_desc": "[VX-45] 录音，小程序端 开启是勾选支持录音，但歌曲唱完没有录音功能",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_40376019",
+      "bug_desc": "[VX-171] pk，发起pk的的房间 弹出通知，没有商品图片展示",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_0bcaab93",
+      "bug_desc": "[VX-249] 切换原伴唱，如果已点中歌曲切成原唱，那下一首应该是 保持原唱",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_99a4d5c9",
+      "bug_desc": "[VX-242] 导唱，点多首打分歌曲，打开导唱 切到下一首 导唱就自动关闭了",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_771d5168",
+      "bug_desc": "[VX-223] pk，失败方 第三屏没有结果页展示 ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_40ca7d4d",
+      "bug_desc": "[VX-222] 生日派对，输入姓名时  键盘上 输入按钮不应该是 “搜索”字样",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_06efff83",
+      "bug_desc": "[VX-221] 清吧，音量调节 展示的是 导唱调节",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c545dd99",
+      "bug_desc": "[VX-179] 已点，打开已点界面，刚好压着 重唱 暂停 切歌按钮",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c1eb4b54",
+      "bug_desc": "[VX-170] 投屏，从投屏界面退出后，第三屏黑屏 ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_07d58632",
+      "bug_desc": "[VX-169] 投屏，用iphone镜像投屏，手机退出爱奇艺时第三屏没有镜像展示手机屏幕内容",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_81e44ab5",
+      "bug_desc": "[VX-166] 打分，从五维打分切换到轮播，电视界面仍然是打分界面 ",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_79d62ffd",
+      "bug_desc": "[VX-165] 画中画，五维打分歌曲接到轮播时切换画中画，出现界面重叠",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_5dcd6ff0",
+      "bug_desc": "[VX-161] 派对，开启导唱，从打分歌曲直接切换到电音，五维打分界面没有消失 ，导唱声音也没有消失",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_334bb2be",
+      "bug_desc": "[VX-159] 投屏，星耀屏和电视屏 在投屏展示二维码图片是和原设计图不一致",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_8d501c51",
+      "bug_desc": "[VX-158] 暂停，暂停是会出现反复播放声音，开启打分，点暂停",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_d288d75f",
+      "bug_desc": "[VX-157] 导唱，开启静音，导唱的人声仍然有",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_c699e90d",
+      "bug_desc": "[VX-149] 投屏，关闭投屏后 电视端已退出，但声音未退出  miracast模式",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_6bb62e62",
+      "bug_desc": "[VX-147] 投屏，pk和k歌时需要屏蔽投屏",
+      "severity": "P1",
+      "frequency": "中"
+    },
+    {
+      "id": "B_543a7053",
+      "bug_desc": "[VX-145] 投屏，iphone 屏幕镜像功能搜不到机顶盒",
+      "severity": "P1",
+      "frequency": "中"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+    "default_profile": "deepseek",
+    "profiles": {
+        "deepseek": {
+            "llm_provider": "deepseek",
+            "base_url": "https://api.deepseek.com/v1",
+            "model": "deepseek-chat",
+            "api_key": "YOUR_DEEPSEEK_API_KEY_HERE"
+        },
+        "doubao": {
+            "llm_provider": "doubao",
+            "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+            "model": "ep-xxxxxx",
+            "api_key": "YOUR_VOLCENGINE_API_KEY_HERE"
+        }
+    }
+}

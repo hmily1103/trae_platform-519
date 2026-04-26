@@ -1,0 +1,29 @@
+{
+  "id": "recording_text_1768304286731",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-01-13T19:38:06.986533",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "360,640",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 360,
+        "y": 640
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_text_1768304286731\\step_1.png",
+      "ui_tree": null,
+      "timestamp": 1768304292.148822,
+      "wait_after": 1000,
+      "description": "probe"
+    }
+  ],
+  "description": "selector check"
+}

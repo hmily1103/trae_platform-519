@@ -1,0 +1,109 @@
+{
+  "id": "recording_1768302393330",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-01-13T19:06:33.550825",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "197,455",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 197,
+        "y": 455
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1768302393330\\step_1.png",
+      "ui_tree": null,
+      "timestamp": 1768302407.4468806,
+      "wait_after": 1000,
+      "description": "点击 (197, 455)"
+    },
+    {
+      "step_num": 2,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "76,770",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 76,
+        "y": 770
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1768302393330\\step_2.png",
+      "ui_tree": null,
+      "timestamp": 1768302418.81797,
+      "wait_after": 1000,
+      "description": "点击 (76, 770)"
+    },
+    {
+      "step_num": 3,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "74,763",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 74,
+        "y": 763
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1768302393330\\step_3.png",
+      "ui_tree": null,
+      "timestamp": 1768302427.5612483,
+      "wait_after": 1000,
+      "description": "点击 (74, 763)"
+    },
+    {
+      "step_num": 4,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "167,664",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 167,
+        "y": 664
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1768302393330\\step_4.png",
+      "ui_tree": null,
+      "timestamp": 1768302435.5322893,
+      "wait_after": 1000,
+      "description": "点击 (167, 664)"
+    },
+    {
+      "step_num": 5,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "344,215",
+        "fallbacks": [],
+        "bounds": null
+      },
+      "value": null,
+      "coordinates": {
+        "x": 344,
+        "y": 215
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1768302393330\\step_5.png",
+      "ui_tree": null,
+      "timestamp": 1768302560.0476134,
+      "wait_after": 1000,
+      "description": "点击 (344, 215)"
+    }
+  ],
+  "description": ""
+}

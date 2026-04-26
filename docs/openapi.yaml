@@ -1,0 +1,289 @@
+openapi: 3.0.3
+info:
+  title: Trae Platform API
+  description: |
+    设备与服务器测试运维平台 API 文档。
+    包含仪表盘、一键任务、Monkey 测试、性能监控、日志监控、点歌、ARM 压测等模块。
+  version: 1.0.0
+  contact:
+    name: Trae Platform
+
+servers:
+  - url: /
+    description: 相对路径（部署时替换为实际域名）
+
+tags:
+  - name: 平台
+    description: 仪表盘、健康检查、公告
+  - name: 一键任务
+    description: 统一任务编排
+  - name: Monkey
+    description: Monkey 稳定性测试
+  - name: 点歌
+    description: 点歌与搜索
+  - name: ARM 压测
+    description: 服务器压测
+  - name: 性能监控
+    description: 性能数据采集
+  - name: 日志监控
+    description: 日志采集与告警
+
+paths:
+  /api/health:
+    get:
+      tags: [平台]
+      summary: 健康检查
+      responses:
+        '200':
+          description: 平台状态、模块加载、ADB 可用性
+
+  /api/announcements:
+    get:
+      tags: [平台]
+      summary: 系统公告
+      responses:
+        '200':
+          description: 公告列表
+
+  /api/dashboard/stats:
+    get:
+      tags: [平台]
+      summary: 仪表盘 KPI
+      responses:
+        '200':
+          description: 在线设备、今日任务、模块数等
+
+  /api/modules/status:
+    get:
+      tags: [平台]
+      summary: 各模块运行状态
+      responses:
+        '200':
+          description: 模块 idle/running/failed 状态
+
+  /unified/api/start:
+    post:
+      tags: [一键任务]
+      summary: 启动一键任务
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                modules:
+                  type: array
+                  items: { type: string }
+                  description: monkey, performance_monitor, log_monitor, ui_automation_suite, server_stress
+                device_id: { type: string }
+                package_name: { type: string }
+                monkey: { type: object }
+                ui_automation_suite: { type: object }
+                server_stress: { type: object }
+      responses:
+        '200':
+          description: run_id, children
+
+  /unified/api/status/{run_id}:
+    get:
+      tags: [一键任务]
+      summary: 查询任务状态
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: run, overall_status, statuses
+
+  /unified/api/reports:
+    get:
+      tags: [一键任务]
+      summary: 报告列表（可筛选）
+      parameters:
+        - name: module
+          in: query
+          schema: { type: string }
+        - name: kind
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: keyword
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 100 }
+      responses:
+        '200':
+          description: reports 数组
+
+  /monkey/api/start:
+    post:
+      tags: [Monkey]
+      summary: 启动 Monkey 测试
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_id: { type: string }
+                package_name: { type: string }
+                events_count: { type: integer }
+                throttle: { type: integer }
+      responses:
+        '200':
+          description: report_id
+
+  /monkey/api/reports:
+    get:
+      tags: [Monkey]
+      summary: Monkey 报告列表
+      responses:
+        '200':
+          description: reports 数组
+
+  /song_order/api/search:
+    post:
+      tags: [点歌]
+      summary: 搜索歌曲
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content: { type: string }
+                searchtype: { type: integer }
+      responses:
+        '200':
+          description: 搜索结果
+
+  /song_order/api/order:
+    post:
+      tags: [点歌]
+      summary: 点歌
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [musicno]
+              properties:
+                musicno: { type: string }
+                musicname: { type: string }
+      responses:
+        '200':
+          description: 点歌结果
+
+  /song_order/api/history:
+    get:
+      tags: [点歌]
+      summary: 点歌历史
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: entries 数组
+
+  /server_stress/api/servers:
+    get:
+      tags: [ARM 压测]
+      summary: 服务器列表
+      responses:
+        '200':
+          description: servers 数组
+    post:
+      tags: [ARM 压测]
+      summary: 添加服务器
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                ip: { type: string }
+                port: { type: integer }
+                username: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: server
+
+  /server_stress/api/stress/start:
+    post:
+      tags: [ARM 压测]
+      summary: 启动压测
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                server_id: { type: string }
+                cpu_cores: { type: integer }
+                cpu_load: { type: integer }
+                timeout: { type: integer }
+      responses:
+        '200':
+          description: success, message
+
+  /performance_monitor/api/start:
+    post:
+      tags: [性能监控]
+      summary: 启动性能监控
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_id: { type: string }
+                package_name: { type: string }
+                task_id: { type: string }
+      responses:
+        '200':
+          description: task_id
+
+  /performance_monitor/api/status:
+    get:
+      tags: [性能监控]
+      summary: 监控状态
+      responses:
+        '200':
+          description: 运行中的任务
+
+  /log_monitor/api/start:
+    post:
+      tags: [日志监控]
+      summary: 启动日志监控
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_id: { type: string }
+                target_package: { type: string }
+      responses:
+        '200':
+          description: task_id
+
+  /log_monitor/api/status:
+    get:
+      tags: [日志监控]
+      summary: 日志监控状态
+      responses:
+        '200':
+          description: 运行中的任务
+
+components:
+  schemas: {}
+  security: []

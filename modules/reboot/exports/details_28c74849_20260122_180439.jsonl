@@ -1,0 +1,1 @@
+{"task_id": "28c74849", "cycle_index": 1, "start_ts": 1769076279, "end_ts": 1769076279, "wait_after_on_sec": 0, "adb_enable_ok": false, "adb_connect_ok": false, "process_ok": false, "power_off_ok": false, "power_on_ok": false, "ok": false, "error_stage": "power_on", "error_message": "power on failed", "tx_on_raw": "", "tx_off_raw": ""}

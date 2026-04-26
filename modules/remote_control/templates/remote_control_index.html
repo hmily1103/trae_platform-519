@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="row">
+        <div class="col-md-3">
+            <!-- 连接面板 -->
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0"><i class="fas fa-link me-2"></i>设备连接</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">设备 IP 地址</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="deviceIp" placeholder="例如: 192.168.1.100 或 192.168.1.100:8787">
+                            <input type="text" class="form-control" id="devicePort" placeholder="端口(默认8787)" style="max-width: 150px;">
+                            <button class="btn btn-primary" id="btnConnect" onclick="connectDevice()">连接</button>
+                            <button class="btn btn-danger d-none" id="btnDisconnect" onclick="disconnectDevice()">断开</button>
+                        </div>
+                    </div>
+                    <div id="connectionStatus" class="alert alert-secondary d-none">未连接</div>
+                    <button class="btn btn-secondary mt-2" id="btnScrcpy" onclick="openScrcpy()" disabled>用 Scrcpy 打开</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <!-- Debug Log Area -->
+            <div class="card mb-3">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Debug Logs</h6>
+                    <button class="btn btn-sm btn-outline-light" onclick="document.getElementById('debugLogContent').innerHTML=''">Clear</button>
+                </div>
+                <div class="card-body bg-light p-2">
+                    <div id="debugLogContent" style="height: 100px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- 触摸屏 (Display 0) -->
+                <div class="col-lg-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0"><i class="fas fa-mobile-alt me-2"></i>触摸屏 (Display 0)</h5>
+                            <span class="badge bg-success" id="fpsBadge0">Live</span>
+                        </div>
+                        <div class="card-body p-0 bg-dark text-center position-relative" style="min-height: 400px; overflow: hidden;">
+                            <div id="screenWrapper0" style="display: inline-block; position: relative;">
+                                <img id="deviceScreen0" src="" alt="等待连接..." style="max-width: 100%; height: auto; cursor: crosshair;" draggable="false">
+                                <div id="loadingOverlay0" class="position-absolute top-50 start-50 translate-middle text-white d-none">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <div class="mt-2">正在获取画面...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 电视端 (Display X) -->
+                <div class="col-lg-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <h5 class="card-title mb-0 me-2"><i class="fas fa-tv me-2"></i>电视端</h5>
+                                <div class="input-group input-group-sm" style="width: 120px;">
+                                    <span class="input-group-text">Display</span>
+                                    <input type="number" class="form-control" id="tvDisplayId" value="1" min="1">
+                                </div>
+                            </div>
+                            <span class="badge bg-success" id="fpsBadge1">Live</span>
+                        </div>
+                        <div class="card-body p-0 bg-dark text-center position-relative" style="min-height: 400px; overflow: hidden;">
+                            <div id="screenWrapper1" style="display: inline-block; position: relative;">
+                                <img id="deviceScreen1" src="" alt="等待连接..." style="max-width: 100%; height: auto; cursor: not-allowed;" draggable="false">
+                                <div id="loadingOverlay1" class="position-absolute top-50 start-50 translate-middle text-white d-none">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <div class="mt-2">正在获取画面...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .click-ripple {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background: rgba(255, 0, 0, 0.5);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        animation: ripple-anim 0.5s linear;
+        z-index: 9999;
+    }
+    @keyframes ripple-anim {
+        0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentDeviceId = null;
+
+    function logDebug(msg) {
+        const logDiv = document.getElementById('debugLogContent');
+        if (logDiv) {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.textContent = `[${time}] ${msg}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        console.log(msg);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const lastIp = localStorage.getItem('last_remote_ip');
+        if (lastIp) {
+            document.getElementById('deviceIp').value = lastIp;
+        }
+        const lastPort = localStorage.getItem('last_remote_port');
+        if (lastPort) {
+            document.getElementById('devicePort').value = lastPort;
+        }
+        
+        // Attach click handlers to both screens
+        const img0 = document.getElementById('deviceScreen0');
+        if (img0) {
+            img0.setAttribute('data-display-id', '0');
+            img0.addEventListener('click', handleScreenClick);
+        }
+
+        const img1 = document.getElementById('deviceScreen1');
+        if (img1) {
+            // Enable pointer events for the second screen
+            img1.style.cursor = 'crosshair';
+            img1.addEventListener('click', handleScreenClick);
+        }
+    });
+
+    // Update display ID for screen 1 when input changes
+    const tvDisplayInput = document.getElementById('tvDisplayId');
+    if (tvDisplayInput) {
+        tvDisplayInput.addEventListener('change', function() {
+            const img1 = document.getElementById('deviceScreen1');
+            if (img1) img1.setAttribute('data-display-id', this.value);
+        });
+        // Set initial value
+        const img1 = document.getElementById('deviceScreen1');
+        if (img1) img1.setAttribute('data-display-id', tvDisplayInput.value);
+    }
+
+    async function connectDevice() {
+        const ip = document.getElementById('deviceIp').value.trim();
+        const portStr = document.getElementById('devicePort').value.trim();
+        const tvDisplayIdInput = document.getElementById('tvDisplayId');
+        const tvDisplayId = tvDisplayIdInput ? tvDisplayIdInput.value : 1;
+
+        logDebug(`Starting connection to IP: ${ip}, Port: ${portStr || '8787'}`);
+
+        if (!ip) {
+            alert('请输入设备IP');
+            return;
+        }
+        
+        // Save to local storage
+        localStorage.setItem('last_remote_ip', ip);
+        localStorage.setItem('last_remote_port', portStr);
+
+        const statusEl = document.getElementById('connectionStatus');
+        statusEl.className = 'alert alert-info';
+        statusEl.textContent = '正在连接...';
+        statusEl.classList.remove('d-none');
+        
+        // Parse port
+        let port = 8787;
+        if (portStr) {
+            port = parseInt(portStr, 10);
+        }
+
+        try {
+            logDebug(`Sending connect request to /remote_control/api/connect`);
+            const response = await fetch('/remote_control/api/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip, port })
+            });
+            
+            const data = await response.json();
+            logDebug(`Connect response: ${JSON.stringify(data)}`);
+            
+            // 兼容不同的响应格式：有的 API 返回 code=200，有的返回 success=true
+            if (data.code === 200 || data.success === true || data.ok === true) {
+                currentDeviceId = data.data.device_id;
+                statusEl.className = 'alert alert-success';
+                statusEl.textContent = '已连接: ' + currentDeviceId;
+                
+                // Toggle buttons
+                document.getElementById('btnConnect').classList.add('d-none');
+                document.getElementById('btnDisconnect').classList.remove('d-none');
+                
+                // Enable Scrcpy button
+                const btnScrcpy = document.getElementById('btnScrcpy');
+                if (btnScrcpy) btnScrcpy.disabled = false;
+                
+                // Start Streams
+                logDebug(`Starting streams for device: ${currentDeviceId}`);
+                startStream(0, 'deviceScreen0', 'loadingOverlay0', 'fpsBadge0');
+                startStream(tvDisplayId, 'deviceScreen1', 'loadingOverlay1', 'fpsBadge1');
+                
+            } else {
+                statusEl.className = 'alert alert-danger';
+                statusEl.textContent = data.message;
+                logDebug(`Connect failed: ${data.message}`);
+            }
+        } catch (error) {
+            statusEl.className = 'alert alert-danger';
+            statusEl.textContent = '连接请求失败';
+            logDebug(`Connect error: ${error}`);
+            console.error(error);
+        }
+    }
+
+    async function disconnectDevice() {
+        if (!currentDeviceId) return;
+        
+        if (!confirm('确定要断开连接并关闭所有 Scrcpy 窗口吗？')) {
+            return;
+        }
+
+        logDebug(`Disconnecting device: ${currentDeviceId}`);
+        
+        try {
+            await fetch('/remote_control/api/disconnect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: currentDeviceId })
+            });
+            
+            // Cleanup UI
+            currentDeviceId = null;
+            document.getElementById('btnConnect').classList.remove('d-none');
+            document.getElementById('btnDisconnect').classList.add('d-none');
+            document.getElementById('btnScrcpy').disabled = true;
+            
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.className = 'alert alert-secondary d-none';
+            statusEl.textContent = '未连接';
+            
+            // Stop streams (by setting src to empty)
+            document.getElementById('deviceScreen0').src = '';
+            document.getElementById('deviceScreen1').src = '';
+            
+            // Hide overlays
+            document.getElementById('loadingOverlay0').classList.add('d-none');
+            document.getElementById('loadingOverlay1').classList.add('d-none');
+            
+            logDebug('Disconnected successfully');
+            
+        } catch (error) {
+            logDebug(`Disconnect error: ${error}`);
+            alert('断开连接失败');
+        }
+    }
+
+    function startStream(displayId, imgId, overlayId, badgeId) {
+        logDebug(`startStream called for display ${displayId}`);
+        const img = document.getElementById(imgId);
+        const overlay = document.getElementById(overlayId);
+        const badge = document.getElementById(badgeId);
+        
+        if (!img) {
+            logDebug(`Image element not found: ${imgId}`);
+            return;
+        }
+
+        img.src = '';
+        overlay.classList.remove('d-none');
+        badge.className = 'badge bg-warning';
+        badge.textContent = 'Connecting...';
+        
+        // Use a timestamp to prevent caching
+        const streamUrl = `/remote_control/stream_video?device_id=${currentDeviceId}&display_id=${displayId}&t=${Date.now()}`;
+        logDebug(`Setting img.src = ${streamUrl}`);
+        
+        img.onload = function() {
+            logDebug(`img.onload fired for display ${displayId}`);
+            overlay.classList.add('d-none');
+            badge.className = 'badge bg-success';
+            badge.textContent = 'Live';
+        };
+        
+        img.onerror = function() {
+            logDebug(`img.onerror fired for display ${displayId}`);
+            console.error(`Stream error for display ${displayId}`);
+            badge.className = 'badge bg-danger';
+            badge.textContent = 'Offline';
+            // 尝试重连
+            setTimeout(() => {
+                if (currentDeviceId && img.src.includes('remote_control')) {
+                   console.log(`Retrying stream for display ${displayId}...`);
+                   logDebug(`Retrying stream for display ${displayId}...`);
+                   const newUrl = `/remote_control/stream_video?device_id=${currentDeviceId}&display_id=${displayId}&t=${Date.now()}`;
+                   img.src = newUrl;
+                }
+            }, 3000);
+        };
+        
+        img.src = streamUrl;
+    }
+
+    async function openScrcpy() {
+        if (!currentDeviceId) return;
+        const btn = document.getElementById('btnScrcpy');
+        btn.disabled = true;
+        try {
+            const tvDisplayIdInput = document.getElementById('tvDisplayId');
+            const tvId = tvDisplayIdInput ? parseInt(tvDisplayIdInput.value) : 1;
+            
+            // Launch Display 0
+            const p1 = fetch('/remote_control/api/open_scrcpy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    device_id: currentDeviceId, 
+                    display_id: 0,
+                    window_x: 100,
+                    window_y: 100
+                })
+            });
+            
+            // Launch TV Display
+            const p2 = fetch('/remote_control/api/open_scrcpy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    device_id: currentDeviceId, 
+                    display_id: tvId,
+                    window_x: 600,
+                    window_y: 100
+                })
+            });
+            
+            const results = await Promise.all([p1, p2]);
+            // Check results if needed, but for now just alert
+            alert(`已请求启动 Scrcpy (Display 0 & ${tvId})`);
+        } catch (e) {
+            alert('请求失败');
+            console.error(e);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function handleScreenClick(event) {
+        if (!currentDeviceId) {
+            logDebug("Click ignored: Device not connected");
+            return;
+        }
+
+        const img = event.target;
+        const rect = img.getBoundingClientRect();
+        const displayId = img.getAttribute('data-display-id') || 0;
+        
+        if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+            logDebug("Click ignored: Image natural dimensions are 0 (not loaded?)");
+            return;
+        }
+        
+        const scaleX = img.naturalWidth / rect.width;
+        const scaleY = img.naturalHeight / rect.height;
+        
+        const x = Math.round((event.clientX - rect.left) * scaleX);
+        const y = Math.round((event.clientY - rect.top) * scaleY);
+        
+        logDebug(`Click detected on Display ${displayId}: Client(${event.clientX}, ${event.clientY}) -> Device(${x}, ${y}) [Scale: ${scaleX.toFixed(2)}, ${scaleY.toFixed(2)}]`);
+        
+        // Visual feedback
+        showClickEffect(event.clientX + window.scrollX, event.clientY + window.scrollY);
+        
+        await sendControl('click', { x, y, display_id: parseInt(displayId) });
+    }
+    
+    function showClickEffect(x, y) {
+        const ripple = document.createElement('div');
+        ripple.className = 'click-ripple';
+        // Adjust for scroll position
+        ripple.style.left = `${x}px`;
+        ripple.style.top = `${y}px`;
+        document.body.appendChild(ripple);
+        
+        setTimeout(() => {
+            ripple.remove();
+        }, 500);
+    }
+
+    async function sendControl(action, params) {
+        try {
+            logDebug(`Sending control: ${action} ${JSON.stringify(params)}`);
+            const response = await fetch('/remote_control/api/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    device_id: currentDeviceId,
+                    action: action,
+                    ...params
+                })
+            });
+            const data = await response.json();
+            logDebug(`Control response: ${JSON.stringify(data)}`);
+        } catch (error) {
+            logDebug(`Control failed: ${error}`);
+            console.error('Control failed:', error);
+        }
+    }
+</script>
+{% endblock %}

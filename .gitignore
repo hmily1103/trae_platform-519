@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 日志、数据、报告（本地生成，不提交）
+logs/
+*.log
+data/
+performance_data/
+reports/
+screenshots/
+exports/
+*.jsonl
+trae_logs/
+modules/prd_audit/learning_repo/*
+!modules/prd_audit/learning_repo/.gitkeep
+modules/prd_audit.zip
+
+# 敏感配置（含 API Key）
+.env
+*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db

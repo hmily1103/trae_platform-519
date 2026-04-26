@@ -1,0 +1,53 @@
+{
+  "id": "recording_1770881968757",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-02-12T15:39:28.760139",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "216,269",
+        "fallbacks": [],
+        "bounds": null,
+        "class_name": ""
+      },
+      "value": null,
+      "coordinates": {
+        "x": 216,
+        "y": 269
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770881968757\\step_1.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770881968757\\step_1.xml",
+      "timestamp": 1770881980.6131392,
+      "wait_after": 1000,
+      "description": "点击 (216, 269) [UI树获取失败]"
+    },
+    {
+      "step_num": 2,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "481,244",
+        "fallbacks": [],
+        "bounds": null,
+        "class_name": ""
+      },
+      "value": null,
+      "coordinates": {
+        "x": 481,
+        "y": 244
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770881968757\\step_2.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770881968757\\step_2.xml",
+      "timestamp": 1770881998.678815,
+      "wait_after": 1000,
+      "description": "点击 (481, 244) [UI树获取失败]"
+    }
+  ],
+  "description": "",
+  "project_id": "",
+  "name": ""
+}

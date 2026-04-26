@@ -1,0 +1,1825 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .ai-card {
+        height: 100%;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+    }
+    .ai-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    }
+    .ai-card .icon-wrapper {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    .icon-wrapper-outline {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    .icon-wrapper-case {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+    .gen-result {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        min-height: 400px;
+        max-height: 600px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        font-family: monospace;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 主界面：选择卡片 -->
+    <div id="selectionView">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="mb-1"><i class="fas fa-robot text-primary me-2"></i>智能测试助手</h2>
+                <p class="text-muted mb-0 small">从需求一键生成测试大纲与可执行用例，并沉淀到用例库。</p>
+            </div>
+            <div>
+                <a href="/test_case/list" class="btn btn-outline-info me-2">
+                    <i class="fas fa-list"></i> 用例列表
+                </a>
+                 <a href="/test_case/prompts" class="btn btn-outline-secondary me-2">
+                    <i class="fas fa-sliders-h"></i> 提示词管理
+                </a>
+                <select class="form-select d-inline-block me-2" id="llmProfileSelect" style="width: 240px;" title="选择本次调用的大模型（默认使用全局配置的默认模型）">
+                    <option value="">默认模型</option>
+                    {% for p in (llm_profiles or []) %}
+                        {% if p.key %}
+                            <option value="{{ p.key }}">{{ p.key }}{% if p.llm_provider and p.llm_provider != p.key %} / {{ p.llm_provider }}{% endif %}{% if p.model %} ({{ p.model }}){% endif %}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <button class="btn btn-outline-primary" id="btnGlobalConfig" type="button" onclick="openLLMConfig()">
+                    <i class="fas fa-cog"></i> 全局配置
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-4 justify-content-center mt-3">
+            <!-- 测试大纲生成卡片 -->
+            <div class="col-md-4">
+                <div class="card ai-card p-4 text-center" onclick="showGenerator('outline_writing')">
+                    <div class="card-body">
+                        <div class="icon-wrapper icon-wrapper-outline mx-auto">
+                            <i class="fas fa-file-alt fa-3x"></i>
+                        </div>
+                        <h3 class="card-title mb-3">测试大纲生成</h3>
+                        <p class="card-text text-muted mb-4">
+                            输入需求文档内容，系统自动分析并生成测试大纲（结合 BDD 场景与 TDD 验收标准先行）。
+                        </p>
+                        <p class="small text-muted mb-4">需要您提供：项目/场景/风险点或完整需求、PRD</p>
+                        <button class="btn btn-primary px-4 rounded-pill">开始生成</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 测试用例生成卡片 -->
+            <div class="col-md-4">
+                <div class="card ai-card p-4 text-center" onclick="showGenerator('case_writing')">
+                    <div class="card-body">
+                        <div class="icon-wrapper icon-wrapper-case mx-auto">
+                            <i class="fas fa-tasks fa-3x"></i>
+                        </div>
+                        <h3 class="card-title mb-3">测试用例生成</h3>
+                        <p class="card-text text-muted mb-4">
+                            输入需求描述或大纲，系统按 BDD (Given-When-Then) 生成用例，并体现 TDD 验收先行。
+                        </p>
+                        <p class="small text-muted mb-4">需要您提供：需求描述、验收标准或测试大纲</p>
+                        <button class="btn btn-success px-4 rounded-pill">开始生成</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRD 漏洞分析卡片 -->
+            <div class="col-md-4">
+                <div class="card ai-card p-4 text-center" onclick="showGenerator('prd_review')">
+                    <div class="card-body">
+                        <div class="icon-wrapper icon-wrapper-outline mx-auto" style="background: rgba(111, 66, 193, 0.12); color: #6f42c1;">
+                            <i class="fas fa-search fa-3x"></i>
+                        </div>
+                        <h3 class="card-title mb-3">PRD 漏洞分析</h3>
+                        <p class="card-text text-muted mb-4">
+                            输入飞书文档链接或粘贴/上传 PRD，默认走三段式扫描（结构解析→漏洞扫描→报告生成），支持导出。
+                        </p>
+                        <p class="small text-muted mb-4">需要您提供：飞书文档链接，或 PRD 全文（粘贴/PDF/Word）</p>
+                        <button class="btn btn-secondary px-4 rounded-pill" style="background: #6f42c1; border-color: #6f42c1;">开始分析</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 生成界面：输入输出 -->
+    <div id="generatorView" style="display: none;">
+        <div class="d-flex align-items-center mb-4">
+            <button class="btn btn-link text-decoration-none ps-0 me-3" onclick="backToSelection()">
+                <i class="fas fa-arrow-left fa-lg"></i>
+            </button>
+            <h3 class="mb-0" id="genTitle">生成任务</h3>
+        </div>
+
+        <div class="row h-100">
+            <!-- 左侧输入 -->
+            <div class="col-md-5">
+                <div class="card h-100">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-muted"><i class="fas fa-keyboard me-2"></i>输入需求</h5>
+                        <button class="btn btn-primary btn-sm" id="btnGenerate" onclick="startGeneration()">
+                            <i class="fas fa-magic me-1"></i>立即生成
+                        </button>
+                    </div>
+                    <!-- 提示词配置 (折叠) -->
+                    <div class="accordion mb-3 flex-shrink-0" id="promptAccordion">
+                        <div class="accordion-item border-0 shadow-sm">
+                            <h2 class="accordion-header" id="headingPrompt">
+                                <button class="accordion-button py-2 bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePrompt">
+                                    <i class="fas fa-magic text-primary me-2"></i> <span class="small fw-bold">提示词配置 (点击收起)</span>
+                                </button>
+                            </h2>
+                            <div id="collapsePrompt" class="accordion-collapse collapse show" data-bs-parent="#promptAccordion">
+                                <div class="accordion-body p-2 bg-light">
+                                    <div class="mb-2">
+                                        <label class="small text-muted mb-1" id="promptLabel" style="display:none;">默认提示词</label>
+                                        <select class="form-select form-select-sm" id="promptSelect" onchange="onPromptSelectChange()">
+                                            <option value="">正在加载配置...</option>
+                                        </select>
+                                    </div>
+                                    <textarea class="form-control border-0" id="currentPrompt" rows="8" 
+                                        style="resize: vertical; font-size: 0.85em; font-family: monospace;"
+                                        placeholder="在此处可以临时修改本次生成的提示词..."></textarea>
+                                    <div class="small text-muted mt-1">PRD 默认使用三段式引擎；仅当你修改此处或选择自定义提示词时，才会走单次 Prompt 覆盖模式。</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body position-relative">
+                        <div class="position-absolute top-0 end-0 mt-2 me-2" style="z-index: 5;">
+                            <label class="btn btn-sm btn-outline-primary mb-0" for="docUpload" title="导入 PDF 或 Word 需求文档">
+                                <i class="fas fa-file-upload me-1"></i> 导入 PDF/Word
+                            </label>
+                            <input type="file" id="docUpload" accept=".pdf,.docx" class="d-none" onchange="handleDocUpload(this)">
+                        </div>
+                        <div id="inputHint" class="small text-muted mb-2 px-1">
+                            <strong class="text-secondary">需要您填写：</strong>
+                            <ul class="mb-0 ps-3 mt-1" id="inputHintList"></ul>
+                        </div>
+                        <textarea class="form-control h-100 border-0 pt-2" id="inputContent" 
+                            style="resize: none;" placeholder="请在此输入或粘贴..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧输出 -->
+            <div class="col-md-7">
+                <div class="card h-100">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-muted"><i class="fas fa-desktop me-2"></i>生成结果</h5>
+                        <div>
+                             <span id="statusText" class="badge bg-secondary me-2" style="display:none;">生成中...</span>
+                             <button id="btnStopGen" class="btn btn-sm btn-outline-danger me-2" style="display:none;" onclick="stopGeneration()">
+                                <i class="fas fa-stop"></i> 停止
+                             </button>
+                             <button class="btn btn-sm btn-outline-secondary" onclick="copyResult()">
+                                <i class="fas fa-copy"></i> 复制
+                            </button>
+                            <button id="btnSaveAsCase" class="btn btn-sm btn-success ms-2 text-white" onclick="checkAndOpenSaveModal()">
+                                <i class="fas fa-save"></i> 保存为用例
+                            </button>
+                            <button id="btnImportMeterSphere" class="btn btn-sm btn-outline-warning ms-2" onclick="openMeterSpherePreview()">
+                                <i class="fas fa-cloud-upload-alt"></i> 一键导入MS
+                            </button>
+                            <button id="btnDownloadReport" class="btn btn-sm btn-outline-primary ms-2" style="display:none;" onclick="downloadReportMarkdown()" title="下载完整报告 Markdown">
+                                <i class="fas fa-download"></i> 下载 .md
+                            </button>
+                            <button id="btnDownloadWord" class="btn btn-sm btn-outline-success ms-1" style="display:none;" onclick="downloadReportWord()" title="下载完整报告 Word">
+                                <i class="fas fa-file-word"></i> 下载 .docx
+                            </button>
+                            <span id="roleExportWrap" class="ms-2" style="display:none;">
+                                <select id="roleExportSelect" class="form-select form-select-sm d-inline-block" style="width:auto;">
+                                    <option value="product">给产品</option>
+                                    <option value="dev">给研发</option>
+                                    <option value="test">给测试</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-secondary ms-1" onclick="downloadRoleReportMd()" title="按角色下载 .md">.md</button>
+                                <button class="btn btn-sm btn-outline-secondary ms-1" onclick="downloadRoleReportDocx()" title="按角色下载 .docx">.docx</button>
+                            </span>
+                            <button id="btnStateDiagram" class="btn btn-sm btn-outline-info ms-2" style="display:none;" onclick="openStateDiagramModal()" title="查看状态机图">
+                                <i class="fas fa-project-diagram"></i> 状态机图
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body bg-light p-0 position-relative">
+                        <div id="outputThinking" class="border-bottom" style="display:none;">
+                            <div class="accordion">
+                                <div class="accordion-item border-0">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button bg-light py-2 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThinking" aria-expanded="false">
+                                            <i class="fas fa-brain text-info me-2"></i>思考过程
+                                        </button>
+                                    </h2>
+                                    <div id="collapseThinking" class="accordion-collapse collapse">
+                                        <div id="outputThinkingBody" class="accordion-body p-3" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; font-size: 0.9em; background: #f8f9fa;"></div>
+                                        <div id="genWaitTimer" class="small text-muted px-3 pb-2" style="display:none;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="outputContent" class="p-3 h-100" style="overflow-y: auto; white-space: pre-wrap; font-family: monospace; padding-bottom: 60px !important;"></div>
+                        <!-- 底部悬浮保存按钮（非 PRD 分析时显示） -->
+                        <div id="bottomSaveBar" class="position-absolute bottom-0 end-0 p-3" style="pointer-events: none;">
+                             <button class="btn btn-primary shadow rounded-pill" style="pointer-events: auto;" onclick="checkAndOpenSaveModal()">
+                                <i class="fas fa-save me-1"></i> 保存结果
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 状态机图模态框 -->
+<div class="modal fade" id="stateDiagramModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-project-diagram me-2"></i>状态机图</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="stateTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="quality-tab" data-bs-toggle="tab" data-bs-target="#quality-pane" type="button" role="tab">
+                            质量评分与维度
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="diagram-tab" data-bs-toggle="tab" data-bs-target="#diagram-pane" type="button" role="tab">
+                            状态机图
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="matrix-tab" data-bs-toggle="tab" data-bs-target="#matrix-pane" type="button" role="tab">
+                            测试点矩阵
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="quality-pane" role="tabpanel">
+                        <div id="qualitySummary" class="bg-white rounded p-3 small">
+                            <p class="text-muted mb-0">暂无质量评分数据，请先在左侧输入 PRD 并点击“立即生成”。</p>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="diagram-pane" role="tabpanel">
+                        <div id="stateDiagramContainer" class="bg-white rounded p-3" style="max-height: 360px; overflow: auto;">
+                            <p class="text-muted small mb-0">暂无状态机数据，请先在左侧输入 PRD 并点击“立即生成”。</p>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="matrix-pane" role="tabpanel">
+                        <div id="testPointMatrixContainer" class="bg-white rounded p-3 small" style="max-height: 360px; overflow: auto;">
+                            <p class="text-muted mb-0">暂无测试点矩阵数据，请先在左侧输入 PRD 并点击“立即生成”。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 保存用例模态框 (单条) -->
+<div class="modal fade" id="saveCaseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-save me-2"></i>保存为测试用例</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="saveCaseForm">
+                    <div class="mb-3">
+                        <label class="form-label">用例名称</label>
+                        <input type="text" class="form-control" id="caseName" required placeholder="请输入用例名称">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">用例内容 (Markdown)</label>
+                        <textarea class="form-control" id="caseDescription" rows="10" placeholder="在此处粘贴或编辑用例内容..."></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">分类</label>
+                            <select class="form-select" id="caseCategory">
+                                <option value="功能测试">功能测试</option>
+                                <option value="性能测试">性能测试</option>
+                                <option value="AI生成">AI生成</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">优先级</label>
+                            <select class="form-select" id="casePriority">
+                                <option value="high">高 (High)</option>
+                                <option value="medium" selected>中 (Medium)</option>
+                                <option value="low">低 (Low)</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveTestCase()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量保存用例模态框 -->
+<div class="modal fade" id="batchSaveModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-tasks me-2"></i>批量保存测试用例</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>检测到多个测试用例，已自动解析。请核对后保存。
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="bg-light">
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>用例名称</th>
+                                <th>所属模块 (分类)</th>
+                                <th style="width: 100px;">优先级</th>
+                                <th style="width: 100px;">状态</th>
+                                <th style="width: 80px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batchCaseList">
+                            <!-- 动态加载 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="confirmBatchSave()">
+                    <i class="fas fa-save me-1"></i> 确认保存全部 (<span id="batchCount">0</span>)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LLM 全局配置模态框 -->
+<div class="modal fade" id="llmConfigModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-cog me-2"></i>LLM 全局配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="llmConfigForm">
+                    <div class="mb-3">
+                        <label class="form-label">Provider</label>
+                        <select class="form-select" id="llmProvider">
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="gemini">Gemini (Google)</option>
+                            <option value="volcengine">火山引擎（方舟 / 豆包）</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="custom">Custom (Compatible)</option>
+                        </select>
+                        <div class="form-text" id="llmProviderHint">先选 Provider，再在下方填写对应的 API Key</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Base URL</label>
+                        <input type="text" class="form-control" id="llmBaseUrl" placeholder="https://api.deepseek.com/v1 或 https://ark.cn-beijing.volces.com/api/v3">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">API Key</label>
+                        <input type="password" class="form-control" id="llmApiKey" placeholder="sk-...">
+                        <div class="form-text" id="llmApiKeyHint">Key 将以加密或脱敏方式存储</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Model Name</label>
+                        <input type="text" class="form-control" id="llmModel" placeholder="deepseek-chat">
+                    </div>
+                    <hr class="my-4">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="fallbackEnabled">
+                            <label class="form-check-label" for="fallbackEnabled">Gemini 失败时自动切换到 DeepSeek</label>
+                        </div>
+                    </div>
+                    <div id="fallbackFields" class="ms-3">
+                        <div class="mb-2">
+                            <label class="form-label small">DeepSeek API Key</label>
+                            <input type="password" class="form-control form-control-sm" id="fallbackApiKey" placeholder="sk-...">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Base URL</label>
+                            <input type="text" class="form-control form-control-sm" id="fallbackBaseUrl" placeholder="https://api.deepseek.com/v1">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Model</label>
+                            <input type="text" class="form-control form-control-sm" id="fallbackModel" placeholder="deepseek-chat">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveLLMConfig()">保存配置</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="meterSphereConfigModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plug me-2"></i>MeterSphere 配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label small">Base URL</label>
+                    <input type="text" class="form-control form-control-sm" id="msBaseUrl" placeholder="http://10.0.50.17:8081">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">导入 API 路径</label>
+                    <input type="text" class="form-control form-control-sm" id="msImportApiPath" placeholder="/api/test/case/import">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Project ID</label>
+                    <input type="text" class="form-control form-control-sm" id="msProjectId" placeholder="">
+                </div>
+                 <div class="mb-2">
+                    <label class="form-label small">Workspace ID</label>
+                    <input type="text" class="form-control form-control-sm" id="msWorkspaceId" placeholder="">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Auth Header 名称</label>
+                    <input type="text" class="form-control form-control-sm" id="msAuthHeaderName" placeholder="Authorization">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Token（可选）</label>
+                    <input type="password" class="form-control form-control-sm" id="msAuthToken" placeholder="">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Cookie（可选）</label>
+                    <input type="password" class="form-control form-control-sm" id="msCookie" placeholder="">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">CSRF Token（可选）</label>
+                    <input type="password" class="form-control form-control-sm" id="msCsrfToken" placeholder="">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Payload 数据键名</label>
+                    <input type="text" class="form-control form-control-sm" id="msPayloadDataKey" placeholder="cases">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveMeterSphereConfig()">保存配置</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MeterSphere Preview Modal -->
+<div class="modal fade" id="meterSpherePreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-table me-2"></i>导入预览</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="alert alert-info m-3 py-2 small">
+                    <i class="fas fa-info-circle me-1"></i> 请确认解析结果是否正确。如果列对齐有问题，请检查生成结果的 Markdown 表格格式。
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-bordered mb-0" id="previewTable">
+                        <thead class="table-light sticky-top">
+                            <!-- Headers will be injected here -->
+                        </thead>
+                        <tbody>
+                            <!-- Rows will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted me-auto small" id="previewCount">共 0 条用例</span>
+                <button type="button" class="btn btn-outline-secondary" onclick="openMeterSphereConfig()">
+                    <i class="fas fa-cog"></i> 配置连接
+                </button>
+                <button type="button" class="btn btn-primary" onclick="confirmImportToMeterSphere()">
+                    <i class="fas fa-upload me-1"></i> 确认导入
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    var _def = {
+        outline_writing: '作为一个资深测试工程师，请根据以下需求文档内容，编写一份完整的测试大纲。要求结合 BDD 与 TDD 思路：\n\n- **BDD**：关键测试场景用 Given-When-Then 描述（Given 前置/上下文，When 操作/触发，Then 预期/验收结果）。\n- **TDD**：每个测试点或模块先写出「验收标准」或「通过条件」，再列出测试范围与策略，体现「先定义怎样算通过，再设计怎么测」。\n\n大纲需包含：测试范围、测试策略、功能模块划分、关键测试点（尽量用 Given-When-Then 或验收标准先行的方式呈现）。\n\n需求内容：\n{content}',
+        case_writing: '请严格按以下输出格式生成测试用例表格，每条用例都包含字段：用例编号、用例名称、所属模块、标签、前置条件、备注、步骤描述、预期结果、编辑模式、用例等级、责任人(ID)、用例状态。字段固定要求：标签和备注留空；编辑模式=STEP；用例等级=P1；责任人(ID)=fengnan；用例状态=Prepare。步骤描述与预期结果均按数字序号逐行输出。只输出表格内容。\n\n需求描述：\n{content}',
+        prd_review: '你是 PRD 审计专家。请基于输入 PRD 输出结构化风险报告，至少包含：总体结论、漏洞与风险清单、测试重点、研发重点、计划建议。仅输出报告正文。\n\nPRD 内容：\n{content}'
+    };
+    window.showGenerator = function(type) {
+        window.currentType = type;
+        var m = { 'outline_writing': '测试大纲生成', 'case_writing': '测试用例生成', 'prd_review': 'PRD 漏洞分析' };
+        var t = document.getElementById('genTitle');
+        if (t) t.textContent = m[type] || type;
+        if (typeof loadCurrentPrompt === 'function') loadCurrentPrompt(type);
+        else { var p = document.getElementById('currentPrompt'); if (p) p.value = _def[type] || _def.case_writing; }
+        var sel = document.getElementById('selectionView'), gen = document.getElementById('generatorView');
+        if (sel) sel.style.display = 'none';
+        if (gen) gen.style.display = 'block';
+        var inp = document.getElementById('inputContent');
+        if (inp) inp.focus();
+    };
+    window.backToSelection = function() {
+        var sel = document.getElementById('selectionView'), gen = document.getElementById('generatorView');
+        if (sel) sel.style.display = 'block';
+        if (gen) gen.style.display = 'none';
+    };
+})();
+</script>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+    if (window.mermaid) {
+        window.mermaid.initialize({ startOnLoad: false });
+    }
+    var currentPrompts = [];
+    let currentType = '';
+    let prdPromptTouched = false;
+    var llmConfigModal, saveCaseModal, batchSaveModal, meterSphereConfigModal, meterSpherePreviewModal;
+    try {
+        var el = document.getElementById('llmConfigModal');
+        if (el && window.bootstrap && bootstrap.Modal) llmConfigModal = new bootstrap.Modal(el);
+        el = document.getElementById('saveCaseModal');
+        if (el && window.bootstrap && bootstrap.Modal) saveCaseModal = new bootstrap.Modal(el);
+        el = document.getElementById('batchSaveModal');
+        if (el && window.bootstrap && bootstrap.Modal) batchSaveModal = new bootstrap.Modal(el);
+        el = document.getElementById('meterSphereConfigModal');
+        if (el && window.bootstrap && bootstrap.Modal) meterSphereConfigModal = new bootstrap.Modal(el);
+        el = document.getElementById('meterSpherePreviewModal');
+        if (el && window.bootstrap && bootstrap.Modal) meterSpherePreviewModal = new bootstrap.Modal(el);
+    } catch (e) { console.error('Modal init:', e); }
+    let genAbortController = null;
+    let parsedBatchCases = [];
+
+    var INPUT_HINTS = {
+        outline_writing: [
+            '项目名称、核心业务场景',
+            '涉及的终端/模块（如移动端、硬件、云端）',
+            '当前最担心的技术风险点',
+            '或直接粘贴完整需求/PRD 片段'
+        ],
+        case_writing: [
+            '需求描述或功能点说明',
+            '验收标准或预期行为（便于生成 Given-When-Then）',
+            '或粘贴已有测试大纲，由系统生成具体用例'
+        ],
+        prd_review: [
+            '飞书文档链接（推荐）：粘贴文档 URL，系统将拉取正文后分析',
+            '或粘贴 PRD 全文',
+            '或上传 PDF/Word（见上方「导入 PDF」等）'
+        ]
+    };
+    var INPUT_PLACEHOLDERS = {
+        outline_writing: '例如：项目名称、核心场景、终端类型、关键风险点；或粘贴完整需求/PRD...',
+        case_writing: '例如：需求描述、功能点、验收标准；或粘贴测试大纲，便于生成 BDD 格式用例...',
+        prd_review: '粘贴飞书文档链接，或直接粘贴 PRD 全文；也可上传 PDF 后在此查看解析结果'
+    };
+
+    function showGenerator(type) {
+        currentType = type;
+        window.currentType = type;
+        if (type === 'prd_review') prdPromptTouched = false;
+        const titleMap = {
+            'outline_writing': '测试大纲生成',
+            'case_writing': '测试用例生成',
+            'prd_review': 'PRD 漏洞分析'
+        };
+        $('#genTitle').text(titleMap[type] || type);
+        var hints = INPUT_HINTS[type] || INPUT_HINTS.case_writing;
+        $('#inputHintList').empty();
+        hints.forEach(function(h) { $('#inputHintList').append('<li>' + h + '</li>'); });
+        $('#inputContent').attr('placeholder', INPUT_PLACEHOLDERS[type] || INPUT_PLACEHOLDERS.case_writing);
+        
+        var isPrdReview = (type === 'prd_review');
+        $('#btnSaveAsCase').toggle(!isPrdReview);
+        $('#bottomSaveBar').toggle(!isPrdReview);
+        $('#btnDownloadReport').toggle(isPrdReview);
+        $('#btnDownloadWord').toggle(isPrdReview);
+        $('#btnStateDiagram').toggle(isPrdReview);
+        $('#roleExportWrap').toggle(isPrdReview);
+        $('#btnImportMeterSphere').toggle(!isPrdReview);
+        $('#promptLabel').toggle(isPrdReview);
+        
+        if (DEFAULT_PROMPTS[type]) {
+            $('#currentPrompt').val(DEFAULT_PROMPTS[type]);
+        }
+        loadCurrentPrompt(type);
+
+        try { history.replaceState(null, '', window.location.pathname + '#' + type); } catch (e) {}
+        $('#selectionView').fadeOut(200, function() {
+            $('#generatorView').fadeIn(200);
+        });
+        $('#inputContent').focus();
+    }
+
+    // 智能识别保存模式
+    function checkAndOpenSaveModal() {
+        const content = $('#outputContent').text().trim();
+        if (!content) {
+            toast.warning('没有可保存的内容');
+            return;
+        }
+
+        // 尝试解析
+        const cases = parseTestCases(content);
+        
+        if (cases.length > 1) {
+            // 多条用例 -> 批量保存
+            parsedBatchCases = cases;
+            renderBatchTable();
+            if (batchSaveModal) batchSaveModal.show();
+        } else {
+            // 单条用例或无法解析 -> 普通保存
+            // 尝试预填信息
+            if (cases.length === 1) {
+                const c = cases[0];
+                $('#caseName').val(c.name);
+                $('#caseCategory').val(c.category);
+                // 映射优先级
+                const pMap = {'P0': 'high', 'P1': 'medium', 'P2': 'low'};
+                if (pMap[c.priority]) $('#casePriority').val(pMap[c.priority]);
+                
+                // 重新组合描述
+                $('#caseDescription').val(content); 
+            } else {
+                $('#caseDescription').val(content);
+            }
+            if (saveCaseModal) saveCaseModal.show();
+        }
+    }
+
+    // 从用例文本中解析 BDD 结构：前置条件 (Given)、步骤 (When)、预期 (Then)
+    function parseBDDFromCaseText(caseText) {
+        const result = { preconditions: '', steps: [] };
+        if (!caseText || !caseText.trim()) return result;
+        const s = caseText.trim();
+        // 匹配：前置条件[:：]\s*... 步骤描述[:：]\s* 1. ... 2. ... 预期结果[:：]\s* 1. ... 2. ...
+        const preCondMatch = s.match(/(?:前置条件|Given)[:：]\s*([\s\S]*?)(?=(?:步骤描述|When|预期结果|Then)|$)/i);
+        if (preCondMatch) result.preconditions = preCondMatch[1].trim().replace(/\n\s*\d+[\.．]\s*/g, '\n').trim();
+        const stepsMatch = s.match(/(?:步骤描述|When)[:：]\s*([\s\S]*?)(?=(?:预期结果|Then)|$)/i);
+        const expectedMatch = s.match(/(?:预期结果|Then)[:：]\s*([\s\S]*?)$/im);
+        const numbered = /^\s*(\d+)[\.．]\s*(.+)$/gm;
+        function extractNumbered(block) {
+            if (!block || !block.trim()) return [];
+            const list = [];
+            let m;
+            while ((m = numbered.exec(block)) !== null) list.push({ num: parseInt(m[1], 10), text: m[2].trim() });
+            if (list.length === 0) {
+                block.split(/\n/).forEach((line, i) => { if (line.trim()) list.push({ num: i + 1, text: line.trim() }); });
+            }
+            return list;
+        }
+        const actions = stepsMatch ? extractNumbered(stepsMatch[1]) : [];
+        const expecteds = expectedMatch ? extractNumbered(expectedMatch[1]) : [];
+        const n = Math.max(actions.length, expecteds.length);
+        for (let i = 0; i < n; i++) {
+            result.steps.push({
+                step_num: i + 1,
+                action: (actions[i] && actions[i].text) || '',
+                expected: (expecteds[i] && expecteds[i].text) || ''
+            });
+        }
+        return result;
+    }
+
+    // 解析测试用例
+    function parseTestCases(text) {
+        const cases = [];
+        const lines = text.split(/\r?\n/);
+        let currentCase = {};
+        let buffer = [];
+        
+        const saveCurrent = () => {
+            if (currentCase.name) {
+                currentCase.description = buffer.join('\n');
+                var bdd = parseBDDFromCaseText(currentCase.description);
+                currentCase.preconditions = bdd.preconditions || currentCase.preconditions || '';
+                if (bdd.steps && bdd.steps.length > 0) currentCase.steps = bdd.steps;
+                else currentCase.steps = currentCase.steps || [];
+                if (!currentCase.category) currentCase.category = '功能测试';
+                if (!currentCase.priority) currentCase.priority = 'medium';
+                if (currentCase.priority.toUpperCase().includes('P0')) currentCase.priority = 'high';
+                else if (currentCase.priority.toUpperCase().includes('P1')) currentCase.priority = 'medium';
+                else if (currentCase.priority.toUpperCase().includes('P2')) currentCase.priority = 'low';
+                else if (['HIGH', '高'].includes(currentCase.priority.toUpperCase())) currentCase.priority = 'high';
+                else if (['LOW', '低'].includes(currentCase.priority.toUpperCase())) currentCase.priority = 'low';
+                else currentCase.priority = 'medium';
+                cases.push(currentCase);
+            }
+        };
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) {
+                if (buffer.length > 0) buffer.push(line);
+                continue;
+            }
+
+            // 检测新用例开始 (用例编号: TCxxx)
+            // 兼容多种格式： "用例编号:", "用例ID:", "Case ID:"
+            const isNewCase = /^(用例编号|用例ID|Case\s*ID)[:：]\s*/i.test(line);
+            
+            if (isNewCase) {
+                if (currentCase.name) {
+                    saveCurrent();
+                }
+                currentCase = {};
+                buffer = [];
+            }
+
+            buffer.push(lines[i]); // 保留原始行格式
+
+            // 提取字段（使用 match 捕获组，避免 RegExp.$2 废弃用法）
+            let m = line.match(/^(用例名称|Case\s*Name)[:：]\s*(.+)/i);
+            if (m) currentCase.name = m[2].trim();
+            else {
+                m = line.match(/^(所属模块|Module)[:：]\s*(.+)/i);
+                if (m) currentCase.category = m[2].trim();
+                else {
+                    m = line.match(/^(用例等级|优先级|Priority)[:：]\s*(.+)/i);
+                    if (m) currentCase.priority = m[2].trim();
+                }
+            }
+        }
+        
+        // 保存最后一个
+        if (currentCase.name || buffer.length > 0) {
+            // 如果只有一段文本且没解析出名字，可能不是结构化数据，返回空数组让上层处理
+            if (currentCase.name) {
+                saveCurrent();
+            } else if (cases.length === 0) {
+                // 只有一段且没名字，视为非结构化，返回空
+                return [];
+            }
+        }
+
+        return cases;
+    }
+
+    function renderBatchTable() {
+        const tbody = $('#batchCaseList');
+        tbody.empty();
+        $('#batchCount').text(parsedBatchCases.length);
+
+        parsedBatchCases.forEach((c, index) => {
+            const tr = `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td><input type="text" class="form-control form-control-sm" value="${c.name}" onchange="updateBatchCase(${index}, 'name', this.value)"></td>
+                    <td><input type="text" class="form-control form-control-sm" value="${c.category}" onchange="updateBatchCase(${index}, 'category', this.value)"></td>
+                    <td>
+                        <select class="form-select form-select-sm" onchange="updateBatchCase(${index}, 'priority', this.value)">
+                            <option value="high" ${c.priority === 'high' ? 'selected' : ''}>高</option>
+                            <option value="medium" ${c.priority === 'medium' ? 'selected' : ''}>中</option>
+                            <option value="low" ${c.priority === 'low' ? 'selected' : ''}>低</option>
+                        </select>
+                    </td>
+                    <td><span class="badge bg-success">Active</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeBatchCase(${index})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            tbody.append(tr);
+        });
+    }
+
+    function updateBatchCase(index, field, value) {
+        parsedBatchCases[index][field] = value;
+    }
+
+    function removeBatchCase(index) {
+        parsedBatchCases.splice(index, 1);
+        renderBatchTable();
+    }
+
+    async function confirmBatchSave() {
+        if (parsedBatchCases.length === 0) {
+            toast.warning('没有可保存的用例');
+            return;
+        }
+
+        try {
+            const res = await ApiClient.post('/test_case/api/test-cases/batch', {
+                cases: parsedBatchCases
+            });
+            
+            if (res.data.errors && res.data.errors.length > 0) {
+                toast.warning(`保存完成，但有 ${res.data.errors.length} 个失败`);
+                console.warn(res.data.errors);
+            } else {
+                toast.success(`成功保存 ${res.data.created_count} 个测试用例`);
+            }
+            
+            if (batchSaveModal) batchSaveModal.hide();
+        } catch (e) {
+            console.error(e);
+            toast.error('批量保存失败: ' + e.message);
+        }
+    }
+
+    // 内置默认提示词（无配置时的兜底）；PRD 默认由服务端注入（极简审计专家）
+    var DEFAULT_PROMPTS = {
+        outline_writing: "作为一个资深测试工程师，请根据以下需求文档内容，编写一份完整的测试大纲。要求结合 BDD 与 TDD 思路：\n\n- **BDD**：关键测试场景用 Given-When-Then 描述（Given 前置/上下文，When 操作/触发，Then 预期/验收结果）。\n- **TDD**：每个测试点或模块先写出「验收标准」或「通过条件」，再列出测试范围与策略，体现「先定义怎样算通过，再设计怎么测」。\n\n大纲需包含：测试范围、测试策略、功能模块划分、关键测试点（尽量用 Given-When-Then 或验收标准先行的方式呈现）。\n\n需求内容：\n{content}",
+        case_writing: "请严格按以下输出格式生成测试用例表格，每条用例都包含字段：用例编号、用例名称、所属模块、标签、前置条件、备注、步骤描述、预期结果、编辑模式、用例等级、责任人(ID)、用例状态。字段固定要求：标签和备注留空；编辑模式=STEP；用例等级=P1；责任人(ID)=fengnan；用例状态=Prepare。步骤描述与预期结果均按数字序号逐行输出。只输出表格内容。\n\n需求描述：\n{content}",
+        prd_review: {{ (default_prd_audit_prompt|default(fallback_prd_audit_prompt, true)|default('', true))|tojson }}
+    };
+
+    // 加载提示词
+    async function loadCurrentPrompt(type) {
+        try {
+            const res = await ApiClient.get('/test_case/api/prompts');
+            const select = $('#promptSelect');
+            select.empty();
+            
+            if (res.data) {
+                currentPrompts = res.data.filter(p => p.type === type && p.is_active);
+                
+                if (currentPrompts.length > 0) {
+                    currentPrompts.forEach((p, index) => {
+                        select.append(new Option(p.name, p.id));
+                    });
+                    select.val(currentPrompts[0].id);
+                    $('#currentPrompt').val(currentPrompts[0].content);
+                    if (type === 'prd_review') prdPromptTouched = false;
+                } else {
+                    select.append(new Option('默认提示词', ''));
+                    var defaultPrompt = DEFAULT_PROMPTS[type] || DEFAULT_PROMPTS.case_writing;
+                    if (type === 'prd_review') {
+                        try {
+                            const prdRes = await ApiClient.get('/test_case/api/default_prd_prompt', { showLoading: false });
+                            if (prdRes.data && prdRes.data.prompt) defaultPrompt = prdRes.data.prompt;
+                        } catch (e) { /* 用页面已有默认 */ }
+                    }
+                    $('#currentPrompt').val(defaultPrompt);
+                    if (type === 'prd_review') prdPromptTouched = false;
+                }
+            } else {
+                select.append(new Option('默认提示词', ''));
+                var defaultPrompt = DEFAULT_PROMPTS[type] || DEFAULT_PROMPTS.case_writing;
+                if (type === 'prd_review') {
+                    try {
+                        const prdRes = await ApiClient.get('/test_case/api/default_prd_prompt', { showLoading: false });
+                        if (prdRes.data && prdRes.data.prompt) defaultPrompt = prdRes.data.prompt;
+                    } catch (e) { /* 用页面已有默认 */ }
+                }
+                $('#currentPrompt').val(defaultPrompt);
+                if (type === 'prd_review') prdPromptTouched = false;
+            }
+        } catch (e) {
+            console.error('加载提示词失败', e);
+            $('#promptSelect').empty().append(new Option('默认提示词', ''));
+            var defaultPrompt = DEFAULT_PROMPTS[type] || DEFAULT_PROMPTS.case_writing;
+            if (type === 'prd_review') {
+                try {
+                    const prdRes = await ApiClient.get('/test_case/api/default_prd_prompt', { showLoading: false });
+                    if (prdRes.data && prdRes.data.prompt) defaultPrompt = prdRes.data.prompt;
+                } catch (e2) { }
+            }
+            $('#currentPrompt').val(defaultPrompt);
+            if (type === 'prd_review') prdPromptTouched = false;
+        }
+    }
+
+    // 切换提示词选择
+    function onPromptSelectChange() {
+        const id = $('#promptSelect').val();
+        if (!id) {
+            if ((window.currentType || currentType) === 'prd_review') prdPromptTouched = false;
+            return;
+        }
+        
+        const prompt = currentPrompts.find(p => p.id === id);
+        if (prompt) {
+            $('#currentPrompt').val(prompt.content);
+            if ((window.currentType || currentType) === 'prd_review') prdPromptTouched = true;
+        }
+    }
+
+    function backToSelection() {
+        try { history.replaceState(null, '', window.location.pathname); } catch (e) {}
+        $('#generatorView').fadeOut(200, function() {
+            $('#selectionView').fadeIn(200);
+        });
+        // 不清空内容，方便用户回来修改
+    }
+
+    async function startGeneration() {
+        const content = $('#inputContent').val();
+        if (!content) {
+            toast.warning('请输入需求内容');
+            return;
+        }
+
+        const btn = $('#btnGenerate');
+        const output = $('#outputContent');
+        const status = $('#statusText');
+        const btnStop = $('#btnStopGen');
+
+        genAbortController = new AbortController();
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>生成中...');
+        btnStop.show();
+        var genType = window.currentType || currentType;
+        var waitHint = (genType === 'prd_review') ? 'PRD 三段式分析中（结构解析→漏洞扫描→报告生成），约 1～2 分钟，请稍候…' : '正在生成中，请稍候…';
+        output.html('<div class="py-4 text-center text-muted"><i class="fas fa-spinner fa-spin fa-2x mb-3 d-block"></i><span>' + waitHint + '</span></div>');
+        $('#outputThinking').show();
+        $('#outputThinkingBody').html('<span class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i>正在思考中...</span>');
+        $('#collapseThinking').addClass('show');
+        $('#collapseThinking').prev().find('.accordion-button').removeClass('collapsed').attr('aria-expanded','true');
+        status.show();
+
+        var waitStart = Date.now();
+        var timerId = setInterval(function() {
+            var sec = Math.floor((Date.now() - waitStart) / 1000);
+            $('#genWaitTimer').show().text('已等待 ' + sec + ' 秒');
+        }, 1000);
+
+        if (!genType) {
+            btn.prop('disabled', false).html('<i class="fas fa-magic me-2"></i>立即生成');
+            btnStop.hide();
+            status.hide();
+            toast.warning('生成类型未识别，请从首页重新选择「PRD 漏洞分析」或「测试大纲/用例生成」');
+            return;
+        }
+        if ($('#genTitle').text().trim() === 'PRD 漏洞分析') {
+            genType = 'prd_review';
+        }
+        try {
+            const prompt = ($('#currentPrompt').val() || '');
+            let promptPayload = prompt;
+            if (genType === 'prd_review') {
+                if (!prdPromptTouched) {
+                    promptPayload = '';
+                }
+            }
+            const reqBody = { type: genType, content: content };
+            const llmProfile = ($('#llmProfileSelect').val() || '').trim();
+            if (llmProfile) {
+                reqBody.llm_profile = llmProfile;
+            }
+            if (promptPayload && promptPayload.trim()) {
+                reqBody.prompt = promptPayload;
+            }
+            const response = await fetch('/test_case/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reqBody),
+                signal: genAbortController.signal
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.message || '生成请求失败');
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            var hasContent = false;
+            var hasRealThinking = false;
+            var buf = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += decoder.decode(value, { stream: true });
+                const lines = buf.split('\n');
+                buf = lines.pop() || '';
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (!line) continue;
+                    try {
+                        var obj = JSON.parse(line);
+                        var t = obj.type, c = obj.text || '';
+                        if (t === 'status' && c) {
+                            if (!hasRealThinking) {
+                                var cur = $('#outputThinkingBody').html();
+                                if (cur.indexOf('正在思考中') >= 0 && cur.indexOf('正在连接') < 0) {
+                                    $('#outputThinkingBody').html('<span class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i></span>' + escapeHtml(c));
+                                } else {
+                                    $('#outputThinkingBody').append(escapeHtml(c));
+                                }
+                            }
+                            var el = document.getElementById('outputThinkingBody');
+                            if (el) el.scrollTop = el.scrollHeight;
+                        } else if (t === 'thinking' && c) {
+                            clearInterval(timerId); $('#genWaitTimer').hide();
+                            if (!hasRealThinking) { $('#outputThinkingBody').empty(); hasRealThinking = true; }
+                            $('#outputThinkingBody').append(escapeHtml(c));
+                            $('#outputThinkingBody')[0].scrollTop = $('#outputThinkingBody')[0].scrollHeight;
+                        } else if ((t === 'content' || t === 'error') && c) {
+                            clearInterval(timerId); $('#genWaitTimer').hide();
+                            if (!hasRealThinking) {
+                                $('#outputThinkingBody').html('<span class="text-muted small">（当前模型不输出思考过程，直接生成结果。使用 DeepSeek R1 等推理模型可看到思考过程）</span>');
+                            }
+                            if (!hasContent) { output.html(escapeHtml(c)); hasContent = true; } else { output.append(escapeHtml(c)); }
+                            output.scrollTop(output[0].scrollHeight);
+                        }
+                    } catch (e) { /* 兼容旧格式纯文本 */ if (!hasContent) { output.html(escapeHtml(line)); hasContent = true; } else { output.append(escapeHtml(line)); } }
+                }
+            }
+            if (buf.trim()) {
+                try {
+                    var obj = JSON.parse(buf);
+                    if (obj.type === 'status' && obj.text) { $('#outputThinkingBody').append(escapeHtml(obj.text)); }
+                    else if (obj.type === 'thinking' && obj.text) { clearInterval(timerId); $('#genWaitTimer').hide(); hasRealThinking = true; $('#outputThinkingBody').html('').append(escapeHtml(obj.text)); }
+                    else if (obj.type === 'content' || obj.type === 'error') {
+                        clearInterval(timerId); $('#genWaitTimer').hide();
+                        if (!hasRealThinking) $('#outputThinkingBody').html('<span class="text-muted small">（当前模型不输出思考过程，直接生成结果。使用 DeepSeek R1 等推理模型可看到思考过程）</span>');
+                        if (!hasContent) output.html(escapeHtml(obj.text)); else output.append(escapeHtml(obj.text));
+                    }
+                } catch (e) { if (!hasContent) output.html(escapeHtml(buf)); else output.append(escapeHtml(buf)); }
+            }
+            if (!hasRealThinking && hasContent) {
+                $('#outputThinkingBody').html('<span class="text-muted small">（当前模型不输出思考过程，直接生成结果。使用 DeepSeek R1 等推理模型可看到思考过程）</span>');
+            }
+
+            // 生成结束后，如为 PRD 漏洞分析，则异步加载结构化分析（用于状态机图等）
+            if (window.currentType === 'prd_review') {
+                try {
+                    await loadPrdAnalysis(content);
+                } catch (e) {
+                    console.error('加载 PRD 分析失败', e);
+                }
+            }
+        } catch (error) {
+            clearInterval(timerId);
+            if (error.name === 'AbortError') {
+                output.append(escapeHtml('\n\n[已手动停止]'));
+                toast.info('生成已停止');
+            } else {
+                console.error(error);
+                toast.error(error.message || '生成失败');
+                if (output.text().trim() === '') {
+                    output.html('<span class="text-danger">生成出错: ' + escapeHtml(error.message) + '</span>');
+                }
+            }
+        } finally {
+            clearInterval(timerId);
+            $('#genWaitTimer').hide();
+            btn.prop('disabled', false).html('<i class="fas fa-magic me-2"></i>立即生成');
+            btnStop.hide();
+            status.hide();
+            genAbortController = null;
+        }
+    }
+
+    $('#currentPrompt').on('input', function() {
+        if ((window.currentType || currentType) === 'prd_review') {
+            prdPromptTouched = true;
+        }
+    });
+
+    function stopGeneration() {
+        if (genAbortController) {
+            genAbortController.abort();
+        }
+    }
+
+    async function handleDocUpload(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const name = (file.name || '').toLowerCase();
+        if (!name.endsWith('.pdf') && !name.endsWith('.docx')) {
+            toast.error('请选择 PDF 或 Word (.docx) 文件');
+            return;
+        }
+        const originalText = $('#inputContent').attr('placeholder');
+        $('#inputContent').attr('placeholder', (name.endsWith('.docx') ? '正在解析 Word 文件…' : '正在解析 PDF 文件…')).prop('disabled', true);
+        const formData = new FormData();
+        formData.append('file', file);
+        const url = name.endsWith('.docx') ? '/test_case/api/parse_docx' : '/test_case/api/parse_pdf';
+        try {
+            const res = await fetch(url, { method: 'POST', body: formData });
+            const result = await res.json();
+            if (res.ok && (result.success || result.ok) && result.data) {
+                const text = result.data.text || '';
+                const currentVal = $('#inputContent').val();
+                const label = name.endsWith('.docx') ? 'Word 内容' : 'PDF 内容';
+                if (currentVal) $('#inputContent').val(currentVal + "\n\n--- " + label + " ---\n\n" + text);
+                else $('#inputContent').val(text);
+                if (result.data.warning) toast.warning(result.data.warning);
+                else toast.success(name.endsWith('.docx') ? 'Word 解析成功' : 'PDF 解析成功');
+            } else throw new Error(result.message || '解析失败');
+        } catch (e) {
+            console.error(e);
+            toast.error(e.message || '解析发生错误');
+        } finally {
+            $('#inputContent').attr('placeholder', originalText).prop('disabled', false);
+            input.value = '';
+        }
+    }
+
+    async function handlePdfUpload(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+            toast.error('请选择 PDF 文件');
+            return;
+        }
+        const originalText = $('#inputContent').attr('placeholder');
+        $('#inputContent').attr('placeholder', '正在解析 PDF 文件，请稍候...').prop('disabled', true);
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const res = await fetch('/test_case/api/parse_pdf', { method: 'POST', body: formData });
+            const result = await res.json();
+            if (res.ok && (result.success || result.ok) && result.data) {
+                const text = result.data.text || '';
+                const currentVal = $('#inputContent').val();
+                if (currentVal) $('#inputContent').val(currentVal + "\n\n--- PDF 内容 ---\n\n" + text);
+                else $('#inputContent').val(text);
+                if (result.data.warning) toast.warning(result.data.warning);
+                else toast.success('PDF 解析成功');
+            } else throw new Error(result.message || '解析失败');
+        } catch (e) {
+            console.error(e);
+            toast.error(e.message || 'PDF 解析发生错误');
+        } finally {
+            $('#inputContent').attr('placeholder', originalText).prop('disabled', false);
+            input.value = '';
+        }
+    }
+
+    function downloadReportMarkdown() {
+        const text = $('#outputContent').text();
+        if (!text) { toast.warning('暂无内容可下载'); return; }
+        const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'PRD评审报告_' + (new Date().toISOString().slice(0,10)) + '.md';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast.success('已下载 Markdown 报告');
+    }
+
+    async function downloadReportWord() {
+        const text = $('#outputContent').text();
+        if (!text) { toast.warning('暂无内容可下载'); return; }
+        try {
+            const res = await fetch('/test_case/api/export_report_docx', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: text })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(function() { return {}; });
+                throw new Error(err.message || '导出失败');
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'PRD评审报告_' + (new Date().toISOString().slice(0,10)) + '.docx';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast.success('已下载 Word 报告');
+        } catch (e) {
+            console.error(e);
+            toast.error(e.message || '导出 Word 失败');
+        }
+    }
+
+    // 结构化 PRD 分析（含状态机图、测试点矩阵等）
+    async function loadPrdAnalysis(prdText) {
+        if (!prdText || !prdText.trim()) return;
+        try {
+            const res = await fetch('/test_case/api/analyze_prd', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prd_text: prdText })
+            });
+            const result = await res.json();
+            if (!res.ok || !result.success) {
+                throw new Error(result.message || '分析失败');
+            }
+            window.currentPrdAnalysis = result.data || {};
+        } catch (e) {
+            console.error('loadPrdAnalysis error', e);
+            toast.error(e.message || '结构化分析失败');
+        }
+    }
+
+    function openStateDiagramModal() {
+        if (window.currentType !== 'prd_review') {
+            toast.info('状态机图仅在 PRD 漏洞分析模式下可用');
+            return;
+        }
+        const modalEl = document.getElementById('stateDiagramModal');
+        if (!modalEl) return;
+        const modal = new bootstrap.Modal(modalEl);
+
+        const analysis = window.currentPrdAnalysis || {};
+
+        // 质量评分与维度
+        const qContainer = document.getElementById('qualitySummary');
+        if (qContainer) {
+            const q = analysis.quality || {};
+            const overall = (q.overall !== undefined && q.overall !== null) ? q.overall : '—';
+            const dims = q.dimensions || {};
+            let html = '<div class="mb-2"><strong>整体质量评分</strong>：<span class="fs-5 fw-bold">' + overall + '/10</span></div>';
+            html += '<table class="table table-sm mb-0"><thead class="table-light"><tr><th>维度</th><th>评分 (0-10)</th></tr></thead><tbody>';
+            const dimNames = {
+                completeness: '需求完整度',
+                flow: '流程与状态机一致性',
+                exceptions: '异常与边界覆盖度',
+                data: '数据与字段定义',
+                testability: '可测试性'
+            };
+            Object.keys(dimNames).forEach(function(key) {
+                const v = (dims[key] !== undefined && dims[key] !== null) ? dims[key] : '—';
+                html += '<tr><td>' + dimNames[key] + '</td><td>' + v + '</td></tr>';
+            });
+            html += '</tbody></table>';
+            qContainer.innerHTML = html;
+        }
+
+        // 状态机图
+        const container = document.getElementById('stateDiagramContainer');
+        if (container) {
+            if (!analysis.state_diagram_mermaid) {
+                container.innerHTML = '<p class="text-muted small mb-0">暂无状态机数据，请确认已生成评审结果。</p>';
+            } else {
+                const mermaidSrc = analysis.state_diagram_mermaid;
+                if (window.mermaid) {
+                    container.innerHTML = '<div class="mermaid">' + mermaidSrc + '</div>';
+                    window.mermaid.init(undefined, container.querySelectorAll('.mermaid'));
+                } else {
+                    container.innerHTML = '<pre class="small mb-0">' + mermaidSrc + '</pre>';
+                }
+            }
+        }
+
+        // 测试点矩阵（状态 × 事件 / 并发 / 边界提示）
+        const matrixContainer = document.getElementById('testPointMatrixContainer');
+        if (matrixContainer) {
+            const m = analysis.test_point_matrix || {};
+            const stateMatrix = m.state_matrix || [];
+            const concurrentMatrix = m.concurrent_matrix || [];
+            const boundaryMatrix = m.boundary_matrix || [];
+            const defects = (analysis.stage3_output && Array.isArray(analysis.stage3_output.defects))
+                ? analysis.stage3_output.defects
+                : ((analysis.rule_analysis && Array.isArray(analysis.rule_analysis.defects)) ? analysis.rule_analysis.defects : []);
+
+            let html = '';
+            html += '<h6 class="fw-bold mb-2"><i class="fas fa-bug me-1"></i>漏洞清单（节选）</h6>';
+            if (defects.length === 0) {
+                html += '<p class="text-muted small">暂无漏洞清单数据。</p>';
+            } else {
+                html += '<div class="table-responsive mb-3"><table class="table table-sm table-bordered align-middle mb-0"><thead class="table-light"><tr><th>模块</th><th>类型</th><th>风险</th><th>来源</th><th>锚点</th><th>描述</th></tr></thead><tbody>';
+                defects.slice(0, 50).forEach(function(row) {
+                    const srcRaw = (row.source || 'llm').toString().toLowerCase();
+                    const src = srcRaw === 'rule' ? '规则库' : (srcRaw === 'hybrid' ? '混合' : 'LLM');
+                    html += '<tr><td>' + escapeHtml(row.module || '') + '</td><td>' + escapeHtml(row.type || '') + '</td><td>' + escapeHtml(row.risk_level || '') + '</td><td>' + src + '</td><td>' + escapeHtml(row.anchor || row.module || '') + '</td><td>' + escapeHtml(row.description || '') + '</td></tr>';
+                });
+                html += '</tbody></table></div>';
+            }
+
+            html += '<h6 class="fw-bold mb-2"><i class="fas fa-th-large me-1"></i>状态 × 事件矩阵（节选）</h6>';
+            if (stateMatrix.length === 0) {
+                html += '<p class="text-muted small">暂无状态/事件矩阵数据。</p>';
+            } else {
+                html += '<div class="table-responsive mb-3"><table class="table table-sm table-bordered align-middle mb-0"><thead class="table-light"><tr><th>当前状态</th><th>事件</th><th>目标状态</th><th>是否定义</th><th>风险</th></tr></thead><tbody>';
+                stateMatrix.slice(0, 50).forEach(function(row) {
+                    html += '<tr><td>' + escapeHtml(row.state) + '</td><td>' + escapeHtml(row.event) + '</td><td>' + escapeHtml(row.target || '') + '</td><td>' + (row.defined ? '已定义' : '未定义') + '</td><td>' + (row.risk_level || '') + '</td></tr>';
+                });
+                html += '</tbody></table></div>';
+            }
+
+            html += '<h6 class="fw-bold mb-2 mt-3"><i class="fas fa-random me-1"></i>并发事件矩阵（节选）</h6>';
+            if (concurrentMatrix.length === 0) {
+                html += '<p class="text-muted small">暂无并发事件矩阵数据。</p>';
+            } else {
+                html += '<div class="table-responsive mb-3"><table class="table table-sm table-bordered align-middle mb-0"><thead class="table-light"><tr><th>事件1</th><th>事件2</th><th>是否已在 PRD 中说明</th><th>风险</th></tr></thead><tbody>';
+                concurrentMatrix.slice(0, 50).forEach(function(row) {
+                    html += '<tr><td>' + escapeHtml(row.event1) + '</td><td>' + escapeHtml(row.event2) + '</td><td>' + (row.defined ? '已说明' : '未说明') + '</td><td>' + (row.risk_level || '') + '</td></tr>';
+                });
+                html += '</tbody></table></div>';
+            }
+
+            if (boundaryMatrix.length > 0) {
+                html += '<h6 class="fw-bold mb-2 mt-3"><i class="fas fa-exclamation-triangle me-1"></i>边界/异常提示</h6><ul class="small">';
+                boundaryMatrix.forEach(function(row) {
+                    html += '<li><strong>' + escapeHtml(row.scenario || '') + '：</strong>' + escapeHtml(row.hint || '') + '</li>';
+                });
+                html += '</ul>';
+            }
+
+            matrixContainer.innerHTML = html;
+        }
+
+        modal.show();
+    }
+
+    function parseReportSections(text) {
+        if (!text || !text.trim()) return {};
+        var sections = {};
+        var order = ['一','二','三','四','五','六','七','八'];
+        var re = /##\s*([一二三四五六七八])(?:、|（续）|\.)?[^\n]*/g;
+        var matches = [];
+        var m;
+        while ((m = re.exec(text)) !== null) {
+            var num = order.indexOf(m[1]) + 1;
+            if (num >= 1 && num <= 8) matches.push({ num: num, index: m.index });
+        }
+        for (var n = 1; n <= 8; n++) {
+            var startIdx = -1, endIdx = text.length;
+            for (var i = 0; i < matches.length; i++) {
+                if (matches[i].num === n && startIdx === -1) startIdx = matches[i].index;
+                if (startIdx >= 0 && matches[i].num !== n && matches[i].index > startIdx) {
+                    endIdx = matches[i].index;
+                    break;
+                }
+            }
+            if (startIdx >= 0) sections[n] = text.slice(startIdx, endIdx).trim();
+        }
+        return sections;
+    }
+
+    function getReportForRole(role) {
+        var text = $('#outputContent').text();
+        if (!text) return '';
+        var s = parseReportSections(text);
+        var title = '# PRD 评审报告';
+        if (role === 'product') {
+            title += '（给产品）\n\n';
+            return title + [s[1], s[2], s[3]].filter(Boolean).join('\n\n');
+        }
+        if (role === 'dev') {
+            title += '（给研发）\n\n';
+            return title + [s[1], s[2], s[5]].filter(Boolean).join('\n\n');
+        }
+        if (role === 'test') {
+            title += '（给测试）\n\n';
+            return title + [s[1], s[4], s[6], s[7], s[8]].filter(Boolean).join('\n\n');
+        }
+        return text;
+    }
+
+    function downloadRoleReportMd() {
+        var role = $('#roleExportSelect').val();
+        var content = getReportForRole(role);
+        if (!content) { toast.warning('暂无内容可下载'); return; }
+        var names = { product: '给产品', dev: '给研发', test: '给测试' };
+        var blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'PRD评审_' + (names[role] || role) + '_' + (new Date().toISOString().slice(0,10)) + '.md';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast.success('已下载 ' + (names[role] || role) + ' .md');
+    }
+
+    async function downloadRoleReportDocx() {
+        var role = $('#roleExportSelect').val();
+        var content = getReportForRole(role);
+        if (!content) { toast.warning('暂无内容可下载'); return; }
+        var names = { product: '给产品', dev: '给研发', test: '给测试' };
+        try {
+            var res = await fetch('/test_case/api/export_report_docx', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content })
+            });
+            if (!res.ok) {
+                var err = await res.json().catch(function() { return {}; });
+                throw new Error(err.message || '导出失败');
+            }
+            var blob = await res.blob();
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'PRD评审_' + (names[role] || role) + '_' + (new Date().toISOString().slice(0,10)) + '.docx';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast.success('已下载 ' + (names[role] || role) + ' .docx');
+        } catch (e) {
+            console.error(e);
+            toast.error(e.message || '导出失败');
+        }
+    }
+
+    function copyResult() {
+        const text = $('#outputContent').text();
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            toast.success('已复制到剪贴板');
+        }).catch(err => {
+            toast.error('复制失败');
+        });
+    }
+    
+    // 打开 LLM 配置（增强：异常可见 + modal getOrCreateInstance 兜底）
+    function updateLLMProfileSelect(cfg) {
+        var sel = document.getElementById('llmProfileSelect');
+        if (!sel) return;
+        var list = (cfg && cfg.profiles_meta) ? cfg.profiles_meta : [];
+        var defKey = (cfg && cfg.default_profile) ? String(cfg.default_profile) : '';
+        var saved = '';
+        try { saved = localStorage.getItem('test_case_llm_profile') || ''; } catch (e) {}
+        sel.innerHTML = '';
+        var opt0 = document.createElement('option');
+        opt0.value = '';
+        opt0.textContent = '默认模型' + (defKey ? ('（' + defKey + '）') : '');
+        sel.appendChild(opt0);
+        list.forEach(function(p) {
+            var key = p && p.key ? String(p.key) : '';
+            if (!key) return;
+            var provider = (p.llm_provider || key);
+            var model = (p.model || '');
+            var text = key;
+            if (provider && provider !== key) text += ' / ' + provider;
+            if (model) text += ' (' + model + ')';
+            var o = document.createElement('option');
+            o.value = key;
+            o.textContent = text;
+            sel.appendChild(o);
+        });
+        if (saved) sel.value = saved;
+        try {
+            if (!sel.dataset.bound) {
+                sel.addEventListener('change', function() {
+                    try { localStorage.setItem('test_case_llm_profile', sel.value || ''); } catch (e) {}
+                });
+                sel.dataset.bound = '1';
+            }
+        } catch (e) {}
+    }
+
+    async function loadLLMProfileSelect() {
+        try {
+            const res = await ApiClient.get('/test_case/api/llm_config', { showLoading: false });
+            if (res && res.data) updateLLMProfileSelect(res.data);
+        } catch (e) { /* ignore */ }
+    }
+
+    function applyProviderDefaults(isOpenInit) {
+        try {
+            var provider = ($('#llmProvider').val() || 'deepseek').toLowerCase();
+            var $base = $('#llmBaseUrl');
+            var $model = $('#llmModel');
+            var $key = $('#llmApiKey');
+            var base = ($base.val() || '').trim();
+            var model = ($model.val() || '').trim();
+
+            var keyHint = document.getElementById('llmApiKeyHint');
+            if (provider === 'volcengine') {
+                $key.attr('placeholder', 'api-key-...');
+                if (keyHint) keyHint.textContent = '火山引擎（方舟/豆包）Key 以 api-key- 开头；也可用环境变量 VOLCENGINE_API_KEY / ARK_API_KEY';
+                if (isOpenInit || !base || base.indexOf('api.deepseek.com') >= 0) {
+                    $base.val('https://ark.cn-beijing.volces.com/api/v3');
+                }
+                if (isOpenInit || !model || model === 'deepseek-chat') {
+                    $model.val('doubao-pro-32k');
+                }
+            } else if (provider === 'gemini') {
+                $key.attr('placeholder', 'AIza...（Gemini Key）');
+                if (keyHint) keyHint.textContent = 'Gemini 使用 Google API Key（也可用环境变量 GEMINI_API_KEY）';
+            } else {
+                $key.attr('placeholder', 'sk-...');
+                if (keyHint) keyHint.textContent = 'Key 将以加密或脱敏方式存储';
+                if (isOpenInit || !base) {
+                    $base.val(base || 'https://api.deepseek.com/v1');
+                }
+                if (isOpenInit || !model) {
+                    $model.val(model || 'deepseek-chat');
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    try {
+        $('#llmProvider').on('change', function() { applyProviderDefaults(false); });
+    } catch (e) { /* ignore */ }
+
+    window.openLLMConfig = async function openLLMConfig() {
+        try {
+            const res = await ApiClient.get('/test_case/api/llm_config', { showLoading: false });
+            if (res && res.data) {
+                $('#llmProvider').val(res.data.llm_provider || 'deepseek');
+                $('#llmBaseUrl').val(res.data.base_url || 'https://api.deepseek.com/v1');
+                $('#llmApiKey').val(res.data.api_key || '');
+                $('#llmModel').val(res.data.model || 'deepseek-chat');
+                $('#fallbackEnabled').prop('checked', !!res.data.fallback_enabled);
+                $('#fallbackApiKey').val(res.data.fallback_api_key || '');
+                $('#fallbackBaseUrl').val(res.data.fallback_base_url || 'https://api.deepseek.com/v1');
+                $('#fallbackModel').val(res.data.fallback_model || 'deepseek-chat');
+                updateLLMProfileSelect(res.data);
+                applyProviderDefaults(true);
+            }
+            const el = document.getElementById('llmConfigModal');
+            if (el && window.bootstrap && bootstrap.Modal) {
+                const m = llmConfigModal || bootstrap.Modal.getOrCreateInstance(el);
+                m.show();
+            } else {
+                alert('未加载到 Bootstrap Modal，无法打开配置框（请刷新页面重试）');
+            }
+        } catch (e) {
+            console.error(e);
+            if (window.toast) toast.error(e.message || '打开配置失败');
+            else alert('打开配置失败: ' + (e.message || String(e)));
+        }
+    }
+
+    // 额外绑定：避免 inline onclick 因作用域/脚本报错失效
+    try {
+        const btn = document.getElementById('btnGlobalConfig');
+        if (btn) btn.addEventListener('click', function() { window.openLLMConfig(); });
+    } catch (e) { /* ignore */ }
+
+    loadLLMProfileSelect();
+
+    async function saveLLMConfig() {
+        const data = {
+            llm_provider: $('#llmProvider').val(),
+            base_url: $('#llmBaseUrl').val(),
+            api_key: $('#llmApiKey').val(),
+            model: $('#llmModel').val(),
+            fallback_enabled: $('#fallbackEnabled').is(':checked'),
+            fallback_api_key: $('#fallbackApiKey').val() || '',
+            fallback_base_url: $('#fallbackBaseUrl').val() || 'https://api.deepseek.com/v1',
+            fallback_model: $('#fallbackModel').val() || 'deepseek-chat'
+        };
+
+        try {
+            await ApiClient.post('/test_case/api/llm_config', data);
+            toast.success('配置已保存');
+            if (llmConfigModal) llmConfigModal.hide();
+        } catch (error) {
+            console.error(error);
+            toast.error('保存配置失败');
+        }
+    }
+
+    async function saveMeterSphereConfig() {
+        const data = {
+            base_url: $('#msBaseUrl').val(),
+            import_api_path: $('#msImportApiPath').val(),
+            project_id: $('#msProjectId').val(),
+            workspace_id: $('#msWorkspaceId').val(),
+            auth_header_name: $('#msAuthHeaderName').val(),
+            auth_token: $('#msAuthToken').val(),
+            cookie: $('#msCookie').val(),
+            csrf_token: $('#msCsrfToken').val(),
+            payload_data_key: $('#msPayloadDataKey').val()
+        };
+        try {
+            await ApiClient.post('/test_case/api/metersphere_config', data);
+            toast.success('MeterSphere 配置已保存');
+            if (meterSphereConfigModal) meterSphereConfigModal.hide();
+        } catch (e) {
+            console.error(e);
+            toast.error('保存 MeterSphere 配置失败: ' + (e.message || '未知错误'));
+        }
+    }
+
+    async function saveTestCase() {
+        const name = $('#caseName').val();
+        if (!name) {
+            toast.warning('请输入名称');
+            return;
+        }
+        
+        const content = $('#caseDescription').val(); // 从 textarea 获取
+        if (!content) {
+            toast.warning('请输入用例内容');
+            return;
+        }
+
+        const category = $('#caseCategory').val();
+        const priority = $('#casePriority').val();
+        
+        const data = {
+            name: name,
+            description: content,
+            category: category,
+            priority: priority,
+            test_type: currentType === 'outline_writing' ? 'outline' : 'manual',
+            status: 'active'
+        };
+        var bdd = parseBDDFromCaseText(content);
+        if (bdd.preconditions) data.preconditions = bdd.preconditions;
+        if (bdd.steps && bdd.steps.length > 0) data.steps = bdd.steps;
+        
+        const btn = $('#saveCaseModal .modal-footer .btn-primary');
+        btn.prop('disabled', true);
+        
+        try {
+            await ApiClient.post('/test_case/api/test-cases', data);
+            toast.success('保存成功');
+            if (saveCaseModal) saveCaseModal.hide();
+        } catch (e) {
+            console.error(e);
+            toast.error('保存失败: ' + e.message);
+        } finally {
+            btn.prop('disabled', false);
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        // 简单的 HTML 转义，防止 XSS，但保留换行
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // 页面加载时根据 URL hash 直接打开对应界面（如以前收藏的 PRD 漏洞分析页）
+    function applyHashView() {
+        var hash = (window.location.hash || '').replace(/^#/, '');
+        if (hash === 'prd_review' || hash === 'prd') {
+            showGenerator('prd_review');
+        } else if (hash === 'outline_writing' || hash === 'outline') {
+            showGenerator('outline_writing');
+        } else if (hash === 'case_writing' || hash === 'case') {
+            showGenerator('case_writing');
+        }
+    }
+    (function initFromHash() {
+        applyHashView();
+        window.addEventListener('hashchange', applyHashView);
+    })();
+
+    // MeterSphere Import Logic
+    var _msImportRows = [];
+
+    function openMeterSpherePreview() {
+        var text = $('#outputContent').text();
+        if (!text || !text.trim()) {
+            toast.warning('请先生成内容');
+            return;
+        }
+
+        // Parse Markdown Table
+        var lines = text.split('\n').map(l => l.trim()).filter(l => l);
+        var tableLines = lines.filter(l => l.startsWith('|'));
+        if (tableLines.length < 3) {
+            toast.warning('未检测到有效的 Markdown 表格 (至少需要表头、分隔行、数据行)');
+            return;
+        }
+
+        // Parse Headers
+        var headers = tableLines[0].split('|').map(s => s.trim()).filter(s => s);
+        // Skip separator line (tableLines[1])
+        // Parse Body
+        var rows = [];
+        // Start from index 2 (skip header and separator)
+        for (var i = 2; i < tableLines.length; i++) {
+            var line = tableLines[i];
+            // Split by | but handle escaped pipes if any (simplified for now)
+            var cols = line.split('|').map(s => s.trim());
+            // Remove first empty element if line starts with |
+            if (line.startsWith('|')) cols.shift();
+            // Remove last empty element if line ends with |
+            if (line.endsWith('|')) cols.pop();
+            
+            // Skip if column count doesn't match roughly (allow loose matching)
+            if (cols.length === 0) continue;
+
+            var rowObj = {};
+            headers.forEach((h, idx) => {
+                rowObj[h] = cols[idx] || '';
+            });
+            rows.push(rowObj);
+        }
+
+        if (rows.length === 0) {
+            toast.warning('未解析到有效数据行');
+            return;
+        }
+
+        _msImportRows = rows;
+        
+        // Render Preview Table
+        var $thead = $('#previewTable thead');
+        var $tbody = $('#previewTable tbody');
+        $thead.empty();
+        $tbody.empty();
+
+        var headerRow = '<tr>' + headers.map(h => '<th>' + escapeHtml(h) + '</th>').join('') + '</tr>';
+        $thead.append(headerRow);
+
+        rows.forEach(r => {
+            var tr = '<tr>' + headers.map(h => '<td>' + escapeHtml(r[h]) + '</td>').join('') + '</tr>';
+            $tbody.append(tr);
+        });
+
+        $('#previewCount').text('共 ' + rows.length + ' 条用例');
+        
+        if (meterSpherePreviewModal) meterSpherePreviewModal.show();
+    }
+
+    async function openMeterSphereConfig() {
+        if (meterSpherePreviewModal) meterSpherePreviewModal.hide();
+        
+        // Load config from server
+        try {
+            const res = await ApiClient.get('/test_case/api/metersphere_config');
+            const cfg = res.data || {};
+            $('#msBaseUrl').val(cfg.base_url || 'http://10.0.50.17:8081');
+            $('#msImportApiPath').val(cfg.import_api_path || '/api/test/case/import');
+            $('#msProjectId').val(cfg.project_id || '');
+            $('#msWorkspaceId').val(cfg.workspace_id || '');
+            $('#msAuthHeaderName').val(cfg.auth_header_name || 'Authorization');
+            $('#msAuthToken').val(cfg.auth_token || '');
+            $('#msCookie').val(cfg.cookie || '');
+            $('#msCsrfToken').val(cfg.csrf_token || '');
+            $('#msPayloadDataKey').val(cfg.payload_data_key || 'cases');
+        } catch (e) {
+            console.error('Failed to load MS config', e);
+            // Pre-fill defaults if load fails or first time
+            if (!$('#msBaseUrl').val()) $('#msBaseUrl').val('http://10.0.50.17:8081');
+            if (!$('#msImportApiPath').val()) $('#msImportApiPath').val('/api/test/case/import');
+        }
+
+        if (meterSphereConfigModal) meterSphereConfigModal.show();
+    }
+
+    async function confirmImportToMeterSphere() {
+        if (!_msImportRows || _msImportRows.length === 0) {
+            toast.warning('没有可导入的数据');
+            return;
+        }
+        
+        var btn = $('#meterSpherePreviewModal .btn-primary');
+        var originText = btn.html();
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> 导入中...');
+
+        try {
+            const res = await fetch('/test_case/api/metersphere/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ raw_rows: _msImportRows })
+            });
+            const result = await res.json();
+            if (res.ok && result.success) {
+                toast.success(result.message || '导入成功');
+                if (meterSpherePreviewModal) meterSpherePreviewModal.hide();
+            } else {
+                var msg = result.message || '导入失败';
+                toast.error(msg);
+                if (msg.indexOf('请先配置') >= 0) {
+                    openMeterSphereConfig();
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('网络请求失败: ' + e.message);
+        } finally {
+            btn.prop('disabled', false).html(originText);
+        }
+    }
+</script>
+{% endblock %}

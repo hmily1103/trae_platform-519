@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0"><i class="fas fa-database text-primary me-2"></i>测试知识库</h2>
+        <button class="btn btn-success" onclick="saveKnowledge()">
+            <i class="fas fa-save me-1"></i>保存全部
+        </button>
+    </div>
+
+    <!-- 填写格式说明 -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-light py-2">
+            <button class="btn btn-link btn-sm text-decoration-none p-0 w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#formatHelp">
+                <i class="fas fa-info-circle me-1"></i>填写格式说明（点击展开）
+            </button>
+        </div>
+        <div class="collapse" id="formatHelp">
+            <div class="card-body small">
+                <p class="mb-2 text-muted">按下面表格列填写即可，多值时用<strong>换行</strong>分隔。</p>
+                <table class="table table-bordered table-sm mb-3">
+                    <thead class="table-light">
+                        <tr><th colspan="2">一、功能知识图谱</th></tr>
+                        <tr><th style="width:18%">列名</th><th>说明 / 示例</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>功能名称</td><td>如：投屏、广告插播、登录</td></tr>
+                        <tr><td>关键词</td><td>用于从 PRD 中识别该功能，一行一个。如：投屏、cast、screen mirror</td></tr>
+                        <tr><td>风险</td><td>一行一个。如：连接失败、中断后无法恢复、音画不同步</td></tr>
+                        <tr><td>测试策略</td><td>一行一个。如：弱网测试、多设备兼容、状态机测试</td></tr>
+                        <tr><td>测试点示例</td><td>一行一个。如：弱网下发起投屏、投屏中断后恢复播放</td></tr>
+                    </tbody>
+                </table>
+                <table class="table table-bordered table-sm">
+                    <thead class="table-light">
+                        <tr><th colspan="2">二、历史 Bug 模式</th></tr>
+                        <tr><th style="width:18%">列名</th><th>说明 / 示例</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>关联功能</td><td>如：投屏、广告插播</td></tr>
+                        <tr><td>Bug 标题</td><td>如：投屏后声音不同步</td></tr>
+                        <tr><td>风险/现象说明</td><td>如：音画不同步，影响观看体验</td></tr>
+                        <tr><td>建议测试/防护策略</td><td>如：多机型、多网络下增加音画同步测试</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <ul class="nav nav-tabs mb-3" id="kcTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="feature-tab" data-bs-toggle="tab" data-bs-target="#feature-pane" type="button" role="tab">功能知识图谱</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="bug-tab" data-bs-toggle="tab" data-bs-target="#bug-pane" type="button" role="tab">历史 Bug 模式</button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="kcTabContent">
+                <!-- 功能知识图谱：表格 -->
+                <div class="tab-pane fade show active" id="feature-pane" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle mb-0" id="featureTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:12%">功能名称</th>
+                                    <th style="width:18%">关键词<br><small class="text-muted">一行一个</small></th>
+                                    <th style="width:18%">风险<br><small class="text-muted">一行一个</small></th>
+                                    <th style="width:18%">测试策略<br><small class="text-muted">一行一个</small></th>
+                                    <th style="width:26%">测试点示例<br><small class="text-muted">一行一个</small></th>
+                                    <th style="width:8%">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="featureTbody">
+                                <!-- 动态行 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFeatureRow()">
+                            <i class="fas fa-plus me-1"></i>新增一行
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 历史 Bug 模式：表格 -->
+                <div class="tab-pane fade" id="bug-pane" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle mb-0" id="bugTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:14%">关联功能</th>
+                                    <th style="width:20%">Bug 标题</th>
+                                    <th style="width:28%">风险/现象说明</th>
+                                    <th style="width:30%">建议测试/防护策略</th>
+                                    <th style="width:8%">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bugTbody">
+                                <!-- 动态行 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addBugRow()">
+                            <i class="fas fa-plus me-1"></i>新增一行
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let knowledgeData = { features: [], bug_patterns: [] };
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function arrToText(arr) { return Array.isArray(arr) ? arr.join('\n') : (arr || ''); }
+    function textToArr(text) { return (text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean); }
+
+    async function loadKnowledge() {
+        try {
+            const res = await ApiClient.get('/test_case/api/knowledge');
+            knowledgeData = res.data || { features: [], bug_patterns: [] };
+            if (!Array.isArray(knowledgeData.features)) knowledgeData.features = [];
+            if (!Array.isArray(knowledgeData.bug_patterns)) knowledgeData.bug_patterns = [];
+            renderFeatureTable();
+            renderBugTable();
+        } catch (e) {
+            console.error('加载知识库失败', e);
+            toast.error(e.message || '加载知识库失败');
+        }
+    }
+
+    function syncFeatureTableToData() {
+        const rows = document.querySelectorAll('#featureTbody tr');
+        knowledgeData.features = [];
+        rows.forEach(tr => {
+            const cells = tr.querySelectorAll('td');
+            if (cells.length < 5) return;
+            const name = (cells[0].querySelector('input') || {}).value || '';
+            const keywords = (cells[1].querySelector('textarea') || {}).value || '';
+            const risks = (cells[2].querySelector('textarea') || {}).value || '';
+            const strategies = (cells[3].querySelector('textarea') || {}).value || '';
+            const testPoints = (cells[4].querySelector('textarea') || {}).value || '';
+            knowledgeData.features.push({
+                feature: name.trim(),
+                keywords: textToArr(keywords),
+                risks: textToArr(risks),
+                strategies: textToArr(strategies),
+                test_points: textToArr(testPoints)
+            });
+        });
+    }
+
+    function renderFeatureTable() {
+        const tbody = document.getElementById('featureTbody');
+        tbody.innerHTML = '';
+        (knowledgeData.features || []).forEach((f, idx) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(f.feature || '') + '" placeholder="如：投屏"></td>' +
+                '<td><textarea class="form-control form-control-sm" rows="2" placeholder="一行一个">' + escapeHtml(arrToText(f.keywords)) + '</textarea></td>' +
+                '<td><textarea class="form-control form-control-sm" rows="2" placeholder="一行一个">' + escapeHtml(arrToText(f.risks)) + '</textarea></td>' +
+                '<td><textarea class="form-control form-control-sm" rows="2" placeholder="一行一个">' + escapeHtml(arrToText(f.strategies)) + '</textarea></td>' +
+                '<td><textarea class="form-control form-control-sm" rows="2" placeholder="一行一个">' + escapeHtml(arrToText(f.test_points)) + '</textarea></td>' +
+                '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteFeatureRow(this)" title="删除行"><i class="fas fa-trash"></i></button></td>';
+            tbody.appendChild(tr);
+        });
+        if (knowledgeData.features.length === 0) addFeatureRow();
+    }
+
+    function addFeatureRow() {
+        knowledgeData.features = knowledgeData.features || [];
+        knowledgeData.features.push({
+            feature: '', keywords: [], risks: [], strategies: [], test_points: []
+        });
+        renderFeatureTable();
+    }
+
+    function deleteFeatureRow(btn) {
+        syncFeatureTableToData();
+        const tr = btn.closest('tr');
+        const idx = Array.from(tr.parentNode.children).indexOf(tr);
+        knowledgeData.features.splice(idx, 1);
+        renderFeatureTable();
+    }
+
+    function syncBugTableToData() {
+        const rows = document.querySelectorAll('#bugTbody tr');
+        knowledgeData.bug_patterns = [];
+        rows.forEach(tr => {
+            const cells = tr.querySelectorAll('td');
+            if (cells.length < 4) return;
+            const feature = (cells[0].querySelector('input') || {}).value || '';
+            const title = (cells[1].querySelector('input') || {}).value || '';
+            const risk = (cells[2].querySelector('textarea') || {}).value || '';
+            const hint = (cells[3].querySelector('textarea') || {}).value || '';
+            knowledgeData.bug_patterns.push({
+                feature: feature.trim(),
+                title: title.trim(),
+                risk: risk.trim(),
+                hint: hint.trim()
+            });
+        });
+    }
+
+    function renderBugTable() {
+        const tbody = document.getElementById('bugTbody');
+        tbody.innerHTML = '';
+        (knowledgeData.bug_patterns || []).forEach((b, idx) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(b.feature || '') + '" placeholder="如：投屏"></td>' +
+                '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(b.title || '') + '" placeholder="如：投屏后声音不同步"></td>' +
+                '<td><textarea class="form-control form-control-sm" rows="2" placeholder="风险/现象">' + escapeHtml(b.risk || '') + '</textarea></td>' +
+                '<td><textarea class="form-control form-control-sm" rows="2" placeholder="建议策略">' + escapeHtml(b.hint || '') + '</textarea></td>' +
+                '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteBugRow(this)" title="删除行"><i class="fas fa-trash"></i></button></td>';
+            tbody.appendChild(tr);
+        });
+        if (knowledgeData.bug_patterns.length === 0) addBugRow();
+    }
+
+    function addBugRow() {
+        knowledgeData.bug_patterns = knowledgeData.bug_patterns || [];
+        knowledgeData.bug_patterns.push({ feature: '', title: '', risk: '', hint: '' });
+        renderBugTable();
+    }
+
+    function deleteBugRow(btn) {
+        syncBugTableToData();
+        const tr = btn.closest('tr');
+        const idx = Array.from(tr.parentNode.children).indexOf(tr);
+        knowledgeData.bug_patterns.splice(idx, 1);
+        renderBugTable();
+    }
+
+    async function saveKnowledge() {
+        try {
+            syncFeatureTableToData();
+            syncBugTableToData();
+            await ApiClient.post('/test_case/api/knowledge', knowledgeData);
+            toast.success('知识库已保存');
+            loadKnowledge();
+        } catch (e) {
+            console.error('保存知识库失败', e);
+            toast.error(e.message || '保存知识库失败');
+        }
+    }
+
+    $(document).ready(loadKnowledge);
+</script>
+{% endblock %}

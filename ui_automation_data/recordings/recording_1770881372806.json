@@ -1,0 +1,32 @@
+{
+  "id": "recording_1770881372806",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-02-12T15:29:32.811803",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": {
+        "strategy": "coordinates",
+        "value": "155,172",
+        "fallbacks": [],
+        "bounds": null,
+        "class_name": ""
+      },
+      "value": null,
+      "coordinates": {
+        "x": 155,
+        "y": 172
+      },
+      "screenshot": "ui_automation_data\\screenshots\\recording_1770881372806\\step_1.png",
+      "ui_tree": "ui_automation_data\\ui_trees\\recording_1770881372806\\step_1.xml",
+      "timestamp": 1770881384.502741,
+      "wait_after": 1000,
+      "description": "点击 (155, 172) [UI树获取失败]"
+    }
+  ],
+  "description": "",
+  "project_id": "",
+  "name": ""
+}

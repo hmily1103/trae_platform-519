@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}日志文件分析 - Trae Platform{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-3"><i class="fas fa-file-alt me-2"></i>日志文件分析</h2>
+    <p class="text-muted small mb-4">
+        上传本地日志文件或直接粘贴日志内容，系统会自动提取关键日志并给出根因分析与排查建议。
+    </p>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <span><i class="fas fa-upload me-2"></i>上传日志文件</span>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <input type="file" id="logFileInput" class="form-control" accept=".log,.txt,.out,.trace,*/*">
+                    </div>
+                    <button class="btn btn-primary" id="btnAnalyzeFile">
+                        <i class="fas fa-search me-1"></i> 开始分析
+                    </button>
+                    <span id="selectedFileName" class="ms-2 text-muted small"></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <span><i class="fas fa-paste me-2"></i>粘贴日志内容</span>
+                </div>
+                <div class="card-body">
+                    <textarea id="logPasteArea" class="form-control font-monospace" rows="8" placeholder="在此粘贴 logcat、崩溃堆栈等日志内容，支持多行..."></textarea>
+                    <button class="btn btn-primary mt-2" id="btnAnalyzePaste">
+                        <i class="fas fa-search me-1"></i> 分析粘贴内容
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm" id="analysisResultCard" style="display:none;">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-robot me-2"></i>分析结果</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <h6 class="text-primary"><i class="fas fa-lightbulb me-1"></i> 根因分析</h6>
+                <p id="resultRootCause" class="mb-0"></p>
+            </div>
+            <div class="mb-3">
+                <h6 class="text-primary"><i class="fas fa-tasks me-1"></i> 排查建议</h6>
+                <ul id="resultSuggestions" class="mb-0"></ul>
+            </div>
+            <div>
+                <h6 class="text-primary"><i class="fas fa-quote-right me-1"></i> 总结</h6>
+                <p id="resultSummary" class="mb-0 fst-italic"></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const input = document.getElementById('logFileInput');
+    const btn = document.getElementById('btnAnalyzeFile');
+    const nameSpan = document.getElementById('selectedFileName');
+    const card = document.getElementById('analysisResultCard');
+    const elRoot = document.getElementById('resultRootCause');
+    const elSug = document.getElementById('resultSuggestions');
+    const elSummary = document.getElementById('resultSummary');
+
+    const pasteArea = document.getElementById('logPasteArea');
+    const btnPaste = document.getElementById('btnAnalyzePaste');
+
+    if (!input || !btn) return;
+
+    function showAnalysisResult(data) {
+        elRoot.textContent = data.root_cause || '无';
+        elSummary.textContent = data.summary || '无';
+        elSug.innerHTML = '';
+        const sug = data.suggestions || [];
+        if (sug.length === 0) {
+            const li = document.createElement('li');
+            li.className = 'text-muted';
+            li.textContent = '暂无建议';
+            elSug.appendChild(li);
+        } else {
+            sug.forEach(s => {
+                const li = document.createElement('li');
+                li.textContent = s;
+                elSug.appendChild(li);
+            });
+        }
+        card.style.display = 'block';
+    }
+
+    input.addEventListener('change', function() {
+        const file = this.files && this.files[0];
+        nameSpan.textContent = file ? ('已选择：' + file.name) : '';
+    });
+
+    btn.addEventListener('click', async function() {
+        const file = input.files && input.files[0];
+        if (!file) {
+            if (window.toast) toast.warning('请先选择日志文件');
+            return;
+        }
+        try {
+            const text = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result || '');
+                reader.onerror = e => reject(e);
+                reader.readAsText(file, 'utf-8');
+            });
+            let lines = (text || '').split(/\r?\n/);
+            lines = lines.map(l => l.trimEnd()).filter(l => l).slice(-200);
+            if (lines.length === 0) {
+                if (window.toast) toast.warning('日志文件为空或无法解析');
+                return;
+            }
+            const result = await ApiClient.post('/log_monitor/api/analyze', {
+                log_lines: lines
+            }, { timeout: 120000, loadingMessage: '正在分析日志文件，预计 30～60 秒...' });
+            if (result.success || result.ok) {
+                showAnalysisResult(result.data || {});
+            }
+        } catch (err) {
+            console.error('分析日志文件失败:', err);
+            if (window.toast) toast.error(err.message || '分析日志文件失败，请稍后重试');
+        }
+    });
+
+    if (btnPaste && pasteArea) {
+        btnPaste.addEventListener('click', async function() {
+            const text = (pasteArea.value || '').trim();
+            if (!text) {
+                if (window.toast) toast.warning('请先粘贴日志内容');
+                return;
+            }
+            let lines = text.split(/\r?\n/);
+            lines = lines.map(l => l.trimEnd()).filter(l => l).slice(-200);
+            if (lines.length === 0) {
+                if (window.toast) toast.warning('粘贴内容为空或无法解析');
+                return;
+            }
+            try {
+                const result = await ApiClient.post('/log_monitor/api/analyze', {
+                    log_lines: lines
+                }, { timeout: 120000, loadingMessage: '正在分析日志，预计 30～60 秒...' });
+                if (result.success || result.ok) {
+                    showAnalysisResult(result.data || {});
+                }
+            } catch (err) {
+                console.error('分析粘贴内容失败:', err);
+                if (window.toast) toast.error(err.message || '分析失败，请稍后重试');
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}
+

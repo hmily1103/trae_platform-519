@@ -1,0 +1,1324 @@
+{% extends "ui_automation_base.html" %}
+
+{% block module_content %}
+<div class="row">
+    <!-- Left: Screen Preview -->
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0" style="color: red;"><i class="fas fa-mobile-alt me-2"></i>设备预览 (DEBUG MODE)</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadDevices()" title="刷新列表">
+                        <i class="fas fa-sync-alt me-1"></i>刷新
+                    </button>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-1 text-muted">已连接设备</label>
+                    <div id="connectedDevicesList" class="d-flex flex-wrap gap-1 align-items-center" style="min-height: 28px;">
+                        <span class="text-muted small" id="noDevicesHint">暂无设备，请先连接</span>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <select id="deviceSelect" class="form-select form-select-sm" style="width: 220px;" onchange="onDeviceSelectChange(this.value)">
+                        <option value="">选择设备...</option>
+                    </select>
+                    <button id="btnConnectDevice" class="btn btn-sm btn-outline-primary" title="连接新设备" onclick="showConnectModal(); return false;">
+                        <i class="fas fa-plus me-1"></i>连接设备
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" onclick="refreshPreview()" title="刷新预览">
+                        <i class="fas fa-image me-1"></i>刷新预览
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0 text-center bg-dark preview-area" style="height: clamp(280px, 50vh, 600px); min-height: 250px; position: relative; overflow: hidden;">
+                <div id="screenContainer" class="preview-inner" style="width: 100%; height: 100%; min-height: 250px; display: flex; justify-content: center; align-items: center; cursor: crosshair; position: relative;">
+                    <img id="screenPreview" src="/static/img/placeholder_phone.png" class="preview-img" style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; cursor: crosshair; user-select: none; -webkit-user-select: none; pointer-events: auto !important; z-index: 10;" alt="设备预览" ondragstart="return false;">
+                </div>
+                <div id="loadingOverlay" class="position-absolute top-50 start-50 translate-middle text-white d-none">
+                    <div class="spinner-border" role="status"></div>
+                </div>
+                <!-- Debug Console -->
+                <div id="debugConsole" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100px; background: rgba(0,0,0,0.8); color: lime; font-family: monospace; font-size: 10px; overflow-y: scroll; display: block; z-index: 1000; pointer-events: none;"></div>
+            </div>
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-center gap-2">
+                    <button class="btn btn-outline-secondary" onclick="sendBack()" title="返回 (Back)">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="sendHome()" title="主页 (Home)">
+                        <i class="fas fa-circle"></i> Home
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="sendMenu()" title="菜单 (Menu)">
+                        <i class="fas fa-bars"></i> Menu
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Recording Controls & Steps -->
+    <div class="col-md-7">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0"><i class="fas fa-video me-2"></i>录制控制</h5>
+                    <div id="recordingStatus">
+                        <span class="text-muted">未录制</span>
+                    </div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input type="text" id="recordingName" class="form-control form-control-sm" placeholder="用例名称 (默认: Untitled)">
+                    </div>
+                    <div class="col-md-4">
+                         <input type="text" id="recordingPackage" class="form-control form-control-sm" placeholder="包名" value="com.thunder.ktv">
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-grid gap-2 d-md-block">
+                            <button id="btnStartRecording" class="btn btn-primary btn-sm w-100" onclick="startRecording()">
+                                <i class="fas fa-circle me-1"></i>开始录制
+                            </button>
+                            <button id="btnStopRecording" class="btn btn-danger btn-sm w-100" onclick="stopRecording()" style="display: none;">
+                                <i class="fas fa-stop me-1"></i>停止录制
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                 <div class="mt-2">
+                    <input type="text" id="recordingDescription" class="form-control form-control-sm" placeholder="描述 (可选)">
+                </div>
+                <div class="mt-2">
+                    <label class="form-label small text-muted mb-0">所属项目</label>
+                    <select id="recordingProject" class="form-select form-select-sm">
+                        <option value="">默认（无项目）</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light border-bottom">
+                    <h6 class="mb-0 text-muted">录制步骤 (<span id="stepCount">0</span>)</h6>
+                    <button class="btn btn-sm btn-link text-muted" onclick="refreshRecordingSteps()" title="刷新步骤">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div id="recordingSteps" class="p-3" style="height: 500px; overflow-y: auto;">
+                    <div class="text-muted text-center py-5">
+                        <i class="fas fa-clipboard-list fa-3x mb-3 opacity-25"></i>
+                        <p>暂无步骤，请开始录制并操作设备</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assertion Context Menu -->
+<div id="assertionMenu" class="dropdown-menu position-absolute" style="display: none; z-index: 1050;">
+    <h6 class="dropdown-header">断言验证</h6>
+    <button class="dropdown-item" onclick="prepareAssertion('exists')">
+        <i class="fas fa-check-circle me-2"></i>元素存在 (Exists)
+    </button>
+    <button class="dropdown-item" onclick="prepareAssertion('text_contains')">
+        <i class="fas fa-font me-2"></i>包含文本 (Text Contains)
+    </button>
+</div>
+
+<!-- Assertion Input Modal -->
+<div class="modal fade" id="assertionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加断言</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="assertionForm">
+                    <input type="hidden" id="assertionX">
+                    <input type="hidden" id="assertionY">
+                    <input type="hidden" id="assertionType">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">断言类型</label>
+                        <input type="text" class="form-control" id="assertionTypeDisplay" readonly>
+                    </div>
+                    
+                    <div class="mb-3" id="expectedValueGroup">
+                        <label class="form-label">预期文本 (Expected Text)</label>
+                        <input type="text" class="form-control" id="assertionExpected" placeholder="输入期望包含的文本">
+                        <div class="form-text">留空则自动提取当前元素的文本</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <input type="text" class="form-control" id="assertionDesc" placeholder="断言描述 (可选)">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitAssertion()">保存断言</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Connect Device Modal -->
+<div class="modal fade" id="connectDeviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">连接新设备</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="connectDeviceForm">
+                    <div class="mb-3">
+                        <label class="form-label">设备 IP 地址</label>
+                        <input type="text" class="form-control" id="connectIp" placeholder="例如: 192.168.1.100">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">ADB 端口</label>
+                        <input type="number" class="form-control" id="connectPort" value="8787" placeholder="默认: 8787">
+                        <div class="form-text">通常为 5555 (真机/模拟器) 或 8787 (部分机顶盒)</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitConnectDevice()">连接</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 连接设备弹窗脚本（内联确保加载） -->
+<script>
+function showConnectModal() {
+    var modalEl = document.getElementById('connectDeviceModal');
+    if (!modalEl) return;
+    if (modalEl.parentNode !== document.body) document.body.appendChild(modalEl);
+    if (window.bootstrap && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    } else if (typeof $ !== 'undefined' && $.fn.modal) {
+        $(modalEl).modal('show');
+    } else {
+        modalEl.classList.add('show'); modalEl.style.display = 'block';
+        document.body.classList.add('modal-open');
+    }
+}
+async function submitConnectDevice() {
+    var ip = document.getElementById('connectIp').value.trim();
+    var port = parseInt(document.getElementById('connectPort').value) || 8787;
+    if (!ip) { alert('请输入 IP 地址'); return; }
+    var btn = document.querySelector('#connectDeviceModal .btn-primary');
+    if (btn) { btn.textContent = '连接中...'; btn.disabled = true; }
+    try {
+        var res = await fetch('/ui_automation/api/connect', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ip: ip, port: port})
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if (data.success || data.ok) {
+            alert(data.message || '连接成功');
+            var modalEl = document.getElementById('connectDeviceModal');
+            if (modalEl) {
+                try {
+                    if (window.bootstrap && bootstrap.Modal) {
+                        var m = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                        m.hide();
+                    } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                        $(modalEl).modal('hide');
+                    }
+                } catch (e) {}
+                modalEl.classList.remove('show');
+                modalEl.style.display = 'none';
+                modalEl.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+                document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
+            }
+            var devId = data.data && data.data.device_id;
+            if (typeof loadDevices === 'function') loadDevices();
+            if (devId && typeof $ !== 'undefined') {
+                window.currentDeviceId = devId;
+                if (typeof connectDevice === 'function') connectDevice(devId);
+                setTimeout(function(){
+                    var sel = document.getElementById('deviceSelect');
+                    if (sel) {
+                        var found = [].some.call(sel.options, function(o){ return o.value === devId; });
+                        if (!found) {
+                            var opt = document.createElement('option');
+                            opt.value = devId;
+                            opt.textContent = devId;
+                            sel.appendChild(opt);
+                        }
+                        sel.value = devId;
+                    }
+                }, 800);
+            } else if (typeof $ !== 'undefined') location.reload();
+        } else {
+            alert(data.message || '连接失败');
+        }
+    } catch (e) {
+        alert('连接异常: ' + (e.message || '未知错误'));
+    } finally {
+        if (btn) { btn.textContent = '连接'; btn.disabled = false; }
+    }
+}
+window.currentDeviceId = null;
+var currentRecordingId = null, isRecording = false, stepPollingInterval = null;
+
+function onDeviceSelectChange(val) {
+    window.currentDeviceId = val || null;
+    if (typeof connectDevice === 'function') connectDevice(val);
+}
+
+async function loadDevices() {
+    try {
+        var res = await fetch('/ui_automation/api/devices');
+        var data = await res.json().catch(function(){ return {}; });
+        var list = (data.data && data.data.devices) || data.devices || [];
+        var sel = document.getElementById('deviceSelect');
+        var listEl = document.getElementById('connectedDevicesList');
+        var hintEl = document.getElementById('noDevicesHint');
+        if (!sel) return;
+        var cur = sel.value;
+        sel.innerHTML = '<option value="">选择设备...</option>';
+        list.forEach(function(d){ var o = document.createElement('option'); o.value = d; o.textContent = d; sel.appendChild(o); });
+        if (cur && list.indexOf(cur) >= 0) sel.value = cur;
+
+        if (listEl) {
+            if (list.length === 0) {
+                listEl.innerHTML = '<span class="text-muted small">暂无设备，请先连接</span>';
+            } else {
+                listEl.innerHTML = list.map(function(d){
+                    return '<span class="badge bg-success me-1 mb-1" style="font-size:0.85em">' + (d || '').replace(/</g,'&lt;') + '</span>';
+                }).join('');
+            }
+        }
+    } catch (e) { console.error('loadDevices', e); }
+}
+
+async function refreshPreview() {
+    var devId = window.currentDeviceId;
+    if (!devId) { alert('请先选择设备'); return; }
+    try {
+        var res = await fetch('/ui_automation/api/device/screenshot/latest?device_id=' + encodeURIComponent(devId));
+        var data = await res.json().catch(function(){ return {}; });
+        if (data.success && data.data && data.data.image) {
+            document.getElementById('screenPreview').src = 'data:image/jpeg;base64,' + data.data.image;
+        } else {
+            alert(data.message || '获取预览失败');
+        }
+    } catch (e) { alert('刷新预览失败: ' + (e.message || '')); }
+}
+async function startRecording() {
+    var devId = window.currentDeviceId;
+    if (!devId) { alert('请先选择设备'); return; }
+    var name = document.getElementById('recordingName').value || '';
+    var pkg = (document.getElementById('recordingPackage').value || '').trim() || 'com.thunder.ktv';
+    var desc = document.getElementById('recordingDescription').value || '';
+    var project = document.getElementById('recordingProject') ? document.getElementById('recordingProject').value || '' : '';
+    try {
+        var res = await fetch('/ui_automation/api/recording/start', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({device_id: devId, name: name, package_name: pkg, description: desc, project_id: project})
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if (data.success || data.ok) {
+            currentRecordingId = data.data.recording_id;
+            isRecording = true;
+            var startBtn = document.getElementById('btnStartRecording'), stopBtn = document.getElementById('btnStopRecording');
+            var statusEl = document.getElementById('recordingStatus'), stepsEl = document.getElementById('recordingSteps'), countEl = document.getElementById('stepCount');
+            if (startBtn) startBtn.style.display = 'none';
+            if (stopBtn) stopBtn.style.display = 'block';
+            if (statusEl) statusEl.innerHTML = '<span class="text-danger"><i class="fas fa-circle fa-beat"></i> 录制中...</span>';
+            if (stepsEl) stepsEl.innerHTML = '';
+            if (countEl) countEl.textContent = '0';
+            if (typeof startStepPolling === 'function') startStepPolling();
+            else stepPollingInterval = setInterval(function(){ if (typeof refreshRecordingSteps === 'function') refreshRecordingSteps(); }, 2000);
+            alert('录制已开始');
+        } else { alert(data.message || '开始录制失败'); }
+    } catch (e) { alert('开始录制失败: ' + (e.message || '')); }
+}
+async function stopRecording() {
+    if (!currentRecordingId) return;
+    try {
+        var res = await fetch('/ui_automation/api/recording/stop', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({recording_id: currentRecordingId})
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if (data.success || data.ok) {
+            isRecording = false;
+            var startBtn = document.getElementById('btnStartRecording'), stopBtn = document.getElementById('btnStopRecording');
+            var statusEl = document.getElementById('recordingStatus');
+            if (startBtn) startBtn.style.display = 'block';
+            if (stopBtn) stopBtn.style.display = 'none';
+            if (statusEl) statusEl.innerHTML = '<span class="text-muted">录制已停止</span>';
+            if (typeof stopStepPolling === 'function') stopStepPolling();
+            else if (stepPollingInterval) { clearInterval(stepPollingInterval); stepPollingInterval = null; }
+            alert('录制已停止，共 ' + (data.data ? data.data.action_count : 0) + ' 个步骤');
+            currentRecordingId = null;
+        } else { alert(data.message || '停止录制失败'); }
+    } catch (e) { alert('停止录制失败: ' + (e.message || '')); }
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadDevices);
+else loadDevices();
+</script>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+    // Global variables (使用 window.currentDeviceId 与内联脚本共享)
+    let currentRecordingId = null;
+    let isRecording = false;
+    let videoEventSource = null;
+    let stepPollingInterval = null;
+    
+    // Assertion variables
+    let longPressTimer = null;
+    let isLongPress = false;
+    let assertionCoordinates = { x: 0, y: 0 };
+    const LONG_PRESS_DURATION = 800;
+
+    // ApiClient 简单封装 (如果 base.html 中没有)
+    const ApiClient = {
+        async get(url, options = {}) {
+            return $.ajax({
+                url: url,
+                method: 'GET',
+                ...options
+            });
+        },
+        async post(url, data, options = {}) {
+            return $.ajax({
+                url: url,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                ...options
+            });
+        },
+        async delete(url, options = {}) {
+            return $.ajax({
+                url: url,
+                method: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify(options.data || {}),
+                ...options
+            });
+        },
+        async put(url, data, options = {}) {
+            return $.ajax({
+                url: url,
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                ...options
+            });
+        }
+    };
+
+    function showToast(message, type = 'info') {
+        // 简单 Toast 实现，或者使用 Bootstrap Toast
+        alert(message);
+    }
+
+    $(document).ready(function() {
+        debugLog('Document Ready. ScreenPreview length: ' + $('#screenPreview').length);
+        // 支持从用例管理页跳转加载用例 ?load=recordingId
+        const urlParams = new URLSearchParams(window.location.search);
+        const loadId = urlParams.get('load');
+        if (loadId) {
+            loadProjectsForRecorder().then(() => loadCaseForView(loadId));
+        }
+
+        // Bind Connect Device button
+        $('#btnConnectDevice').click(function(e) {
+            e.preventDefault();
+            console.log('Connect Device button clicked');
+            showConnectModal();
+        });
+
+        loadDevices();
+        loadProjectsForRecorder();
+
+        $('#deviceSelect').change(function() {
+            const deviceId = $(this).val();
+            if (deviceId) {
+                connectDevice(deviceId);
+            } else {
+                window.currentDeviceId = null;
+                stopVideoStream();
+            }
+        });
+
+        // ---------------------------------------------------------
+        // Move all event bindings inside ready and use document delegation
+        // ---------------------------------------------------------
+
+        function debugLog(msg) {
+            const consoleDiv = document.getElementById('debugConsole');
+            if (consoleDiv) {
+                consoleDiv.style.display = 'block';
+                const p = document.createElement('div');
+                p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                consoleDiv.appendChild(p);
+                consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            }
+            console.log(msg);
+        }
+
+        // Global click listener for debugging
+        document.addEventListener('mousedown', function(e) {
+            debugLog('Global mousedown: ' + e.target.tagName + '#' + e.target.id + '.' + e.target.className);
+        }, true); // Use capture phase to ensure we catch it
+
+        let screenScaleX = 1.0, screenScaleY = 1.0;
+        let isDragging = false, dragStart = null;
+
+        function updateScreenScale() {
+            const img = document.getElementById('screenPreview');
+            if (!img) return;
+            const nw = img.naturalWidth || 0, nh = img.naturalHeight || 0;
+            const dw = img.clientWidth || 1, dh = img.clientHeight || 1;
+            if (nw > 0 && dw > 0) screenScaleX = nw / dw;
+            if (nh > 0 && dh > 0) screenScaleY = nh / dh;
+        }
+
+        function getPointInImg(clientX, clientY) {
+            const img = document.getElementById('screenPreview');
+            if (!img) return null;
+            const rect = img.getBoundingClientRect();
+            const cx = clientX - rect.left;
+            const cy = clientY - rect.top;
+            if (cx < 0 || cy < 0 || cx > rect.width || cy > rect.height) return null;
+            return { x: Math.round(cx * screenScaleX), y: Math.round(cy * screenScaleY) };
+        }
+
+        // Use document delegation for dynamic elements and better reliability
+        $(document).on('mousedown touchstart', '#screenPreview', function(e) {
+            debugLog('Delegate mousedown on #screenPreview');
+            
+            if (!window.currentDeviceId) {
+                debugLog('No device selected');
+                showToast('请先选择设备', 'error');
+                return;
+            }
+            
+            updateScreenScale();
+            debugLog(`Scale: ${screenScaleX}, ${screenScaleY}`);
+            
+            isLongPress = false;
+            if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+            if (isRecording) {
+                const evt = e;
+                longPressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    showAssertionMenu(evt);
+                }, LONG_PRESS_DURATION);
+            }
+            
+            const oe = e.originalEvent || e;
+            const te = (oe.touches && oe.touches[0]) || (oe.changedTouches && oe.changedTouches[0]) || oe;
+            const px = te.clientX ?? te.pageX;
+            const py = te.clientY ?? te.pageY;
+
+            debugLog(`Client coords: ${px}, ${py}`);
+            const pt = getPointInImg(px, py);
+            if (!pt) {
+                debugLog('Point outside image');
+                return;
+            }
+            
+            debugLog(`Image coords: ${pt.x}, ${pt.y}`);
+            isDragging = true;
+            dragStart = pt;
+            
+            // Prevent default drag behavior manually if needed, though ondragstart handles it
+            // e.preventDefault(); 
+        });
+
+        $('#screenPreview').on('load', updateScreenScale);
+        
+        let resizeTimer;
+        $(window).on('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(updateScreenScale, 100);
+        });
+
+        // ---------------------------------------------------------
+        
+        const screenContainer = $('#screenContainer');
+        screenContainer.on('mouseup mouseleave touchend touchcancel', function(e) {
+             if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+        });
+
+        $(document).on('mouseup touchend', async function(e) {
+            if (!isDragging || !dragStart || !window.currentDeviceId) { 
+                if (isDragging) debugLog('Mouseup ignored: dragging=' + isDragging + ', dragStart=' + dragStart + ', deviceId=' + window.currentDeviceId);
+                isDragging = false; dragStart = null; return; 
+            }
+            if (isLongPress) { isLongPress = false; isDragging = false; dragStart = null; return; }
+            
+            debugLog('Mouseup triggered');
+            const oe = e.originalEvent || e;
+            const te = (oe.touches && oe.touches[0]) || (oe.changedTouches && oe.changedTouches[0]) || oe;
+            const px = te.clientX ?? te.pageX;
+            const py = te.clientY ?? te.pageY;
+            const dragEnd = getPointInImg(px, py);
+            const dist = dragEnd ? Math.sqrt(Math.pow(dragEnd.x - dragStart.x, 2) + Math.pow(dragEnd.y - dragStart.y, 2)) : 0;
+            
+            debugLog(`DragEnd: ${dragEnd ? dragEnd.x + ',' + dragEnd.y : 'null'}, Dist: ${dist}`);
+            
+            if (dist > 10 && dragEnd) {
+                apiControlSwipe(dragStart.x, dragStart.y, dragEnd.x, dragEnd.y);
+            } else {
+                apiControlClick(dragStart.x, dragStart.y);
+            }
+            isDragging = false;
+            dragStart = null;
+        });
+        
+        // 点击其他地方关闭菜单
+        $(document).click(function(e) {
+            if (!$(e.target).closest('#assertionMenu').length) {
+                $('#assertionMenu').hide();
+            }
+        });
+    });
+
+    async function loadProjectsForRecorder() {
+        try {
+            const result = await ApiClient.get('/ui_automation/api/projects');
+            const projects = (result && result.data && result.data.projects) || [];
+            const select = $('#recordingProject');
+            select.find('option:not(:first)').remove();
+            projects.forEach(p => {
+                select.append(`<option value="${p.id}">${p.name || p.id}</option>`);
+            });
+        } catch (e) {
+            console.error('加载项目列表失败:', e);
+        }
+    }
+
+    async function loadDevices() {
+        try {
+            const result = await ApiClient.get('/ui_automation/api/devices');
+            const select = $('#deviceSelect');
+            select.empty().append('<option value="">选择设备...</option>');
+            
+            if (result && result.success && result.data.devices) {
+                result.data.devices.forEach(device => {
+                    select.append(`<option value="${device}">${device}</option>`);
+                });
+            }
+        } catch (error) {
+            console.error('加载设备失败:', error);
+        }
+    }
+
+    function showConnectModal() {
+        console.log("showConnectModal called");
+        $('#connectIp').val('');
+        $('#connectPort').val('8787');
+        
+        try {
+            const modalEl = document.getElementById('connectDeviceModal');
+            if (!modalEl) {
+                console.error("Modal element #connectDeviceModal not found!");
+                alert("错误：无法找到弹窗组件");
+                return;
+            }
+            
+            // Move to body to avoid z-index/overflow issues
+            // Check if already direct child of body
+            if (modalEl.parentNode !== document.body) {
+                 document.body.appendChild(modalEl);
+            }
+            
+            let modal;
+            
+            // Try Bootstrap 5 API
+            if (window.bootstrap && window.bootstrap.Modal) {
+                console.log("Using Bootstrap 5 API");
+                modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            } 
+            // Fallback to jQuery if Bootstrap 5 API fails or not available
+            else if (typeof $ !== 'undefined' && $.fn.modal) {
+                console.log("Using jQuery API");
+                $('#connectDeviceModal').modal('show');
+            } else {
+                console.error("Bootstrap Modal API not found");
+                // Last resort manual show
+                $(modalEl).show().addClass('show').css('display', 'block').css('background-color', 'rgba(0,0,0,0.5)');
+                $('body').addClass('modal-open');
+            }
+        } catch (e) {
+            console.error("Error opening modal:", e);
+            // Fallback
+            $('#connectDeviceModal').show();
+            $('#connectDeviceModal').addClass('show');
+            $('#connectDeviceModal').css('background', 'rgba(0,0,0,0.5)');
+            $('body').addClass('modal-open');
+        }
+    }
+
+    async function submitConnectDevice() {
+        const ip = $('#connectIp').val();
+        const port = $('#connectPort').val();
+        
+        if (!ip) {
+            showToast('请输入 IP 地址', 'error');
+            return;
+        }
+        
+        try {
+            const btn = $('#connectDeviceModal .btn-primary');
+            const originalText = btn.text();
+            btn.text('连接中...').prop('disabled', true);
+            
+            const result = await ApiClient.post('/ui_automation/api/connect', {
+                ip: ip,
+                port: parseInt(port) || 8787
+            });
+            
+            if (result && result.success) {
+                showToast(result.message || '连接成功', 'success');
+                
+                // Close modal
+                const modalEl = document.getElementById('connectDeviceModal');
+                
+                // Try to hide using Bootstrap 5
+                if (window.bootstrap && window.bootstrap.Modal) {
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                } 
+                // Fallback to jQuery
+                else if (typeof $ !== 'undefined' && $.fn.modal) {
+                     $('#connectDeviceModal').modal('hide');
+                } else {
+                    // Manual hide
+                    $('#connectDeviceModal').hide();
+                    $('#connectDeviceModal').removeClass('show');
+                    $('body').removeClass('modal-open');
+                    $('.modal-backdrop').remove();
+                }
+                
+                // Refresh device list
+                await loadDevices();
+                
+                // Select the new device if possible
+                if (result.data && result.data.device_id) {
+                     // Check if option exists (it should after loadDevices)
+                     const exists = $(`#deviceSelect option[value='${result.data.device_id}']`).length > 0;
+                     if (exists) {
+                         $('#deviceSelect').val(result.data.device_id).change();
+                     }
+                }
+            } else {
+                showToast(result.message || '连接失败', 'error');
+            }
+        } catch (error) {
+            console.error('Connect error:', error);
+            // Handle JSON error response if available
+            let msg = '连接异常';
+            if (error.responseJSON && error.responseJSON.message) {
+                msg += ': ' + error.responseJSON.message;
+            } else {
+                msg += ': ' + error.message;
+            }
+            showToast(msg, 'error');
+        } finally {
+            $('#connectDeviceModal .btn-primary').text('连接').prop('disabled', false);
+        }
+    }
+
+    async function connectDevice(deviceId) {
+        window.currentDeviceId = deviceId;
+        startVideoStream(deviceId);
+        try {
+            const result = await ApiClient.get(`/ui_automation/api/device/screenshot/latest?device_id=${encodeURIComponent(deviceId)}`);
+            if (result && result.success && result.data && result.data.image) {
+                $('#screenPreview').attr('src', 'data:image/jpeg;base64,' + result.data.image);
+            }
+        } catch (e) { console.warn('初始预览加载失败', e); }
+    }
+
+    function startVideoStream(deviceId) {
+        if (videoEventSource) {
+            videoEventSource.close();
+        }
+        
+        // 使用 SSE 获取视频流
+        videoEventSource = new EventSource(`/ui_automation/stream_video?device_id=${encodeURIComponent(deviceId)}`);
+        
+        videoEventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === 'frame') {
+                $('#screenPreview').attr('src', 'data:image/jpeg;base64,' + data.data);
+            } else if (data.done) {
+                videoEventSource.close();
+            }
+        };
+        
+        videoEventSource.onerror = function(err) {
+            console.error("Video stream error:", err);
+            videoEventSource.close();
+        };
+    }
+    
+    function stopVideoStream() {
+        if (videoEventSource) {
+            videoEventSource.close();
+            videoEventSource = null;
+        }
+    }
+
+    // 手动刷新屏幕 (用于按键后)
+    function scheduleScreenRefresh(delay = 500) {
+        setTimeout(async () => {
+             if (window.currentDeviceId) {
+                 try {
+                     const result = await ApiClient.get(`/ui_automation/api/device/screenshot/latest?device_id=${window.currentDeviceId}`);
+                     if (result && result.success && result.data.image) {
+                         $('#screenPreview').attr('src', 'data:image/jpeg;base64,' + result.data.image);
+                     }
+                 } catch (e) {
+                     console.error("刷新屏幕失败", e);
+                 }
+             }
+        }, delay);
+    }
+
+    // --- Control Functions ---
+
+    async function apiControlSwipe(x1, y1, x2, y2) {
+        const deviceId = window.currentDeviceId;
+        if (!deviceId) { showToast('请先选择设备', 'error'); return; }
+        try {
+            const res = await fetch('/ui_automation/api/control/swipe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId, x1, y1, x2, y2, duration: 300 })
+            });
+            const result = await res.json().catch(function(){ return {}; });
+            if (res.ok && result && result.success) {
+                if (isRecording && currentRecordingId) { recordSwipe(x1, y1, x2, y2); }
+                scheduleScreenRefresh(500);
+            } else {
+                showToast('滑动失败: ' + (result.message || result.error || 'HTTP ' + res.status), 'error');
+            }
+        } catch (error) {
+            showToast('滑动异常: ' + (error.message || '网络错误'), 'error');
+        }
+    }
+
+    async function apiControlClick(x, y) {
+        debugLog(`Executing Click: ${x}, ${y}`);
+        const deviceId = window.currentDeviceId;
+        if (!deviceId) {
+            debugLog('No device selected');
+            showToast('请先选择设备', 'error');
+            return;
+        }
+        try {
+            const res = await fetch('/ui_automation/api/control/click', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId, x: x, y: y })
+            });
+            const result = await res.json().catch(function(){ return {}; });
+            if (res.ok && result && result.success) {
+                debugLog('Click success');
+                if (isRecording && currentRecordingId) {
+                    recordClick(x, y);
+                }
+                scheduleScreenRefresh(500);
+            } else {
+                debugLog('Click failed: ' + (result.message || 'unknown'));
+                showToast('点击失败: ' + (result.message || result.error || 'HTTP ' + res.status), 'error');
+            }
+        } catch (error) {
+            debugLog('Click exception: ' + error);
+            showToast('点击异常: ' + (error.message || '网络错误'), 'error');
+        }
+    }
+
+    async function sendKey(keyCode, keyName = '') {
+        if (!window.currentDeviceId) {
+            showToast('请先选择设备', 'error');
+            return;
+        }
+
+        try {
+            const result = await ApiClient.post('/ui_automation/api/control/key', {
+                device_id: window.currentDeviceId,
+                key_code: keyCode
+            });
+
+            if (result && result.success) {
+                // showToast(`按键 ${keyName || keyCode} 发送成功`, 'success');
+                
+                if (isRecording && currentRecordingId) {
+                    await recordKey(keyCode, keyName);
+                }
+                
+                // 刷新屏幕 (如果流不可用)
+                // if (!videoEventSource || videoEventSource.readyState === EventSource.CLOSED) {
+                    scheduleScreenRefresh(1000); 
+                // }
+            } else {
+                showToast(`按键 ${keyName || keyCode} 失败: ` + (result?.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('发送按键失败:', error);
+            showToast(`发送按键失败: ` + error.message, 'error');
+        }
+    }
+
+    async function recordKey(keyCode, keyName) {
+        try {
+            const result = await ApiClient.post('/ui_automation/api/recording/key', {
+                recording_id: currentRecordingId,
+                key_code: keyCode,
+                description: keyName ? `按键: ${keyName}` : ''
+            }, { showError: false });
+            
+            if (result && result.success) {
+                addRecordingStep('key', `按键: ${keyName || keyCode}`);
+            }
+        } catch (error) {
+            console.error('录制按键失败:', error);
+        }
+    }
+
+    async function sendBack() { await sendKey(4, '返回'); }
+    async function sendHome() { await sendKey(3, 'Home'); }
+    async function sendMenu() { await sendKey(82, '菜单'); }
+
+    // --- Recording Functions ---
+
+    async function recordClick(x, y) {
+        try {
+            const result = await ApiClient.post('/ui_automation/api/recording/click', {
+                recording_id: currentRecordingId,
+                x: x,
+                y: y
+            }, { showError: false });
+            
+            if (result && result.success) {
+                addRecordingStep('click', `点击 (${x}, ${y}) ...`, true);
+            }
+        } catch (error) {
+            console.error('录制点击失败:', error);
+        }
+    }
+
+    async function recordSwipe(x1, y1, x2, y2) {
+        try {
+            const result = await ApiClient.post('/ui_automation/api/recording/swipe', {
+                recording_id: currentRecordingId,
+                x1, y1, x2, y2,
+                duration: 300,
+                description: ''
+            }, { showError: false });
+            if (result && result.success) {
+                addRecordingStep('swipe', `滑动 (${x1},${y1}) -> (${x2},${y2})`, true);
+            }
+        } catch (error) {
+            console.error('录制滑动失败:', error);
+        }
+    }
+
+    async function startRecording() {
+        const deviceId = window.currentDeviceId;
+        if (!deviceId) {
+            showToast('请先选择设备', 'error');
+            return;
+        }
+        
+        const name = $('#recordingName').val();
+        const pkg = ($('#recordingPackage').val() || '').trim() || 'com.thunder.ktv';
+        const desc = $('#recordingDescription').val();
+        const project = $('#recordingProject').val() || '';
+        
+        try {
+            const result = await ApiClient.post('/ui_automation/api/recording/start', {
+                device_id: deviceId,
+                name: name,
+                package_name: pkg,
+                description: desc,
+                project_id: project
+            });
+            
+            if (result && result.success) {
+                currentRecordingId = result.data.recording_id;
+                isRecording = true;
+                
+                $('#btnStartRecording').hide();
+                $('#btnStopRecording').show();
+                $('#recordingStatus').html('<span class="text-danger"><i class="fas fa-circle fa-beat"></i> 录制中...</span>');
+                
+                $('#recordingSteps').empty();
+                $('#stepCount').text('0');
+                
+                startStepPolling();
+                showToast('录制已开始', 'success');
+            } else {
+                showToast('开始录制失败: ' + (result?.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            showToast('开始录制失败: ' + error.message, 'error');
+        }
+    }
+
+    async function stopRecording() {
+        if (!currentRecordingId) return;
+        
+        try {
+            const result = await ApiClient.post('/ui_automation/api/recording/stop', {
+                recording_id: currentRecordingId
+            });
+            
+            if (result && result.success) {
+                isRecording = false;
+                
+                $('#btnStartRecording').show();
+                $('#btnStopRecording').hide();
+                $('#recordingStatus').html('<span class="text-muted">录制已停止</span>');
+                
+                stopStepPolling();
+                refreshRecordingSteps();
+                
+                showToast(`录制已停止，共 ${result.data.action_count} 个步骤`, 'success');
+                currentRecordingId = null;
+            } else {
+                showToast('停止录制失败: ' + (result?.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            showToast('停止录制失败: ' + error.message, 'error');
+        }
+    }
+
+    function startStepPolling() {
+        if (stepPollingInterval) clearInterval(stepPollingInterval);
+        stepPollingInterval = setInterval(refreshRecordingSteps, 2000);
+    }
+    
+    function stopStepPolling() {
+        if (stepPollingInterval) {
+            clearInterval(stepPollingInterval);
+            stepPollingInterval = null;
+        }
+    }
+
+    async function loadCaseForView(recordingId) {
+        try {
+            const result = await ApiClient.get(`/ui_automation/api/recording/${recordingId}`);
+            const rec = (result && result.data && result.data.recording) || {};
+            $('#recordingName').val(rec.name || '');
+            $('#recordingPackage').val(rec.package_name || '');
+            $('#recordingDescription').val(rec.description || '');
+            $('#recordingProject').val(rec.project_id || '');
+            updateStepList(rec.actions || [], true);
+            $('#recordingStatus').html('<span class="text-info"><i class="fas fa-eye me-1"></i> 正在查看用例（只读）</span>');
+        } catch (e) {
+            console.error('加载用例失败:', e);
+            showToast('加载用例失败: ' + (e.message || '未知错误'));
+        }
+    }
+
+    async function refreshRecordingSteps() {
+        if (!currentRecordingId || !isRecording) return;
+        
+        try {
+            const result = await ApiClient.get(`/ui_automation/api/recording/${currentRecordingId}`, { showLoading: false });
+            
+            if (result && result.success && result.data && result.data.recording) {
+                const actions = result.data.recording.actions || [];
+                updateStepList(actions);
+            }
+        } catch (error) {
+            console.error('刷新步骤失败:', error);
+        }
+    }
+
+    function updateStepList(actions, viewOnly) {
+        const stepsContainer = $('#recordingSteps');
+        const countBadge = $('#stepCount');
+        viewOnly = !!viewOnly;
+        
+        stepsContainer.empty();
+        
+        if (actions.length === 0) {
+            stepsContainer.html('<div class="text-muted text-center py-3">暂无步骤</div>');
+            countBadge.text(0);
+            return;
+        }
+        
+        actions.forEach(action => {
+            const stepNum = action.step_num;
+            const type = action.action_type;
+            const description = action.description;
+            const status = action.status;
+            
+            const iconMap = {
+                'click': 'fa-mouse-pointer',
+                'swipe': 'fa-arrows-alt',
+                'input': 'fa-keyboard',
+                'key': 'fa-stop-circle',
+                'assertion': 'fa-check-circle'
+            };
+            
+            const icon = iconMap[type] || 'fa-circle';
+            let statusClass = '';
+            let statusIcon = '';
+            
+            if (status === 'failed') {
+                statusClass = 'border-danger bg-danger bg-opacity-10';
+                statusIcon = '<i class="fas fa-exclamation-circle text-danger ms-2" title="执行失败"></i>';
+            } else if (status === 'pending') {
+                statusClass = 'text-muted fst-italic';
+                statusIcon = '<i class="fas fa-spinner fa-spin ms-2"></i>';
+            }
+            
+            const actionBtns = viewOnly ? '' : `
+                <div>
+                    <button class="btn btn-sm btn-link text-primary p-0 me-2" onclick="editStep(${stepNum})" title="编辑步骤">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-link text-danger p-0" onclick="deleteStep(${stepNum})" title="删除步骤">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            const stepHtml = `
+                <div class="recording-step ${statusClass} border-bottom py-2" data-step="${stepNum}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="badge bg-secondary me-2">${stepNum}</span>
+                            <i class="fas ${icon} me-1"></i>
+                            <span class="step-desc">${description}</span>
+                            ${statusIcon}
+                        </div>
+                        ${actionBtns}
+                    </div>
+                </div>
+            `;
+            stepsContainer.append(stepHtml);
+        });
+        
+        countBadge.text(actions.length);
+        
+        // Auto scroll
+        // const cardBody = stepsContainer.parent();
+        // cardBody.scrollTop(cardBody[0].scrollHeight);
+    }
+
+    function addRecordingStep(type, description, isPending = false) {
+        // Optimistic update
+        const stepsContainer = $('#recordingSteps');
+        const countBadge = $('#stepCount');
+        
+        if (stepsContainer.find('.text-muted.text-center').length > 0) {
+            stepsContainer.empty();
+        }
+        
+        const stepNum = parseInt(countBadge.text()) + 1;
+        const iconMap = {
+            'click': 'fa-mouse-pointer',
+            'swipe': 'fa-arrows-alt',
+            'input': 'fa-keyboard',
+            'key': 'fa-stop-circle',
+            'assertion': 'fa-check-circle'
+        };
+        
+        const icon = iconMap[type] || 'fa-circle';
+        const pendingClass = isPending ? 'text-muted fst-italic' : '';
+        const pendingIcon = isPending ? '<i class="fas fa-spinner fa-spin ms-2"></i>' : '';
+        
+        const stepHtml = `
+            <div class="recording-step ${pendingClass} border-bottom py-2" data-step="${stepNum}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="badge bg-secondary me-2">${stepNum}</span>
+                        <i class="fas ${icon} me-1"></i>
+                        <span class="step-desc">${description}</span>
+                        ${pendingIcon}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        stepsContainer.append(stepHtml);
+        countBadge.text(stepNum);
+        
+        // Auto scroll
+        const cardBody = stepsContainer.parent();
+        cardBody.scrollTop(cardBody[0].scrollHeight);
+    }
+
+    // --- Assertion Functions ---
+
+    async function showAssertionMenu(event) {
+        const img = $('#screenPreview');
+        const offset = img.offset();
+        
+        // Handle both mouse and touch events
+        let pageX, pageY;
+        
+        // jQuery event wrapper handles pageX/pageY normalization for mouse
+        if (event.pageX !== undefined) {
+            pageX = event.pageX;
+            pageY = event.pageY;
+        } else if (event.originalEvent && event.originalEvent.touches && event.originalEvent.touches[0]) {
+             pageX = event.originalEvent.touches[0].pageX;
+             pageY = event.originalEvent.touches[0].pageY;
+        } else if (event.touches && event.touches[0]) {
+             // raw touch event
+             pageX = event.touches[0].pageX;
+             pageY = event.touches[0].pageY;
+        } else {
+             // Fallback if event is lost or invalid
+             return;
+        }
+
+        const x = pageX - offset.left;
+        const y = pageY - offset.top;
+        
+        const naturalWidth = img[0].naturalWidth;
+        const naturalHeight = img[0].naturalHeight;
+        const displayWidth = img.width();
+        const displayHeight = img.height();
+        
+        if (displayWidth === 0 || displayHeight === 0) return;
+
+        const scaleX = naturalWidth / displayWidth;
+        const scaleY = naturalHeight / displayHeight;
+        
+        const actualX = Math.round(x * scaleX);
+        const actualY = Math.round(y * scaleY);
+        
+        assertionCoordinates = { x: actualX, y: actualY };
+        
+        // Show menu at cursor position
+        const menu = $('#assertionMenu');
+        menu.css({
+            top: pageY + 'px',
+            left: pageX + 'px'
+        }).show();
+    }
+
+    function prepareAssertion(type) {
+        $('#assertionMenu').hide();
+        
+        $('#assertionX').val(assertionCoordinates.x);
+        $('#assertionY').val(assertionCoordinates.y);
+        $('#assertionType').val(type);
+        $('#assertionTypeDisplay').val(type === 'exists' ? '元素存在 (Exists)' : '包含文本 (Text Contains)');
+        $('#assertionExpected').val('');
+        $('#assertionDesc').val('');
+        
+        if (type === 'exists') {
+            $('#expectedValueGroup').hide();
+        } else {
+            $('#expectedValueGroup').show();
+        }
+        
+        const modalEl = document.getElementById('assertionModal');
+        // Check if bootstrap is available
+        if (typeof bootstrap !== 'undefined') {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        } else {
+            alert('Bootstrap JS not loaded');
+        }
+    }
+
+    async function submitAssertion() {
+        const x = $('#assertionX').val();
+        const y = $('#assertionY').val();
+        const type = $('#assertionType').val();
+        const expected = $('#assertionExpected').val();
+        const desc = $('#assertionDesc').val();
+        
+        // Close modal first
+        const modalEl = document.getElementById('assertionModal');
+        if (typeof bootstrap !== 'undefined') {
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
+        
+        try {
+            const result = await ApiClient.post('/ui_automation/api/recording/assertion', {
+                recording_id: currentRecordingId,
+                x: x,
+                y: y,
+                type: type,
+                expected: expected,
+                description: desc
+            });
+            
+            if (result && result.success) {
+                showToast('断言录制成功', 'success');
+                // Refresh steps immediately
+                refreshRecordingSteps();
+            } else {
+                showToast('断言录制失败: ' + (result?.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+             showToast('断言录制失败: ' + error.message, 'error');
+        }
+    }
+
+    async function deleteStep(stepIndex) {
+        if (!confirm('确定要删除此步骤吗？')) return;
+        
+        try {
+            const result = await ApiClient.delete('/ui_automation/api/recording/action', {
+                data: {
+                    recording_id: currentRecordingId,
+                    index: stepIndex - 1
+                }
+            });
+            
+            if (result && result.success) {
+                refreshRecordingSteps();
+            } else {
+                showToast('删除失败: ' + (result?.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            showToast('删除失败: ' + error.message, 'error');
+        }
+    }
+    
+    function editStep(stepNum) {
+        const desc = prompt('修改步骤描述:', '');
+        if (desc) {
+             updateStepDescription(stepNum, desc);
+        }
+    }
+    
+    async function updateStepDescription(stepNum, newDesc) {
+        try {
+            const result = await ApiClient.put('/ui_automation/api/recording/action', {
+                recording_id: currentRecordingId,
+                index: stepNum - 1,
+                description: newDesc
+            });
+            
+            if (result && result.success) {
+                refreshRecordingSteps();
+            }
+        } catch (error) {
+            showToast('更新失败: ' + error.message, 'error');
+        }
+    }
+</script>
+{% endblock %}

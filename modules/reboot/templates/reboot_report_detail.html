@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">测试详情: <span id="task-id">{{ task_id }}</span></h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ prefix }}/reports" class="btn btn-sm btn-outline-secondary me-2">返回列表</a>
+            <button class="btn btn-sm btn-success" onclick="exportCsv()">导出 CSV</button>
+        </div>
+    </div>
+
+    <div id="loading" class="text-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p>正在加载详细数据...</p>
+    </div>
+
+    <div id="content" class="d-none">
+        <div class="card mb-4">
+            <div class="card-header">
+                <strong>设备统计</strong>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered" id="summary-table">
+                    <thead>
+                        <tr>
+                            <th>设备</th>
+                            <th>总循环</th>
+                            <th>成功</th>
+                            <th>成功率</th>
+                            <th>失败 (ADB启/连/程/开/关)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <strong>执行明细</strong>
+                <div class="float-end">
+                    <input type="text" id="search-input" class="form-control form-control-sm d-inline-block w-auto" placeholder="搜索错误信息...">
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover" id="details-table">
+                        <thead>
+                            <tr>
+                                <th>轮次</th>
+                                <th>开始时间</th>
+                                <th>耗时(s)</th>
+                                <th>ADB启用</th>
+                                <th>ADB连接</th>
+                                <th>进程检测</th>
+                                <th>断电</th>
+                                <th>通电</th>
+                                <th>结果</th>
+                                <th>错误信息</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div id="pagination" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const PREFIX = '{{ prefix }}';
+    const TASK_ID = '{{ task_id }}';
+    let allDetails = [];
+
+    async function loadDetail() {
+        try {
+            const res = await fetch(`${PREFIX}/api/reports/detail/${TASK_ID}`);
+            const json = await res.json();
+            if (json.ok || json.success) {
+                allDetails = json.data.details;
+                renderSummary(json.data.summary);
+                renderDetails(allDetails);
+                document.getElementById('loading').classList.add('d-none');
+                document.getElementById('content').classList.remove('d-none');
+            } else {
+                alert('加载失败: ' + json.message);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('加载出错');
+        }
+    }
+
+    function renderSummary(summary) {
+        const tbody = document.querySelector('#summary-table tbody');
+        tbody.innerHTML = '';
+        
+        if (!summary || summary.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">无统计数据</td></tr>';
+            return;
+        }
+        
+        summary.forEach(s => {
+            const tr = document.createElement('tr');
+            const total = (s.reboot_count || 0) + (s.fail_power_on || 0); // Approx total attempts? 
+            // Better use execution_success_count + failures
+            // But s has reboot_count.
+            const success = s.execution_success_count || 0;
+            const rate = total > 0 ? ((success / total) * 100).toFixed(1) + '%' : '-';
+            
+            const fails = [
+                s.fail_adb_enable || 0,
+                s.fail_adb_connect || 0,
+                s.fail_process_check || 0,
+                s.fail_power_on || 0,
+                s.fail_power_off || 0
+            ].join(' / ');
+            
+            tr.innerHTML = `
+                <td>${s.device_ip || s.Device || '-'}</td>
+                <td>${s.reboot_count || 0}</td>
+                <td>${success}</td>
+                <td>${rate}</td>
+                <td class="text-danger">${fails}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderDetails(rows) {
+        const tbody = document.querySelector('#details-table tbody');
+        tbody.innerHTML = '';
+        
+        // Add Device column header if not exists
+        const thead = document.querySelector('#details-table thead tr');
+        if (!thead.querySelector('.th-device')) {
+            const th = document.createElement('th');
+            th.className = 'th-device';
+            th.textContent = '设备';
+            thead.insertBefore(th, thead.firstChild);
+        }
+
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            const date = new Date(row.start_ts * 1000).toLocaleTimeString();
+            const duration = row.end_ts - row.start_ts;
+            const device = row.device || row.device_ip || '-';
+            
+            tr.innerHTML = `
+                <td>${device}</td>
+                <td>${row.cycle_index}</td>
+                <td>${date}</td>
+                <td>${duration}</td>
+                <td class="${row.adb_enable_ok ? 'text-success' : 'text-danger'}">${row.adb_enable_ok}</td>
+                <td class="${row.adb_connect_ok ? 'text-success' : 'text-danger'}">${row.adb_connect_ok}</td>
+                <td class="${row.process_ok ? 'text-success' : 'text-danger'}">${row.process_ok}</td>
+                <td class="${row.power_off_ok ? 'text-success' : 'text-danger'}">${row.power_off_ok}</td>
+                <td class="${row.power_on_ok ? 'text-success' : 'text-danger'}">${row.power_on_ok}</td>
+                <td><span class="badge ${row.ok ? 'bg-success' : 'bg-danger'}">${row.ok ? 'PASS' : 'FAIL'}</span></td>
+                <td class="text-danger">${row.error_message || ''}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function exportCsv() {
+        // reuse existing export api
+        alert('请使用控制台页面的导出功能');
+    }
+
+    document.addEventListener('DOMContentLoaded', loadDetail);
+</script>
+{% endblock %}

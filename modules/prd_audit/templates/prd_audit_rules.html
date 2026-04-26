@@ -1,0 +1,94 @@
+{% extends "prd_audit_base.html" %}
+
+{% block module_content %}
+<div class="card prd-card mb-3">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-muted"><i class="fas fa-shield-alt me-2"></i>PRD规则库</h5>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary" id="btnPrdRuleRefresh">刷新</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btnPrdRuleImport">导入</button>
+            <button class="btn btn-sm btn-outline-success" id="btnPrdRuleExport">导出</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <input type="file" id="prdRuleImportInput" accept="application/json,.json" class="d-none">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+                <thead><tr><th style="width:90px;">规则ID</th><th style="width:90px;">分类</th><th style="width:70px;">等级</th><th style="width:120px;">来源模式</th><th style="width:240px;">规则描述</th><th style="width:550px;">检测逻辑</th><th>风险说明</th></tr></thead>
+                <tbody id="prdRuleTbody"><tr><td colspan="7" class="text-muted small">加载中...</td></tr></tbody>
+            </table>
+        </div>
+        <div id="prdRuleStatus" class="small text-muted mt-2"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var ruleTbody = document.getElementById('prdRuleTbody');
+    var btnRefresh = document.getElementById('btnPrdRuleRefresh');
+    var btnImport = document.getElementById('btnPrdRuleImport');
+    var btnExport = document.getElementById('btnPrdRuleExport');
+    var importInput = document.getElementById('prdRuleImportInput');
+    var statusEl = document.getElementById('prdRuleStatus');
+    function setStatus(t, bad) {
+        statusEl.textContent = t || '';
+        statusEl.className = 'small mt-2 ' + (bad ? 'text-danger' : 'text-muted');
+    }
+    function loadRules() {
+        ruleTbody.innerHTML = '<tr><td colspan="7" class="text-muted small">加载中...</td></tr>';
+        setStatus('加载中...', false);
+        fetch('/prd_audit/api/bug/rules', { method: 'GET' })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if (!res || !res.success) throw new Error((res && res.message) || '加载失败');
+                var items = (res.data && res.data.items) || [];
+                if (!items.length) {
+                    ruleTbody.innerHTML = '<tr><td colspan="7" class="text-muted small">暂无规则</td></tr>';
+                    return;
+                }
+                ruleTbody.innerHTML = items.map(function(it) {
+                    return '<tr><td>' + (it.rule_id || '-') + '</td><td>' + (it.category || '-') + '</td><td>' + (it.severity || '-') + '</td><td>' + (it.source_pattern || '-') + '</td><td>' + (it.rule_desc || '-') + '</td><td>' + (it.detect || '-') + '</td><td>' + (it.risk || '-') + '</td></tr>';
+                }).join('');
+                setStatus('已加载', false);
+            })
+            .catch(function(err){ ruleTbody.innerHTML = '<tr><td colspan="7" class="text-danger small">加载失败：' + (err.message || String(err)) + '</td></tr>'; setStatus('加载失败：' + (err.message || String(err)), true); });
+    }
+    btnRefresh.addEventListener('click', loadRules);
+    if (btnExport) {
+        btnExport.addEventListener('click', function() {
+            window.location.href = '/prd_audit/api/bug/rules/export';
+        });
+    }
+    if (btnImport && importInput) {
+        btnImport.addEventListener('click', function() { importInput.click(); });
+        importInput.addEventListener('change', function(e) {
+            var file = e.target.files && e.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function() {
+                var payload;
+                try { payload = JSON.parse(String(reader.result || '{}')); } catch (err) { setStatus('导入失败：JSON格式错误', true); return; }
+                setStatus('导入中...', false);
+                fetch('/prd_audit/api/bug/rules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if (!res || !res.success) throw new Error((res && res.message) || '导入失败');
+                    setStatus('导入成功', false);
+                    loadRules();
+                })
+                .catch(function(err){ setStatus('导入失败：' + (err.message || String(err)), true); });
+            };
+            reader.readAsText(file, 'utf-8');
+            e.target.value = '';
+        });
+    }
+    loadRules();
+})();
+</script>
+{% endblock %}

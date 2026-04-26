@@ -1,0 +1,1625 @@
+{% extends "base.html" %}
+
+{% block title %}Monkey 测试 - Trae Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-robot"></i> Monkey 测试管理</h2>
+        
+        <!-- Tab导航 -->
+        <ul class="nav nav-tabs mb-4" id="monkeyTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard-panel" type="button" role="tab">
+                    <i class="bi bi-speedometer2"></i> 控制面板
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports-panel" type="button" role="tab">
+                    <i class="bi bi-file-text"></i> 测试报告
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="batch-tab" data-bs-toggle="tab" data-bs-target="#batch-panel" type="button" role="tab">
+                    <i class="bi bi-collection"></i> 批次测试
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="scheduler-tab" data-bs-toggle="tab" data-bs-target="#scheduler-panel" type="button" role="tab">
+                    <i class="bi bi-clock-history"></i> 定时任务
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab内容 -->
+        <div class="tab-content" id="monkeyTabContent">
+            
+            <!-- 控制面板 (合并了设备管理和测试控制) -->
+            <div class="tab-pane fade show active" id="dashboard-panel" role="tabpanel">
+                <div class="row">
+                    <!-- 左侧：设备管理 -->
+                    <div class="col-md-5">
+                        <div class="card mb-4 shadow-sm h-100">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-hdd-network"></i> 设备连接与管理</span>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="refreshDevices()">
+                                        <i class="bi bi-arrow-clockwise"></i> 刷新
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <!-- 单个添加 -->
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" id="deviceIp" placeholder="IP地址 (如 192.168.1.100)">
+                                    <input type="number" class="form-control" id="devicePort" placeholder="端口" value="8787" style="max-width: 80px;">
+                                    <button class="btn btn-primary" onclick="addDevice()">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
+
+                                <!-- 批量操作 (折叠式) -->
+                                <div class="accordion mb-3" id="batchAccordion">
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="headingBatch">
+                                            <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBatch" aria-expanded="false">
+                                                <i class="bi bi-collection-play me-2"></i> 批量连接工具
+                                            </button>
+                                        </h2>
+                                        <div id="collapseBatch" class="accordion-collapse collapse" data-bs-parent="#batchAccordion">
+                                            <div class="accordion-body p-3">
+                                                <div class="mb-2">
+                                                    <label class="form-label small">IP前缀</label>
+                                                    <input type="text" class="form-control form-control-sm" id="batchPrefix" placeholder="例如 192.168.1.">
+                                                </div>
+                                                <div class="row g-2 mb-2">
+                                                    <div class="col-6">
+                                                        <label class="form-label small">起始尾号</label>
+                                                        <input type="number" class="form-control form-control-sm" id="batchStartNo" value="100">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label small">结束尾号</label>
+                                                        <input type="number" class="form-control form-control-sm" id="batchEndNo" value="110">
+                                                    </div>
+                                                </div>
+                                                <button class="btn btn-sm btn-outline-success w-100" onclick="batchConnect()">开始批量连接</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 设备列表 -->
+                                <h6 class="border-bottom pb-2 mb-3">在线设备列表</h6>
+                                <div id="deviceList" style="max-height: 500px; overflow-y: auto;">
+                                    <div class="text-center text-muted py-4">
+                                        <div class="spinner-border text-secondary mb-2" role="status" style="display:none" id="loadingDevices"></div>
+                                        <p class="small">点击刷新加载列表...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：Monkey 测试控制 -->
+                    <div class="col-md-7">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-play-circle"></i> Monkey 测试控制</span>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="refreshStatus()">
+                                        <i class="bi bi-arrow-clockwise"></i> 刷新状态
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <h5 class="card-title mb-3">配置参数</h5>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">目标设备</label>
+                                        <select class="form-select" id="testDeviceSelect">
+                                            <option value="">请先连接设备...</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">应用包名</label>
+                                        <input type="text" class="form-control" id="testPackage" value="com.thunder.ktv">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">事件数量</label>
+                                        <input type="number" class="form-control" id="testEvents" value="20000">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">间隔 (ms)</label>
+                                        <input type="number" class="form-control" id="testThrottle" value="1000">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">超时 (秒)</label>
+                                        <input type="number" class="form-control" id="testTimeout" value="24300">
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between mt-2">
+                                    <small class="text-muted" id="monkeyRecommendHint">推荐参数：间隔 1000ms，超时 24300s（约 6h 45m）</small>
+                                    <button class="btn btn-sm btn-outline-primary" type="button" onclick="applyRecommendedMonkeyParams()">填入推荐参数</button>
+                                </div>
+
+                                <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                                    <button class="btn btn-success flex-grow-1" onclick="startMonkey()">
+                                        <i class="bi bi-play-fill"></i> 启动测试
+                                    </button>
+                                    <button class="btn btn-danger flex-grow-1" onclick="stopMonkey()">
+                                        <i class="bi bi-stop-fill"></i> 停止测试
+                                    </button>
+                                </div>
+
+                                <!-- 运行状态 -->
+                                <h6 class="border-bottom pb-2 mt-4 mb-3">实时运行状态</h6>
+                                <div id="monkeyStatusList" style="min-height: 200px;">
+                                    <!-- 动态填充 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 报告面板 -->
+            <div class="tab-pane fade" id="reports-panel" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <span>历史报告</span>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadReports()">刷新</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>设备</th>
+                                        <th>包名</th>
+                                        <th>状态</th>
+                                        <th>覆盖率</th>
+                                        <th>Crash/ANR</th>
+                                        <th>详情</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportsTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 批次测试：多轮循环 / 统一报告 / N 分钟采样 / 导出 PDF -->
+            <div class="tab-pane fade" id="batch-panel" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light">
+                        <span><i class="bi bi-collection"></i> 批次 Monkey：多台设备、多轮循环，统一出结果</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-12">
+                                <label class="form-label">已连接设备（点击设备填入下方列表，与单机 Monkey 同源）</label>
+                                <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="refreshDevicesForBatch()"><i class="bi bi-arrow-clockwise me-1"></i>刷新</button>
+                                    <span id="batchDeviceChooserHint" class="text-muted small">加载中...</span>
+                                    <div id="batchDeviceChooser" class="d-flex flex-wrap gap-2"></div>
+                                </div>
+                                <label class="form-label mt-2">设备列表（可手动填写或从上选择）</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="batchDeviceIds" placeholder="只填 IP 将自动试 5555/8787，如 192.168.16.131 或 192.168.16.131:5555">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('batchDeviceIds').value=''" title="清空">清空</button>
+                                </div>
+                                <p class="form-text small text-muted mb-0 mt-1">本页<strong>无需先去首页连接</strong>：只填 IP 会依次尝试 5555、8787 端口自动连接；填 IP:端口 则用该端口。设备以运行本平台的电脑为准。</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">包名</label>
+                                <input type="text" class="form-control" id="batchPackage" value="com.thunder.ktv" placeholder="com.thunder.ktv">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">采样间隔（分钟）</label>
+                                <input type="number" class="form-control" id="batchSampleMinutes" value="2" min="1" max="60">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">轮数（1=单次）</label>
+                                <input type="number" class="form-control" id="batchRounds" value="1" min="1" max="100">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">事件数</label>
+                                <input type="number" class="form-control" id="batchEvents" value="20000">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">超时(s)</label>
+                                <input type="number" class="form-control" id="batchTimeout" value="3600">
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-primary" onclick="batchStart()"><i class="bi bi-play-fill me-1"></i>启动批次</button>
+                            <button class="btn btn-danger" id="batchStopBtn" onclick="batchStop()" style="display:none;"><i class="bi bi-stop-fill me-1"></i>停止批次</button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="batchRefreshStatus()">刷新状态</button>
+                        </div>
+                        <div id="batchStatusArea" class="small text-muted mb-3">
+                            未启动批次。填写设备列表后点击「启动批次」。
+                        </div>
+                        <div id="batchDeviceStatusList" class="small mb-2" style="display:none;"></div>
+                        <div id="batchReportLinks" class="small" style="display:none;">
+                            <a href="#" id="batchReportLink" target="_blank" class="me-3">查看统一报告</a>
+                            <a href="#" id="batchReportPdfLink" target="_blank">导出 PDF</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 定时任务面板 -->
+            <div class="tab-pane fade" id="scheduler-panel" role="tabpanel">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-clock-history"></i> 定时任务列表</span>
+                        <button class="btn btn-sm btn-primary" onclick="showAddSchedulerModal()">
+                            <i class="bi bi-plus-lg"></i> 新增任务
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>任务名称</th>
+                                        <th>执行时间 (每天)</th>
+                                        <th>目标设备</th>
+                                        <th>包名/事件数</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="schedulerTableBody">
+                                    <tr><td colspan="6" class="text-center text-muted">加载中...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 实时日志 -->
+    <div class="card mt-3 shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+            <span><i class="bi bi-terminal me-1"></i> 实时日志</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearMonkeyLiveLog()" title="清空">清空</button>
+        </div>
+        <div class="card-body p-2">
+            <pre id="monkeyLiveLog" class="mb-0 bg-dark text-light rounded p-3 small" style="max-height: 220px; overflow-y: auto; font-size: 0.8rem; white-space: pre-wrap; line-height: 1.4;"></pre>
+        </div>
+    </div>
+</div>
+
+<!-- 报告详情模态框 -->
+<div class="modal fade" id="reportDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Monkey 测试报告详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>设备:</strong> <span id="detailDevice"></span></p>
+                        <p><strong>包名:</strong> <span id="detailPackage"></span></p>
+                        <p><strong>开始时间:</strong> <span id="detailStartTime"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>状态:</strong> <span id="detailStatus" class="badge bg-secondary"></span></p>
+                        <p><strong>失败原因:</strong> <span id="detailStatusReason" class="text-danger fw-bold"></span></p>
+                        <p><strong>事件进度:</strong> <span id="detailEvents"></span></p>
+                        <p><strong>内存泄漏:</strong> <span id="detailLeak"></span></p>
+                    </div>
+                </div>
+                
+                <h6 class="border-bottom pb-2 mb-2">性能指标</h6>
+                <div class="alert alert-light border small mb-3">
+                  <strong>说明：</strong>FPS 反映界面流畅度（高且稳定为佳）；CPU 为应用占用；内存为进程占用。曲线中 FPS 持续为 0 多表示应用停止或崩溃，内存突增后回落常伴随崩溃或进程结束。
+                </div>
+                <div class="alert alert-light border small mb-3">
+                  <strong>其他字段：</strong>「事件进度」为已执行/计划执行的随机操作数；「内存泄漏」为测试前后内存增长，明显增大时需排查泄漏。
+                </div>
+                <div class="row mb-3 small">
+                     <div class="col-md-3"><strong>FPS:</strong> <span id="detailPerf"></span></div>
+                </div>
+                <!-- 性能趋势图 -->
+                <div class="mb-3" style="height: 300px;">
+                    <canvas id="perfTrendChart"></canvas>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-2">Crash / ANR 详情</h6>
+                <div class="alert alert-light border small mb-2">
+                  <strong>说明：</strong>Crash 表示应用异常退出（闪退）；ANR（Application Not Responding）表示应用长时间无响应、系统弹出「应用未响应」提示。二者均为稳定性问题，需结合日志排查。
+                </div>
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <h6 class="card-title text-danger">Crash</h6>
+                                <div id="detailCrash" class="small" style="max-height: 100px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <h6 class="card-title text-warning">ANR</h6>
+                                <div id="detailAnr" class="small" style="max-height: 100px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-2">Monkey 输出日志 (部分)</h6>
+                <pre id="detailLog" class="bg-light p-3 border rounded" style="max-height: 300px; overflow-y: auto; font-size: 0.85rem; white-space: pre-wrap;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 定时任务配置模态框 -->
+<div class="modal fade" id="schedulerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="schedulerModalTitle">配置定时任务</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="schedulerForm">
+                    <input type="hidden" id="schedId">
+                    <div class="mb-3">
+                        <label class="form-label">任务名称</label>
+                        <input type="text" class="form-control" id="schedName" required placeholder="例如: 每日凌晨稳定性测试">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">执行时间 (每天)</label>
+                        <input type="time" class="form-control" id="schedTime" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">目标设备 (换行分隔)</label>
+                        <textarea class="form-control" id="schedDevices" rows="2" placeholder="如 192.168.1.100&#10;192.168.1.101"></textarea>
+                        <div class="form-text">每行一个设备，不填默认全量在线设备。</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">包名</label>
+                        <input type="text" class="form-control" id="schedPackage" value="com.thunder.ktv">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">事件数量</label>
+                            <input type="number" class="form-control" id="schedEvents" value="100000">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">轮次</label>
+                            <input type="number" class="form-control" id="schedRounds" value="1">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveScheduler()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// API 基础路径
+const API_BASE = '/monkey/api';
+
+// 全局更新器
+let statusUpdater = null;
+let deviceStatusUpdater = null;
+let isDashboardActive = false;
+let perfChart = null;
+let batchStatusPoller = null; // 批次状态轮询，运行中时每 3 秒刷新
+let lastBatchRoundLogged = 0; // 批次轮次日志去重
+
+const MONKEY_LOG_MAX = 300;
+let monkeyLogEntries = [];
+
+function appendMonkeyLog(msg, type) {
+    type = type || 'info';
+    const ts = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    monkeyLogEntries.push({ ts, msg, type });
+    if (monkeyLogEntries.length > MONKEY_LOG_MAX) monkeyLogEntries.shift();
+    const el = document.getElementById('monkeyLiveLog');
+    if (!el) return;
+    const cls = type === 'success' ? 'text-success' : type === 'warning' ? 'text-warning' : type === 'error' ? 'text-danger' : 'text-info';
+    el.innerHTML = monkeyLogEntries.map(function (e) {
+        const c = e.type === 'success' ? 'text-success' : e.type === 'warning' ? 'text-warning' : e.type === 'error' ? 'text-danger' : 'text-info';
+        return '<span class="' + c + '">[' + e.ts + ']</span> ' + escapeHtml(e.msg);
+    }).join('\n');
+    el.scrollTop = el.scrollHeight;
+}
+
+function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+}
+
+function clearMonkeyLiveLog() {
+    monkeyLogEntries = [];
+    const el = document.getElementById('monkeyLiveLog');
+    if (el) el.innerHTML = '';
+}
+
+function toPosInt(v, d) {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n > 0 ? n : d;
+}
+
+function formatDuration(sec) {
+    const s = Math.max(0, toPosInt(sec, 0));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+}
+
+function getRecommendedThrottle(eventsCount) {
+    const e = Math.max(1, toPosInt(eventsCount, 20000));
+    if (e >= 50000) return 1200;
+    if (e >= 20000) return 1000;
+    if (e >= 10000) return 800;
+    if (e >= 5000) return 600;
+    return 400;
+}
+
+function estimateRecommendedTimeout(eventsCount, throttleMs) {
+    const e = Math.max(1, toPosInt(eventsCount, 20000));
+    const t = Math.max(0, toPosInt(throttleMs, 1000));
+    const throttleSec = t / 1000.0;
+    const expectedSecPerEvent = Math.max(1.2, throttleSec);
+    const estimated = Math.floor(e * expectedSecPerEvent + 300);
+    const theoreticalFloor = Math.floor(e * Math.max(0.05, throttleSec) + 120);
+    return Math.max(900, estimated, theoreticalFloor);
+}
+
+function refreshMonkeyRecommendHint() {
+    const eventsEl = document.getElementById('testEvents');
+    const throttleEl = document.getElementById('testThrottle');
+    const hintEl = document.getElementById('monkeyRecommendHint');
+    if (!eventsEl || !throttleEl || !hintEl) return;
+    const events = toPosInt(eventsEl.value, 20000);
+    const throttle = getRecommendedThrottle(events);
+    const timeout = estimateRecommendedTimeout(events, throttle);
+    hintEl.textContent = `推荐参数：间隔 ${throttle}ms，超时 ${timeout}s（约 ${formatDuration(timeout)}）`;
+}
+
+function applyRecommendedMonkeyParams() {
+    const eventsEl = document.getElementById('testEvents');
+    const throttleEl = document.getElementById('testThrottle');
+    const timeoutEl = document.getElementById('testTimeout');
+    if (!eventsEl || !throttleEl || !timeoutEl) return;
+    const events = toPosInt(eventsEl.value, 20000);
+    const throttle = getRecommendedThrottle(events);
+    const timeout = estimateRecommendedTimeout(events, throttle);
+    throttleEl.value = String(throttle);
+    timeoutEl.value = String(timeout);
+    refreshMonkeyRecommendHint();
+    toast.success(`已填入推荐参数：${throttle}ms / ${timeout}s`);
+}
+
+// 页面加载
+document.addEventListener('DOMContentLoaded', () => {
+    appendMonkeyLog('页面已加载，可进行设备连接与 Monkey 测试', 'info');
+    refreshDevices();
+    refreshStatus();
+    loadReports();
+    
+    // 使用 StatusUpdater 管理状态更新
+    statusUpdater = StatusUpdater.create(refreshStatus, 3000); // 状态更新频率加快到3秒
+    deviceStatusUpdater = StatusUpdater.create(refreshDevices, 10000); // 设备列表每10秒刷新
+    
+    // 支持通过 hash 直接打开批次测试：#batch-panel
+    const hash = (window.location.hash || '').toLowerCase();
+    if (hash === '#batch-panel') {
+        const batchTabEl = document.getElementById('batch-tab');
+        if (batchTabEl && typeof bootstrap !== 'undefined') {
+            const tab = new bootstrap.Tab(batchTabEl);
+            tab.show();
+        }
+    }
+    
+    // 监听 Bootstrap 标签页切换事件
+    const tabElements = document.querySelectorAll('#monkeyTabs button[data-bs-toggle="tab"]');
+    tabElements.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function (event) {
+            const targetId = event.target.getAttribute('data-bs-target');
+            try {
+                if (targetId === '#dashboard-panel') {
+                    isDashboardActive = true;
+                    if (batchStatusPoller) { clearInterval(batchStatusPoller); batchStatusPoller = null; }
+                    if (deviceStatusUpdater) deviceStatusUpdater.start();
+                    if (statusUpdater) statusUpdater.start();
+                    refreshDevices();
+                    refreshStatus();
+                } else if (targetId === '#reports-panel') {
+                    isDashboardActive = false;
+                    if (batchStatusPoller) { clearInterval(batchStatusPoller); batchStatusPoller = null; }
+                    if (statusUpdater) statusUpdater.stop();
+                    if (deviceStatusUpdater) deviceStatusUpdater.stop();
+                    loadReports();
+                } else if (targetId === '#batch-panel') {
+                    isDashboardActive = false;
+                    if (statusUpdater) statusUpdater.stop();
+                    if (deviceStatusUpdater) deviceStatusUpdater.stop();
+                    try {
+                        batchRefreshStatus();
+                        refreshDevicesForBatch();
+                    } catch (e) {
+                        console.error('batchRefreshStatus error:', e);
+                    }
+                    if (currentBatchId && !batchStatusPoller) {
+                        batchStatusPoller = setInterval(function () {
+                            try {
+                                batchRefreshStatus();
+                            } catch (e) {
+                                console.error('batchRefreshStatus poll error:', e);
+                            }
+                        }, 3000);
+                    }
+                } else if (targetId === '#scheduler-panel') {
+                    isDashboardActive = false;
+                    if (batchStatusPoller) { clearInterval(batchStatusPoller); batchStatusPoller = null; }
+                    if (statusUpdater) statusUpdater.stop();
+                    if (deviceStatusUpdater) deviceStatusUpdater.stop();
+                    loadSchedulers();
+                }
+            } catch (e) {
+                console.error('Tab switch error:', e);
+            }
+        });
+    });
+    
+    // 默认激活控制面板
+    isDashboardActive = true;
+    if (deviceStatusUpdater) deviceStatusUpdater.start();
+    if (statusUpdater) statusUpdater.start();
+    refreshMonkeyRecommendHint();
+    const eventsEl = document.getElementById('testEvents');
+    if (eventsEl) {
+        eventsEl.addEventListener('input', refreshMonkeyRecommendHint);
+        eventsEl.addEventListener('change', refreshMonkeyRecommendHint);
+    }
+    
+    // 监听页面可见性变化
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            // 页面隐藏时停止所有更新
+            if (statusUpdater) statusUpdater.stop();
+            if (deviceStatusUpdater) deviceStatusUpdater.stop();
+        } else {
+            // 页面显示时根据当前标签页恢复更新
+            if (isDashboardActive) {
+                if (deviceStatusUpdater) {
+                    deviceStatusUpdater.start();
+                    refreshDevices();
+                }
+                if (statusUpdater) {
+                    statusUpdater.start();
+                    refreshStatus();
+                }
+            }
+        }
+    });
+});
+
+// --- 设备管理 ---
+let lastDevicesHash = ''; // 用于检测设备列表是否变化
+
+function selectDevice(deviceKey) {
+    const select = document.getElementById('testDeviceSelect');
+    if (select) {
+        select.value = deviceKey;
+    }
+}
+
+async function refreshDevices() {
+    // 只在控制面板可见时刷新
+    if (!isDashboardActive && !document.getElementById('dashboard-panel')?.classList.contains('active')) {
+        return;
+    }
+    
+    const listDiv = document.getElementById('deviceList');
+    const select = document.getElementById('testDeviceSelect');
+    
+    if (!listDiv || !select) return;
+    
+    try {
+        const result = await ApiClient.get(`${API_BASE}/devices`, {
+            showLoading: false,
+            showError: false
+        });
+        
+        if (result && (result.success || result.ok)) {
+            const devices = result.data?.devices || result.devices || [];
+            const devicesHash = JSON.stringify(devices.sort());
+            
+            // 如果设备列表没有变化，不更新 DOM
+            if (devicesHash === lastDevicesHash) {
+                return;
+            }
+            lastDevicesHash = devicesHash;
+            
+            // 使用 DocumentFragment 优化 DOM 操作
+            const fragment = document.createDocumentFragment();
+            const tempDiv = document.createElement('div');
+            tempDiv.className = 'list-group list-group-flush';
+            
+            // 保存当前选中的值
+            const currentSelected = select.value;
+            select.innerHTML = '<option value="">请选择设备...</option>';
+            
+            if (devices && devices.length > 0) {
+                devices.forEach(d => {
+                    const deviceKey = d;
+                    const [ip, port] = deviceKey.split(':');
+                    
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'list-group-item d-flex justify-content-between align-items-center list-group-item-action px-0';
+                    itemDiv.innerHTML = `
+                        <div role="button" onclick="selectDevice('${deviceKey}')" class="d-flex align-items-center flex-grow-1" title="点击选择此设备">
+                            <i class="bi bi-phone text-success"></i> 
+                            <span class="ms-2 fw-bold">${deviceKey}</span>
+                        </div>
+                        <div>
+                            <span class="badge bg-success me-2">Online</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); disconnectDevice('${ip}', ${port || 8787})" title="断开连接">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    `;
+                    tempDiv.appendChild(itemDiv);
+                    
+                    const opt = document.createElement('option');
+                    opt.value = deviceKey;
+                    opt.textContent = deviceKey;
+                    select.appendChild(opt);
+                });
+                
+                // 恢复选中值
+                if (currentSelected && devices.includes(currentSelected)) {
+                    select.value = currentSelected;
+                }
+            } else {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'list-group-item text-center text-muted';
+                emptyDiv.textContent = '无设备连接';
+                tempDiv.appendChild(emptyDiv);
+            }
+            
+            fragment.appendChild(tempDiv);
+            listDiv.innerHTML = '';
+            listDiv.appendChild(fragment);
+        } else {
+            if (listDiv.innerHTML.indexOf('获取设备列表失败') === -1) {
+                listDiv.innerHTML = '<div class="alert alert-warning">获取设备列表失败</div>';
+            }
+        }
+    } catch (e) {
+        console.error("获取设备列表失败", e);
+        const listDiv = document.getElementById('deviceList');
+        if (listDiv && listDiv.innerHTML.indexOf('发生错误') === -1) {
+            listDiv.innerHTML = '<div class="alert alert-danger">获取设备列表时发生错误</div>';
+        }
+    }
+}
+
+async function addDevice() {
+    const ip = document.getElementById('deviceIp').value;
+    const port = document.getElementById('devicePort').value || 8787;
+    
+    if (!ip) {
+        toast.warning('请输入设备IP');
+        return;
+    }
+    
+    try {
+        const result = await ApiClient.post(`${API_BASE}/connect`, {
+            ip: ip,
+            port: parseInt(port)
+        });
+        
+        if (result.success || result.ok) {
+            toast.success(result.message || '设备连接成功');
+            appendMonkeyLog('adb 连接成功 ' + ip + ':' + port, 'success');
+            var ipEl = document.getElementById('deviceIp');
+            if (ipEl) ipEl.value = '';
+            setTimeout(() => { refreshDevices(); }, 500);
+        } else {
+            appendMonkeyLog('连接 ' + ip + ':' + port + ' 失败：' + (result.message || '未知'), 'error');
+        }
+    } catch (error) {
+        appendMonkeyLog('连接 ' + ip + ':' + port + ' 失败：' + (error && error.message ? error.message : '网络或服务异常'), 'error');
+    }
+}
+
+async function disconnectDevice(ip, port) {
+    const confirmed = await ConfirmDialog.show(
+        `确定要断开设备 ${ip}:${port} 的连接吗？`,
+        '确认断开'
+    );
+    if (!confirmed) return;
+    
+    try {
+        const result = await ApiClient.post(`${API_BASE}/disconnect`, {
+            ip: ip,
+            port: port
+        });
+        
+        if (result.success || result.ok) {
+            toast.success(result.message || '设备已断开');
+            appendMonkeyLog('已断开 ' + ip + ':' + port, 'info');
+            refreshDevices();
+        }
+    } catch (error) {
+        // 错误已自动处理
+    }
+}
+
+async function batchConnect() {
+    const prefix = document.getElementById('batchPrefix').value;
+    const startNo = parseInt(document.getElementById('batchStartNo').value) || 100;
+    const endNo = parseInt(document.getElementById('batchEndNo').value) || 110;
+    
+    if (!prefix) {
+        toast.warning('请输入IP前缀');
+        return;
+    }
+    
+    if (startNo > endNo) {
+        toast.warning('起始尾号不能大于结束尾号');
+        return;
+    }
+    
+    const confirmed = await ConfirmDialog.show(
+        `确定要批量连接 ${endNo - startNo + 1} 个设备吗？\nIP范围: ${prefix}${startNo} - ${prefix}${endNo}`,
+        '确认批量连接'
+    );
+    if (!confirmed) return;
+    
+    toast.info('开始批量连接设备...');
+    appendMonkeyLog('开始批量连接 ' + prefix + startNo + '～' + prefix + endNo + ' ...', 'info');
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (let i = startNo; i <= endNo; i++) {
+        const ip = prefix + i;
+        try {
+            const result = await ApiClient.post(`${API_BASE}/connect`, {
+                ip: ip,
+                port: 8787
+            }, {
+                showLoading: false,
+                showError: false
+            });
+            
+            if (result.success || result.ok) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        } catch (error) {
+            failCount++;
+        }
+        
+        // 短暂延迟，避免过快请求
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    toast.success(`批量连接完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+    appendMonkeyLog('批量连接完成：成功 ' + successCount + ' 个，失败 ' + failCount + ' 个', successCount > 0 ? 'success' : 'warning');
+    refreshDevices();
+}
+
+// --- Monkey 控制 ---
+async function startMonkey() {
+    const device = document.getElementById('testDeviceSelect').value;
+    if (!device) {
+        toast.warning('请先选择设备');
+        return;
+    }
+    
+    const [ip, port] = device.split(':');
+    
+    const payload = {
+        ip: ip,
+        port: port || 8787,
+        package_name: document.getElementById('testPackage').value,
+        events_count: document.getElementById('testEvents').value,
+        throttle: document.getElementById('testThrottle').value,
+        timeout: document.getElementById('testTimeout').value
+    };
+    
+    try {
+        const result = await ApiClient.post(`${API_BASE}/start`, payload, {
+            showLoading: true,
+            loadingMessage: '正在启动 Monkey 测试...'
+        });
+        
+        if (result.success || result.ok) {
+            toast.success(result.message || 'Monkey 测试已启动');
+            appendMonkeyLog('monkey 启动中 设备: ' + device + '（等待 PID）', 'info');
+            refreshStatus();
+        } else {
+            appendMonkeyLog('Monkey 启动失败 设备: ' + device + ' ' + (result.message || ''), 'error');
+        }
+    } catch (error) {
+        appendMonkeyLog('Monkey 启动失败 设备: ' + device + ' ' + (error && error.message ? error.message : ''), 'error');
+        refreshStatus();
+    }
+}
+
+async function stopMonkey() {
+    const device = document.getElementById('testDeviceSelect').value;
+    if (!device) {
+        toast.warning('请先选择设备');
+        return;
+    }
+    
+    const [ip, port] = device.split(':');
+    
+    const confirmed = await ConfirmDialog.danger(
+        `确定要停止设备 ${device} 的测试吗？`,
+        '确认停止测试'
+    );
+    if (!confirmed) return;
+    
+    try {
+        const result = await ApiClient.post(`${API_BASE}/stop`, { ip, port: port || 8787 }, {
+            showLoading: true,
+            loadingMessage: '正在停止测试...'
+        });
+        
+        if (result.success || result.ok) {
+            toast.success(result.message || '测试已停止');
+            appendMonkeyLog('已停止设备 ' + device + ' 的 Monkey 测试', 'info');
+            refreshStatus();
+        }
+    } catch (error) {
+        const msg = (error && error.message) || '';
+        if (msg.includes('不存在') || msg.includes('404')) {
+            toast.warning('该设备当前没有运行中的测试，或测试已结束。请刷新状态后再试。');
+        }
+        refreshStatus();
+    }
+}
+
+let lastStatusHash = ''; // 用于检测状态是否变化
+let monkeyPidLoggedDevices = {}; // 已打过「monkey 已启动 + PID」日志的设备，避免重复
+
+async function refreshStatus() {
+    // 只在控制面板可见时刷新
+    if (!isDashboardActive && !document.getElementById('dashboard-panel')?.classList.contains('active')) {
+        return;
+    }
+    
+    const listDiv = document.getElementById('monkeyStatusList');
+    if (!listDiv) return;
+    
+    try {
+        const data = await ApiClient.get(`${API_BASE}/status`, {
+            showLoading: false
+        });
+        
+        if (data.success || data.ok) {
+            const responseData = data.data || data;
+            const testsData = responseData.tests || {};
+            const tests = Object.values(testsData);
+
+            // 自动恢复批次状态
+            const activeBatchId = responseData.active_batch_id;
+            if (activeBatchId && activeBatchId !== currentBatchId) {
+                currentBatchId = activeBatchId;
+                // 如果当前在批次面板，立即启动轮询
+                const batchTabEl = document.getElementById('batch-panel');
+                if (batchTabEl && batchTabEl.classList.contains('active')) {
+                     batchRefreshStatus();
+                     if (!batchStatusPoller) {
+                        batchStatusPoller = setInterval(function () {
+                            try { batchRefreshStatus(); } catch (err) { console.error(err); }
+                        }, 3000);
+                     }
+                }
+                // 提示用户
+                if (!document.getElementById('batch-panel').classList.contains('active')) {
+                     // 可选：在某处显示"批次运行中"的提示，这里暂不打扰用户，只在后台恢复状态
+                     console.log('Detected active batch:', activeBatchId);
+                }
+            }
+
+            const statusHash = JSON.stringify(tests.map(t => ({
+                id: t.device_id,
+                status: t.status,
+                progress: t.events_executed
+            })));
+            
+            // 如果状态没有变化，不更新 DOM
+            if (statusHash === lastStatusHash && tests.length > 0) {
+                return;
+            }
+            lastStatusHash = statusHash;
+            
+            if (tests.length === 0) {
+                monkeyPidLoggedDevices = {};
+                if (listDiv.innerHTML.indexOf('暂无正在运行的测试') === -1) {
+                    listDiv.innerHTML = '<div class="alert alert-light text-center">暂无正在运行的测试</div>';
+                }
+                return;
+            }
+
+            // 已结束的设备从「已打 PID 日志」集合中移除，方便下次启动再打
+            const runningIds = tests.map(function (t) { return t.device_id; });
+            Object.keys(monkeyPidLoggedDevices).forEach(function (did) {
+                if (runningIds.indexOf(did) === -1) delete monkeyPidLoggedDevices[did];
+            });
+            // 对正在运行且已有 PID 的测试打一条「monkey 已启动 + PID」日志（只打一次）
+            tests.forEach(function (t) {
+                if (t.status !== 'RUNNING') return;
+                var pid = t.monkey_pid || t.monkey_local_pid;
+                if (!pid || monkeyPidLoggedDevices[t.device_id]) return;
+                monkeyPidLoggedDevices[t.device_id] = true;
+                var pidTip = t.monkey_pid ? '设备端 PID: ' + t.monkey_pid : '本地 PID: ' + t.monkey_local_pid;
+                appendMonkeyLog('monkey 已启动 设备: ' + t.device_id + ' ' + pidTip + ' ✓', 'success');
+            });
+
+            // 使用 DocumentFragment 优化 DOM 操作
+            const fragment = document.createDocumentFragment();
+            
+            tests.forEach(test => {
+                const progress = test.events_planned > 0 ? Math.round((test.events_executed / test.events_planned) * 100) : 0;
+                let statusClass = 'bg-secondary';
+                if (test.status === 'RUNNING') statusClass = 'bg-primary';
+                else if (test.status === 'SUCCESS') statusClass = 'bg-success';
+                else if (test.status === 'FAILED') statusClass = 'bg-danger';
+                
+                const cardDiv = document.createElement('div');
+                cardDiv.className = `card mb-2 border-start border-4 border-${statusClass.replace('bg-', '')}`;
+                cardDiv.innerHTML = `
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <strong>${test.device_id}</strong>
+                            <span class="badge ${statusClass}">${test.status}</span>
+                        </div>
+                        <div class="small text-muted mb-2">
+                            <span>包名: ${test.package_name}</span> | 
+                            <span>Crash: ${test.crash_count}</span> | 
+                            <span>ANR: ${test.anr_count}</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar ${statusClass}" role="progressbar" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between small mt-1">
+                            <span>进度: ${progress}% (${test.events_executed}/${test.events_planned})</span>
+                            <span title="实时CPU和FPS">CPU: ${(test.cpu_app || 0).toFixed(1)}% | FPS: ${(test.video_fps || 0).toFixed(1)}</span>
+                        </div>
+                        <div class="d-flex justify-content-between small mt-1 text-muted">
+                            <span>内存: ${test.before_mem_mb} -> ${test.after_mem_mb} MB</span>
+                            <span>MPP: ${test.mpp_active ? 'Active' : 'Idle'}</span>
+                        </div>
+                    </div>
+                `;
+                fragment.appendChild(cardDiv);
+            });
+            
+            listDiv.innerHTML = '';
+            listDiv.appendChild(fragment);
+        }
+    } catch (e) {
+        // 静默处理，避免频繁错误提示
+    }
+}
+
+async function loadReports() {
+    try {
+        const data = await ApiClient.get(`${API_BASE}/reports`, {
+            showLoading: false
+        });
+        
+        if (data.success || data.ok) {
+            const tbody = document.getElementById('reportsTableBody');
+            let html = '';
+            
+            const reports = data.data?.reports || data.reports || [];
+            // 倒序显示
+            reports.slice().reverse().forEach(r => {
+                const statusColor = r.status === 'SUCCESS' ? 'text-success' : (r.status === 'RUNNING' ? 'text-primary' : 'text-danger');
+                html += `
+                    <tr>
+                        <td>${r.start_time ? new Date(r.start_time).toLocaleString() : '-'}</td>
+                        <td>${r.device_id}</td>
+                        <td>${r.package_name}</td>
+                        <td class="${statusColor} fw-bold">${r.status}</td>
+                        <td>${Math.round(r.coverage_percent)}%</td>
+                        <td>
+                            <span class="${r.crash_count > 0 ? 'text-danger fw-bold' : 'text-muted'}">${r.crash_count}</span> / 
+                            <span class="${r.anr_count > 0 ? 'text-danger fw-bold' : 'text-muted'}">${r.anr_count}</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-link" onclick="showDetails('${r.report_id || r.device_id}')">查看</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html || '<tr><td colspan="7" class="text-center text-muted">暂无报告</td></tr>';
+        }
+    } catch (e) {
+        console.error("Load reports failed", e);
+    }
+}
+
+async function showDetails(reportId) {
+    if (!reportId) {
+        toast.warning('无效的报告ID');
+        return;
+    }
+    
+    // 如果是旧数据只有 deviceId，可能无法获取详情，这里做个兼容提示
+    if (reportId.indexOf(':') > 0 && reportId.length < 30) {
+        alert('此报告为旧版本生成，暂不支持查看详情');
+        return;
+    }
+
+    try {
+        const result = await ApiClient.get(`${API_BASE}/reports/${reportId}`, {
+            showLoading: true,
+            loadingMessage: '加载详情...'
+        });
+        
+        if (result.success || result.ok) {
+            const r = result.data?.report || result.report;
+            if (!r) {
+                toast.error('未找到报告详情');
+                return;
+            }
+            
+            // 检查元素是否存在
+            const els = {
+                device: document.getElementById('detailDevice'),
+                package: document.getElementById('detailPackage'),
+                startTime: document.getElementById('detailStartTime'),
+                status: document.getElementById('detailStatus'),
+                events: document.getElementById('detailEvents'),
+                leak: document.getElementById('detailLeak'),
+                perf: document.getElementById('detailPerf'),
+                crash: document.getElementById('detailCrash'),
+                anr: document.getElementById('detailAnr'),
+                log: document.getElementById('detailLog'),
+                statusReason: document.getElementById('detailStatusReason'),
+                modal: document.getElementById('reportDetailModal')
+            };
+
+            if (!els.modal) {
+                console.error('Modal element not found');
+                toast.error('页面组件缺失，请刷新重试');
+                return;
+            }
+
+            // 填充数据 (使用安全访问)
+            if (els.device) els.device.textContent = r.device_id || '-';
+            if (els.package) els.package.textContent = r.package_name || '-';
+            if (els.startTime) els.startTime.textContent = r.start_time ? new Date(r.start_time).toLocaleString() : '-';
+            
+            if (els.status) {
+                els.status.textContent = r.status || '-';
+                els.status.className = 'badge ' + (r.status === 'SUCCESS' ? 'bg-success' : (r.status === 'RUNNING' ? 'bg-primary' : 'bg-danger'));
+            }
+            if (els.statusReason) {
+                els.statusReason.textContent = r.status_reason || '-';
+                els.statusReason.className = (r.status_reason && r.status !== 'SUCCESS' && r.status !== 'RUNNING') ? 'text-danger fw-bold' : 'text-muted';
+            }
+            
+            if (els.events) els.events.textContent = `${r.events_executed || 0} / ${r.events_planned || 0} (${Math.round(r.coverage_percent || 0)}%)`;
+            
+            if (els.leak) {
+                els.leak.textContent = r.leak ? '是' : '否';
+                els.leak.className = r.leak ? 'text-danger fw-bold' : 'text-success';
+            }
+            
+            if (els.perf) els.perf.textContent = `Video FPS: ${r.video_fps ? r.video_fps.toFixed(1) : '-'}, CPU: ${r.cpu_app ? r.cpu_app.toFixed(1) : '-'}%`;
+
+            // 渲染性能趋势图
+            const perfHistory = result.data?.performance_history || [];
+            const ctx = document.getElementById('perfTrendChart');
+            
+            if (ctx && perfHistory.length > 0) {
+                if (perfChart) {
+                    perfChart.destroy();
+                }
+                
+                // 降采样以避免点过多
+                const step = Math.max(1, Math.floor(perfHistory.length / 100));
+                const sampled = perfHistory.filter((_, i) => i % step === 0);
+                
+                const labels = sampled.map(p => {
+                    const d = new Date(p.ts);
+                    return `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
+                });
+                
+                perfChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'FPS',
+                                data: sampled.map(p => p.fps),
+                                borderColor: 'rgb(75, 192, 192)',
+                                tension: 0.1,
+                                yAxisID: 'y',
+                                pointRadius: 0,
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'CPU (%)',
+                                data: sampled.map(p => p.cpu),
+                                borderColor: 'rgb(255, 99, 132)',
+                                tension: 0.1,
+                                yAxisID: 'y',
+                                pointRadius: 0,
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'Memory (MB)',
+                                data: sampled.map(p => p.mem),
+                                borderColor: 'rgb(54, 162, 235)',
+                                tension: 0.1,
+                                yAxisID: 'y1',
+                                pointRadius: 0,
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            tooltip: {
+                                enabled: true
+                            },
+                            legend: {
+                                position: 'top',
+                            }
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                beginAtZero: true,
+                                title: { display: true, text: 'FPS / CPU %' }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                                title: { display: true, text: 'Memory (MB)' }
+                            }
+                        }
+                    }
+                });
+            } else if (ctx) {
+                if (perfChart) {
+                    perfChart.destroy();
+                    perfChart = null;
+                }
+                const context = ctx.getContext('2d');
+                context.clearRect(0, 0, ctx.width, ctx.height);
+                context.font = "14px Arial";
+                context.fillStyle = "gray";
+                context.textAlign = "center";
+                context.fillText("暂无详细趋势数据", ctx.width/2, ctx.height/2);
+            }
+
+            // Crash/ANR logic
+            const errors = r.error_details || [];
+            const crashes = errors.filter(e => e.toLowerCase().includes('crash'));
+            const anrs = errors.filter(e => e.toLowerCase().includes('not responding') || e.toLowerCase().includes('anr'));
+            const others = errors.filter(e => !e.toLowerCase().includes('crash') && !e.toLowerCase().includes('not responding') && !e.toLowerCase().includes('anr'));
+
+            if (els.crash) {
+                els.crash.innerHTML = (crashes.length > 0 || others.length > 0) 
+                    ? [...crashes, ...others].map(e => `<div class="text-danger border-bottom pb-1 mb-1">${e}</div>`).join('')
+                    : '<div class="text-muted">无 Crash 记录</div>';
+            }
+                
+            if (els.anr) {
+                els.anr.innerHTML = anrs.length > 0 
+                    ? anrs.map(e => `<div class="text-warning border-bottom pb-1 mb-1">${e}</div>`).join('')
+                    : '<div class="text-muted">无 ANR 记录</div>';
+            }
+
+            // 日志
+            if (els.log) els.log.textContent = r.monkey_output || '暂无日志';
+
+            // 显示模态框 (with fallback)
+            try {
+                const modal = new bootstrap.Modal(els.modal);
+                modal.show();
+            } catch (bsError) {
+                console.error("Bootstrap modal error:", bsError);
+                try {
+                    var m = bootstrap.Modal.getOrCreateInstance(els.modal);
+                    if (m) m.show();
+                } catch (e2) {
+                    toast.error('无法显示详情窗口');
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Show details failed", e);
+        toast.error('加载详情失败: ' + (e.message || '未知错误'));
+    }
+}
+
+// --- 批次测试 ---
+let currentBatchId = null;
+
+function addDeviceToBatch(deviceKey) {
+    const input = document.getElementById('batchDeviceIds');
+    if (!input) return;
+    const cur = (input.value || '').trim();
+    const list = cur ? cur.split(/\s*,\s*/).filter(Boolean) : [];
+    if (list.includes(deviceKey)) return;
+    list.push(deviceKey);
+    input.value = list.join(', ');
+}
+
+async function refreshDevicesForBatch() {
+    const container = document.getElementById('batchDeviceChooser');
+    const hint = document.getElementById('batchDeviceChooserHint');
+    if (!container) return;
+    if (hint) hint.textContent = '加载中...';
+    container.innerHTML = '';
+    try {
+        const result = await ApiClient.get(`${API_BASE}/devices`, { showLoading: false, showError: false });
+        const devices = result && (result.success || result.ok) ? (result.data?.devices || result.devices || []) : [];
+        if (hint) hint.textContent = devices.length ? '点击设备填入下方列表：' : '暂无已连接设备，请先在控制面板连接设备';
+        devices.forEach(function (deviceKey) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-outline-success';
+            btn.textContent = deviceKey;
+            btn.title = '点击填入设备列表';
+            btn.onclick = function () { addDeviceToBatch(deviceKey); };
+            container.appendChild(btn);
+        });
+    } catch (e) {
+        if (hint) hint.textContent = '获取设备列表失败';
+        console.error('refreshDevicesForBatch error:', e);
+    }
+}
+
+async function batchStart() {
+    const deviceIdsStr = document.getElementById('batchDeviceIds')?.value?.trim() || '';
+    const deviceIds = deviceIdsStr.split(/[\s,]+/).filter(s => s.length > 0);
+    if (deviceIds.length === 0) {
+        toast.warning('请填写设备列表（逗号或空格分隔）');
+        return;
+    }
+    const sampleMinutes = parseInt(document.getElementById('batchSampleMinutes')?.value || 2, 10) || 2;
+    const rounds = parseInt(document.getElementById('batchRounds')?.value || 1, 10) || 1;
+    const events = parseInt(document.getElementById('batchEvents')?.value || 20000, 10) || 20000;
+    const timeout = parseInt(document.getElementById('batchTimeout')?.value || 3600, 10) || 3600;
+    const packageName = document.getElementById('batchPackage')?.value?.trim() || 'com.thunder.ktv';
+    try {
+        const result = await ApiClient.post(`${API_BASE}/batch/start`, {
+            device_ids: deviceIds,
+            sample_interval_minutes: sampleMinutes,
+            rounds: rounds,
+            events_count: events,
+            timeout: timeout,
+            package_name: packageName
+        }, { loadingMessage: '正在启动批次...' });
+        if (result.data && result.data.batch_id) {
+            currentBatchId = result.data.batch_id;
+            lastBatchRoundLogged = 0;
+            toast.success('批次已启动');
+            appendMonkeyLog('批次已启动 batch_id: ' + result.data.batch_id + '，设备: ' + deviceIds.join(', '), 'success');
+            batchRefreshStatus();
+            if (currentBatchId && !batchStatusPoller) {
+                batchStatusPoller = setInterval(function () {
+                    try { batchRefreshStatus(); } catch (err) { console.error(err); }
+                }, 3000);
+            }
+        }
+    } catch (e) {
+        appendMonkeyLog('批次启动失败: ' + (e.message || '未知错误'), 'error');
+        toast.error('启动失败: ' + (e.message || '未知错误'));
+    }
+}
+
+async function batchRefreshStatus() {
+    const area = document.getElementById('batchStatusArea');
+    const linksDiv = document.getElementById('batchReportLinks');
+    const reportLink = document.getElementById('batchReportLink');
+    const reportPdfLink = document.getElementById('batchReportPdfLink');
+    const stopBtn = document.getElementById('batchStopBtn');
+    if (!area) return;
+
+    // 尝试获取 active_batch_id (如果本地未记录)
+    if (!currentBatchId) {
+        try {
+            const statusRes = await ApiClient.get(`${API_BASE}/status`, { showLoading: false, showError: false });
+            if (statusRes.data && statusRes.data.active_batch_id) {
+                currentBatchId = statusRes.data.active_batch_id;
+                // 恢复轮询
+                if (!batchStatusPoller) {
+                    batchStatusPoller = setInterval(function () {
+                        try { batchRefreshStatus(); } catch (err) { console.error(err); }
+                    }, 3000);
+                }
+            }
+        } catch (e) {
+            console.warn('Check active batch failed:', e);
+        }
+    }
+
+    const bid = currentBatchId || null;
+    if (!bid) {
+        area.textContent = '未启动批次。填写设备列表后点击「启动批次」。';
+        if (linksDiv) linksDiv.style.display = 'none';
+        if (stopBtn) stopBtn.style.display = 'none';
+        return;
+    }
+    try {
+        const result = await ApiClient.get(`${API_BASE}/batch/${encodeURIComponent(bid)}/status`, { showLoading: false, showError: false });
+        const b = result.data || {};
+        const status = b.status || 'unknown';
+        const currentRound = b.current_round || 0;
+        const rounds = b.rounds || 1;
+        const deviceIdsList = b.device_ids || [];
+        const deviceIdsStr = deviceIdsList.join(', ');
+        const startErrors = b.start_errors || {};
+        const errKeys = Object.keys(startErrors);
+        const startedList = deviceIdsList.filter(function (d) { return !startErrors[d]; });
+        const failedList = errKeys;
+        let deviceTipHtml = '';
+        if (startedList.length) {
+            deviceTipHtml += '<br><span class="text-success small"><i class="bi bi-check-circle me-1"></i>已启动: ' + startedList.join(', ') + '（本页左侧「已连接设备」即平台侧 adb 结果；终端无设备时请确认带端口如 192.168.16.131:8787 或刷新左侧列表）</span>';
+        }
+        // 批次运行时拉取 /api/status：打 PID 日志 + 展示各设备 Monkey 状态
+        var deviceStatusEl = document.getElementById('batchDeviceStatusList');
+        if (status === 'running' && startedList.length > 0) {
+            try {
+                const statusRes = await ApiClient.get(`${API_BASE}/status`, { showLoading: false, showError: false });
+                const testsData = (statusRes.data && statusRes.data.tests) || statusRes.tests || {};
+                if (deviceStatusEl) {
+                    deviceStatusEl.style.display = 'block';
+                    var rows = deviceIdsList.map(function (deviceId) {
+                        var t = testsData[deviceId];
+                        var err = startErrors[deviceId];
+                        if (err) return '<span class="text-danger">' + deviceId + '</span> 有问题：' + (err.replace(/^设备未连接[：:]?|^设备正在运行测试[：:]?/i, '')) + '<br>';
+                        if (!t) return '<span class="text-muted">' + deviceId + '</span> 已启动（等待中）<br>';
+                        var st = t.status || '';
+                        var prog = (t.events_executed != null && t.events_planned != null) ? t.events_executed + '/' + t.events_planned : '';
+                        if (st === 'RUNNING') return '<span class="text-primary">' + deviceId + '</span> Monkey 运行中 ' + (prog ? '(' + prog + ')' : '') + '<br>';
+                        if (st === 'SUCCESS') return '<span class="text-success">' + deviceId + '</span> 已完成<br>';
+                        return '<span class="text-danger">' + deviceId + '</span> ' + st + (t.status_reason ? '：' + t.status_reason : '') + '<br>';
+                    });
+                    deviceStatusEl.innerHTML = '<strong>各设备状态：</strong><br>' + rows.join('');
+                }
+                startedList.forEach(function (deviceId) {
+                    var t = testsData[deviceId];
+                    if (!t || t.status !== 'RUNNING') return;
+                    var pid = t.monkey_pid || t.monkey_local_pid;
+                    if (!pid || monkeyPidLoggedDevices[deviceId]) return;
+                    monkeyPidLoggedDevices[deviceId] = true;
+                    var pidTip = t.monkey_pid ? '设备端 PID: ' + t.monkey_pid : '本地 PID: ' + t.monkey_local_pid;
+                    appendMonkeyLog('monkey 已启动 设备: ' + deviceId + ' ' + pidTip + ' ✓', 'success');
+                });
+            } catch (e) { /* 忽略 */ }
+        } else {
+            if (deviceStatusEl) deviceStatusEl.style.display = 'none';
+        }
+        if (failedList.length) {
+            deviceTipHtml += '<br><span class="text-danger small"><i class="bi bi-x-circle me-1"></i>有问题: ' + failedList.map(function (k) { return k + '（' + (startErrors[k] || '').replace(/^设备未连接[：:]?|^设备正在运行测试[：:]?/i, '') + '）'; }).join('； ') + '</span>';
+        }
+        if (!deviceTipHtml) {
+            deviceTipHtml = '<br>设备: ' + deviceIdsStr;
+        }
+        area.innerHTML = `批次 ID: <code>${bid}</code><br>状态: <strong>${status}</strong> | 当前轮次: ${currentRound}/${rounds}${deviceTipHtml}`;
+        if (status === 'running' && startedList.length && currentRound > 0 && currentRound !== lastBatchRoundLogged) {
+            lastBatchRoundLogged = currentRound;
+            appendMonkeyLog('第 ' + currentRound + ' 轮 Monkey 已启动 设备: ' + startedList.join(', '), 'success');
+        }
+        if (status === 'finished' || status === 'failed' || status === 'stopped') {
+            if (lastBatchRoundLogged !== -1) {
+                lastBatchRoundLogged = -1;
+                appendMonkeyLog('批次已结束 状态: ' + status, 'info');
+            }
+            deviceIdsList.forEach(function (did) { delete monkeyPidLoggedDevices[did]; });
+            currentBatchId = bid;
+            if (linksDiv) linksDiv.style.display = 'block';
+            if (reportLink) {
+                reportLink.href = `/monkey/api/batch/${encodeURIComponent(bid)}/report`;
+                reportLink.textContent = '查看统一报告';
+            }
+            if (reportPdfLink) {
+                reportPdfLink.href = `/monkey/api/batch/${encodeURIComponent(bid)}/report.pdf`;
+                reportPdfLink.textContent = '导出 PDF';
+            }
+            if (batchStatusPoller) {
+                clearInterval(batchStatusPoller);
+                batchStatusPoller = null;
+            }
+        } else {
+            if (linksDiv) linksDiv.style.display = 'none';
+        }
+    } catch (e) {
+        if (area) area.textContent = '查询状态失败: ' + (e.message || '未知错误');
+        if (linksDiv) linksDiv.style.display = 'none';
+        if (stopBtn) stopBtn.style.display = 'none';
+    }
+}
+
+async function batchStop() {
+    const bid = currentBatchId;
+    if (!bid) {
+        toast.warning('当前无运行中的批次');
+        return;
+    }
+    try {
+        const result = await ApiClient.post(`${API_BASE}/batch/${encodeURIComponent(bid)}/stop`, {}, { showLoading: true });
+        if (result.ok || result.success) {
+            toast.success('已发送停止请求');
+            appendMonkeyLog('已发送停止批次请求', 'info');
+            batchRefreshStatus();
+        } else {
+            toast.error(result.message || '停止失败');
+        }
+    } catch (e) {
+        const msg = (e && e.message) || '';
+        if (msg.includes('不存在') || msg.includes('资源') || msg.includes('404')) {
+            toast.warning('批次不存在或已结束（可能因服务重启，请刷新页面后再试）');
+        } else {
+            toast.error('停止失败: ' + (msg || '未知错误'));
+        }
+    }
+}
+
+// --- 定时任务 ---
+async function loadSchedulers() {
+    try {
+        const result = await ApiClient.get(`${API_BASE}/scheduler/list`, { showLoading: false });
+        const tasks = result.data || [];
+        const tbody = document.getElementById('schedulerTableBody');
+        let html = '';
+        tasks.forEach(t => {
+            const statusBadge = t.enabled ? '<span class="badge bg-success">启用</span>' : '<span class="badge bg-secondary">停用</span>';
+            const devText = (t.devices && t.devices.length) ? t.devices.join(', ') : '所有在线设备';
+            html += `
+                <tr>
+                    <td>${escapeHtml(t.name || '未命名')}</td>
+                    <td class="fw-bold">${t.schedule_time}</td>
+                    <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${devText}">${devText}</td>
+                    <td>${t.package}<br><small class="text-muted">${t.events} 事件 / ${t.cycles || t.rounds || 1} 轮</small></td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick='editScheduler(${JSON.stringify(t)})'>编辑</button>
+                        <button class="btn btn-sm btn-outline-${t.enabled ? 'warning' : 'success'} me-1" onclick="toggleScheduler('${t.id}', ${!t.enabled})">${t.enabled ? '停用' : '启用'}</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteScheduler('${t.id}')">删除</button>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html || '<tr><td colspan="6" class="text-center text-muted">暂无定时任务</td></tr>';
+    } catch (e) {
+        console.error("Load schedulers failed", e);
+    }
+}
+
+function showAddSchedulerModal() {
+    document.getElementById('schedulerForm').reset();
+    document.getElementById('schedId').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('schedulerModal'));
+    document.getElementById('schedulerModalTitle').textContent = '新增定时任务';
+    modal.show();
+}
+
+function editScheduler(t) {
+    document.getElementById('schedId').value = t.id;
+    document.getElementById('schedName').value = t.name;
+    document.getElementById('schedTime').value = t.schedule_time;
+    document.getElementById('schedDevices').value = (t.devices || []).join('\n');
+    document.getElementById('schedPackage').value = t.package || 'com.thunder.ktv';
+    document.getElementById('schedEvents').value = t.events || 100000;
+    document.getElementById('schedRounds').value = t.cycles || t.rounds || 1;
+    
+    document.getElementById('schedulerModalTitle').textContent = '编辑定时任务';
+    const modal = new bootstrap.Modal(document.getElementById('schedulerModal'));
+    modal.show();
+}
+
+async function saveScheduler() {
+    const id = document.getElementById('schedId').value;
+    const name = document.getElementById('schedName').value;
+    const time = document.getElementById('schedTime').value;
+    const devs = document.getElementById('schedDevices').value.split('\n').map(s => s.trim()).filter(Boolean);
+    const pkg = document.getElementById('schedPackage').value;
+    const events = parseInt(document.getElementById('schedEvents').value) || 100000;
+    const rounds = parseInt(document.getElementById('schedRounds').value) || 1;
+
+    if (!name || !time) {
+        toast.warning('任务名称和时间不能为空');
+        return;
+    }
+
+    const data = {
+        name, schedule_time: time, devices: devs, package: pkg, events, rounds
+    };
+    
+    const url = id ? `${API_BASE}/scheduler/update` : `${API_BASE}/scheduler/add`;
+    if (id) data.id = id;
+
+    try {
+        await ApiClient.post(url, data);
+        toast.success('保存成功');
+        bootstrap.Modal.getInstance(document.getElementById('schedulerModal')).hide();
+        loadSchedulers();
+    } catch (e) {
+        toast.error('保存失败: ' + e.message);
+    }
+}
+
+async function toggleScheduler(id, enabled) {
+    try {
+        await ApiClient.post(`${API_BASE}/scheduler/toggle`, { id, enabled });
+        toast.success('操作成功');
+        loadSchedulers();
+    } catch (e) {
+        toast.error('操作失败: ' + e.message);
+    }
+}
+
+async function deleteScheduler(id) {
+    if (!confirm('确定要删除此定时任务吗？')) return;
+    try {
+        await ApiClient.post(`${API_BASE}/scheduler/delete`, { id });
+        toast.success('删除成功');
+        loadSchedulers();
+    } catch (e) {
+        toast.error('删除失败: ' + e.message);
+    }
+}
+
+// 监听 Tab 切换事件，确保切换到批次页面时立即刷新数据
+document.addEventListener('DOMContentLoaded', function() {
+    var batchTabEl = document.getElementById('batch-tab');
+    if (batchTabEl) {
+        batchTabEl.addEventListener('shown.bs.tab', function (event) {
+            // console.log('Switched to batch tab, refreshing status...');
+            if (currentBatchId) {
+                batchRefreshStatus();
+            } else {
+                // 如果本地还没同步到 active_batch_id，尝试触发一次全局刷新
+                refreshStatus();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,25 @@
+{
+  "default_profile": "deepseek",
+  "profiles": {
+    "deepseek": {
+      "llm_provider": "deepseek",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key": "sk-1e44c7eec1ff43829d832fb93156b93e",
+      "model": "deepseek-chat"
+    },
+    "volcengine": {
+      "llm_provider": "volcengine",
+      "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+      "api_key": "",
+      "model": "doubao-pro-32k"
+    }
+  },
+  "llm_provider": "deepseek",
+  "base_url": "https://api.deepseek.com/v1",
+  "api_key": "sk-1e44c7eec1ff43829d832fb93156b93e",
+  "model": "deepseek-chat",
+  "fallback_enabled": false,
+  "fallback_api_key": "",
+  "fallback_base_url": "https://api.deepseek.com/v1",
+  "fallback_model": "deepseek-chat"
+}

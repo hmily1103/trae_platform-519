@@ -1,0 +1,708 @@
+{
+  "items": [
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    },
+    {
+      "profile_id": "prd_audit_default",
+      "variant": "B",
+      "quality_estimate": 1.0,
+      "passed": true,
+      "system_type": "scheduling_system",
+      "plugin_id": "scheduling_strict"
+    }
+  ]
+}

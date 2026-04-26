@@ -1,0 +1,135 @@
+{
+  "items": [
+    {
+      "id": "act_1773282164_6ada55f7",
+      "action": "build_rule_draft",
+      "created_at": 1773282164,
+      "created_at_str": "2026-03-12 10:22:44",
+      "payload": {
+        "snapshot_count": 6,
+        "candidate_count": 8,
+        "new_rules_count": 5,
+        "min_count": 1,
+        "max_new_rules": 5
+      }
+    },
+    {
+      "id": "act_1773282164_793bb53f",
+      "action": "apply_candidates",
+      "created_at": 1773282164,
+      "created_at_str": "2026-03-12 10:22:44",
+      "payload": {
+        "selected_count": 0,
+        "applied_new_rules": 5,
+        "max_new_rules": 5
+      }
+    },
+    {
+      "id": "act_1773283556_5efefcf7",
+      "action": "build_rule_draft",
+      "created_at": 1773283556,
+      "created_at_str": "2026-03-12 10:45:56",
+      "payload": {
+        "snapshot_count": 14,
+        "candidate_count": 18,
+        "new_rules_count": 15,
+        "min_count": 2,
+        "max_new_rules": 30
+      }
+    },
+    {
+      "id": "act_1773283565_8ef625d4",
+      "action": "publish_applied",
+      "created_at": 1773283565,
+      "created_at_str": "2026-03-12 10:46:05",
+      "payload": {
+        "create_backup": true,
+        "backup_file": "D:\\trae-code\\trae_platform\\modules\\prd_audit\\learning_repo\\prd_scan_rules_v2.backup.1773283565.json",
+        "old_rule_count": 3,
+        "new_rule_count": 8
+      }
+    },
+    {
+      "id": "act_1773283587_78abfbff",
+      "action": "publish_applied",
+      "created_at": 1773283587,
+      "created_at_str": "2026-03-12 10:46:27",
+      "payload": {
+        "create_backup": true,
+        "backup_file": "D:\\trae-code\\trae_platform\\modules\\prd_audit\\learning_repo\\prd_scan_rules_v2.backup.1773283587.json",
+        "old_rule_count": 8,
+        "new_rule_count": 8
+      }
+    },
+    {
+      "id": "act_1773283595_435b4fa8",
+      "action": "publish_applied",
+      "created_at": 1773283595,
+      "created_at_str": "2026-03-12 10:46:35",
+      "payload": {
+        "create_backup": true,
+        "backup_file": "D:\\trae-code\\trae_platform\\modules\\prd_audit\\learning_repo\\prd_scan_rules_v2.backup.1773283595.json",
+        "old_rule_count": 8,
+        "new_rule_count": 8
+      }
+    },
+    {
+      "id": "act_1773283604_1bf63045",
+      "action": "publish_applied",
+      "created_at": 1773283604,
+      "created_at_str": "2026-03-12 10:46:44",
+      "payload": {
+        "create_backup": true,
+        "backup_file": "D:\\trae-code\\trae_platform\\modules\\prd_audit\\learning_repo\\prd_scan_rules_v2.backup.1773283604.json",
+        "old_rule_count": 8,
+        "new_rule_count": 8
+      }
+    },
+    {
+      "id": "act_1773283785_4b0353db",
+      "action": "apply_candidates",
+      "created_at": 1773283785,
+      "created_at_str": "2026-03-12 10:49:45",
+      "payload": {
+        "selected_count": 0,
+        "applied_new_rules": 10,
+        "max_new_rules": 30
+      }
+    },
+    {
+      "id": "act_1773283787_46734dea",
+      "action": "apply_candidates",
+      "created_at": 1773283787,
+      "created_at_str": "2026-03-12 10:49:47",
+      "payload": {
+        "selected_count": 0,
+        "applied_new_rules": 10,
+        "max_new_rules": 30
+      }
+    },
+    {
+      "id": "act_1773283789_4a6b1af3",
+      "action": "publish_applied",
+      "created_at": 1773283789,
+      "created_at_str": "2026-03-12 10:49:49",
+      "payload": {
+        "create_backup": true,
+        "backup_file": "D:\\trae-code\\trae_platform\\modules\\prd_audit\\learning_repo\\prd_scan_rules_v2.backup.1773283789.json",
+        "old_rule_count": 8,
+        "new_rule_count": 18
+      }
+    },
+    {
+      "id": "act_1773283936_7155e6d7",
+      "action": "publish_applied",
+      "created_at": 1773283936,
+      "created_at_str": "2026-03-12 10:52:16",
+      "payload": {
+        "create_backup": true,
+        "backup_file": "D:\\trae-code\\trae_platform\\modules\\prd_audit\\learning_repo\\prd_scan_rules_v2.backup.1773283936.json",
+        "old_rule_count": 18,
+        "new_rule_count": 18
+      }
+    }
+  ]
+}

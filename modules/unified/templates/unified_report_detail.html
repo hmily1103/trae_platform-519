@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}报告详情 - Trae Platform{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h2 class="mb-0"><i class="fas fa-file-circle-check me-2"></i>报告详情</h2>
+      <div class="text-muted small mt-1">ID: <span class="font-monospace">{{ unified_id }}</span></div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="/unified/reports"><i class="fas fa-arrow-left me-1"></i>返回列表</a>
+      <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#rawJsonCollapse" title="查看原始 JSON">
+        <i class="fas fa-code me-1"></i>原始 JSON
+      </button>
+      <button class="btn btn-outline-primary btn-sm" id="btn_analyze" onclick="DetailUI.runAnalysis()" title="由系统生成结论与建议">
+        <i class="fas fa-wand-magic-sparkles me-1"></i>智能分析
+      </button>
+      <button class="btn btn-outline-primary btn-sm" id="btn_interpret" onclick="DetailUI.runInterpret()" title="用通俗语言解释报告">
+        <i class="fas fa-comment-dots me-1"></i>报告解读
+      </button>
+      <button class="btn btn-outline-danger btn-sm d-none" id="btn_interpret_crash" onclick="DetailUI.runInterpretCrash()" title="解读崩溃/ANR 原因">
+        <i class="fas fa-bug me-1"></i>解读崩溃/ANR
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="DetailUI.refresh()"><i class="fas fa-rotate me-1"></i>刷新</button>
+    </div>
+  </div>
+
+  <!-- 易读概览 -->
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <div class="card">
+        <div class="card-header bg-light"><span class="fw-semibold"><i class="fas fa-gauge me-2"></i>基本信息</span></div>
+        <div class="card-body" id="d_summary">
+          <div class="text-muted">加载中...</div>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-header bg-light"><span class="fw-semibold"><i class="fas fa-paperclip me-2"></i>关联报告</span></div>
+        <div class="card-body" id="d_artifacts">
+          <div class="text-muted">加载中...</div>
+        </div>
+      </div>
+
+      <div class="card mt-3" id="card_recommendations">
+        <div class="card-header bg-light"><span class="fw-semibold"><i class="fas fa-route me-2"></i>下次测试方向</span></div>
+        <div class="card-body" id="d_recommendations">
+          <div id="d_recommendations_placeholder" class="text-muted small">压测完成后将自动生成推荐（一键任务结束时）。</div>
+          <div id="d_recommendations_result" class="d-none"></div>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-header bg-light"><span class="fw-semibold"><i class="fas fa-wand-magic-sparkles me-2"></i>智能分析</span></div>
+        <div class="card-body" id="d_analysis">
+          <div id="d_analysis_placeholder" class="text-muted small">点击上方「智能分析」由系统生成结论、可能原因与建议。</div>
+          <div id="d_analysis_result" class="d-none mt-2 small" style="white-space: pre-wrap;"></div>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-header bg-light"><span class="fw-semibold"><i class="fas fa-comment-dots me-2"></i>报告解读</span></div>
+        <div class="card-body" id="d_interpret">
+          <div id="d_interpret_placeholder" class="text-muted small">点击上方「报告解读」由系统用通俗语言解释本报告。</div>
+          <div id="d_interpret_result" class="d-none mt-2 small" style="white-space: pre-wrap;"></div>
+        </div>
+      </div>
+
+      <div class="card mt-3 d-none" id="card_interpret_crash">
+        <div class="card-header bg-light"><span class="fw-semibold"><i class="fas fa-bug me-2"></i>崩溃/ANR 解读</span></div>
+        <div class="card-body" id="d_interpret_crash">
+          <div id="d_interpret_crash_placeholder" class="text-muted small">点击上方「解读崩溃/ANR」由系统分析可能原因与排查建议。</div>
+          <div id="d_interpret_crash_result" class="d-none mt-2 small" style="white-space: pre-wrap;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-header bg-light">
+          <span class="fw-semibold"><i class="fas fa-diagram-project me-2"></i>子任务详情</span>
+        </div>
+        <div class="card-body" id="d_details">
+          <div class="text-muted">加载中...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 原始 JSON（可折叠） -->
+  <div class="collapse mt-3" id="rawJsonCollapse">
+    <div class="card">
+      <div class="card-header bg-secondary text-white"><i class="fas fa-code me-2"></i>原始 JSON 数据</div>
+      <div class="card-body">
+        <pre id="d_raw_json" class="mb-0 small" style="max-height: 400px; overflow: auto; white-space: pre-wrap;">-</pre>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const DETAIL_ID = "{{ unified_id }}";
+
+const MODULE_NAMES = {
+  unified: '一键任务', monkey: 'Monkey 测试', performance_monitor: '性能监控',
+  log_monitor: '日志监控', ui_automation_suite: 'UI 套件', server_stress: 'ARM 压测',
+  ui_automation: 'UI 自动化', reboot: '中控重启', player_stress: '播放器压测'
+};
+
+const STATUS_NAMES = {
+  finished: '已完成', success: '成功', completed: '已完成', running: '运行中',
+  failed: '失败', error: '错误', stopped: '已停止', unknown: '未知',
+  stopped_or_missing: '已失效'
+};
+
+const KIND_NAMES = {
+  orchestration: '编排任务', monkey: 'Monkey 测试', suite: 'UI 套件',
+  performance: '性能监控', log: '日志监控', stress: '压测', reboot: '重启测试'
+};
+
+const DetailUI = (() => {
+  function badge(status){
+    const s = String(status || '').toLowerCase();
+    if (['finished','success','completed'].includes(s)) return 'bg-success';
+    if (['running'].includes(s)) return 'bg-primary';
+    if (['failed','error','timeout','stopped_or_missing'].includes(s)) return 'bg-danger';
+    if (['stopped'].includes(s)) return 'bg-secondary';
+    return 'bg-secondary';
+  }
+
+  function fmtTime(ts){
+    if (!ts) return '-';
+    const ms = ts > 10_000_000_000 ? ts : ts * 1000;
+    return new Date(ms).toLocaleString('zh-CN');
+  }
+
+  function row(label, value){
+    if (value == null || value === '') value = '-';
+    return `<div class="d-flex justify-content-between py-2 border-bottom" style="border-color: rgba(0,0,0,.06) !important;">
+      <span class="text-muted">${escapeHtml(label)}</span>
+      <span class="text-end">${escapeHtml(String(value))}</span>
+    </div>`;
+  }
+
+  function escapeHtml(text){
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function renderSummary(r){
+    const s = r.summary || {};
+    const modName = MODULE_NAMES[r.module] || r.module;
+    const statusName = STATUS_NAMES[r.status] || r.status;
+
+    const kindName = KIND_NAMES[r.kind] || r.kind;
+    const html = [
+      row('模块', modName),
+      row('类型', kindName),
+      `<div class="d-flex justify-content-between py-2 border-bottom" style="border-color: rgba(0,0,0,.06) !important;">
+        <span class="text-muted">状态</span>
+        <span class="badge ${badge(r.status)}">${escapeHtml(statusName)}</span>
+      </div>`,
+      row('设备', r.device_id),
+      row('包名', r.package_name),
+      row('开始时间', fmtTime(r.started_at)),
+      row('结束时间', fmtTime(r.finished_at)),
+    ].join('');
+
+    document.getElementById('d_summary').innerHTML = html;
+  }
+
+  function renderRecommendations(r){
+    const rec = (r.details || {}).recommendations;
+    const ph = document.getElementById('d_recommendations_placeholder');
+    const resultEl = document.getElementById('d_recommendations_result');
+    const card = document.getElementById('card_recommendations');
+    if (!rec || !ph || !resultEl || !card) return;
+    if (!rec.focus_areas && !rec.next_test_direction){
+      ph.classList.remove('d-none');
+      resultEl.classList.add('d-none');
+      resultEl.innerHTML = '';
+      return;
+    }
+    ph.classList.add('d-none');
+    resultEl.classList.remove('d-none');
+    const priorityBadge = rec.priority === 'high' ? 'bg-danger' : (rec.priority === 'medium' ? 'bg-warning text-dark' : 'bg-secondary');
+    let html = '';
+    if (rec.next_test_direction){
+      html += `<div class="mb-3"><span class="badge ${priorityBadge} me-2">建议</span><span class="small">${escapeHtml(rec.next_test_direction)}</span></div>`;
+    }
+    if (rec.focus_areas && rec.focus_areas.length){
+      html += `<div class="mb-2 small"><span class="text-muted">关注维度：</span>${rec.focus_areas.map(a => escapeHtml(a)).join('、')}</div>`;
+    }
+    if (rec.suggestions && rec.suggestions.length){
+      html += '<div class="mb-2 small"><span class="text-muted">建议：</span><ul class="mb-0 ps-3">' + rec.suggestions.map(s => '<li>' + escapeHtml(s) + '</li>').join('') + '</ul></div>';
+    }
+    if (rec.possible_causes && rec.possible_causes.length){
+      html += '<div class="mb-2 small"><span class="text-muted">可能原因：</span><ul class="mb-0 ps-3">' + rec.possible_causes.map(c => '<li>' + escapeHtml(c) + '</li>').join('') + '</ul></div>';
+    }
+    if (rec.suggested_modules && rec.suggested_modules.length){
+      html += '<div class="small text-muted">可选用模块：' + rec.suggested_modules.map(m => escapeHtml(m)).join('、') + '</div>';
+    }
+    resultEl.innerHTML = html || '-';
+  }
+
+  function renderArtifacts(r){
+    const arts = r.artifacts || [];
+    if (!arts.length){
+      document.getElementById('d_artifacts').innerHTML = '<div class="text-muted small">无关联报告</div>';
+      return;
+    }
+    const html = arts.map(a => {
+      if (a.type === 'unified_report' && a.path){
+        const modName = MODULE_NAMES[a.module] || a.module;
+        return `<div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color: rgba(0,0,0,.06);">
+          <span class="text-muted small">${escapeHtml(modName)}</span>
+          <a class="btn btn-sm btn-outline-primary" href="/unified/report/${encodeURIComponent(a.unified_id)}">打开</a>
+        </div>`;
+      }
+      if (a.type === 'legacy_ref'){
+        return `<div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color: rgba(0,0,0,.06);">
+          <span class="text-muted small">${escapeHtml((a.module||'') + ' · ' + (a.name||''))}</span>
+          <code class="small">${escapeHtml(String(a.value||''))}</code>
+        </div>`;
+      }
+      return '';
+    }).filter(Boolean).join('');
+    document.getElementById('d_artifacts').innerHTML = html || '<div class="text-muted small">无</div>';
+  }
+
+  function renderChildCard(moduleKey, v){
+    const modName = MODULE_NAMES[moduleKey] || moduleKey;
+    const st = v.status || 'unknown';
+    const statusName = STATUS_NAMES[st] || st;
+
+    let body = '';
+    if (moduleKey === 'monkey'){
+      const src = v.report || v.test_info || {};
+      body = `
+        <div class="row g-2 small">
+          <div class="col-6">${row('事件执行', (src.events_executed ?? '-') + ' / ' + (src.events_planned ?? '-'))}</div>
+          <div class="col-6">${row('崩溃', src.crash_count ?? 0)}</div>
+          <div class="col-6">${row('ANR', src.anr_count ?? 0)}</div>
+          <div class="col-6">${row('结果', src.is_successful ? '通过' : (src.is_successful === false ? '未通过' : '-'))}</div>
+        </div>
+      `;
+    } else if (moduleKey === 'ui_automation_suite'){
+      const job = v.job || {};
+      body = `
+        <div class="row g-2 small">
+          <div class="col-6">${row('用例进度', (job.current_case_index ?? '-') + ' / ' + (job.total_cases ?? '-'))}</div>
+          <div class="col-6">${row('通过率', job.pass_rate != null ? Math.round(job.pass_rate) + '%' : '-')}</div>
+        </div>
+      `;
+    } else if (moduleKey === 'performance_monitor'){
+      const task = v.task || {};
+      body = `<div class="small">${row('会话', task.session_id || task.task_id || '-')}</div>`;
+    } else if (moduleKey === 'log_monitor'){
+      const task = v.task || {};
+      body = `<div class="small">${row('设备', task.device_id || '-')}</div>`;
+    } else if (moduleKey === 'server_stress'){
+      const job = v.job || {};
+      body = `<div class="small">${row('服务器', job.server_id || '-')}</div>`;
+    } else {
+      body = `<pre class="mb-0 small text-muted" style="white-space: pre-wrap;">${escapeHtml(JSON.stringify(v, null, 2))}</pre>`;
+    }
+
+    if (v.error) body += `<div class="alert alert-danger py-2 mt-2 small mb-0">${escapeHtml(v.error)}</div>`;
+
+    return `<div class="card mb-2">
+      <div class="card-body py-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fw-semibold">${escapeHtml(modName)}</span>
+          <span class="badge ${badge(st)}">${escapeHtml(statusName)}</span>
+        </div>
+        ${body}
+      </div>
+    </div>`;
+  }
+
+  function renderDetails(r){
+    const d = r.details || {};
+    if (r.module === 'unified' && d.statuses){
+      const statuses = d.statuses || {};
+      const blocks = Object.entries(statuses).map(([k,v]) => renderChildCard(k, v)).join('');
+      document.getElementById('d_details').innerHTML = blocks || '<div class="text-muted">暂无子任务详情</div>';
+      return;
+    }
+    const keys = Object.keys(d || {});
+    if (!keys.length){
+      document.getElementById('d_details').innerHTML = '<div class="text-muted">无详情</div>';
+      return;
+    }
+    document.getElementById('d_details').innerHTML =
+      `<div class="table-responsive"><table class="table table-sm">
+        <tbody>${keys.map(k => `<tr><td class="text-muted">${escapeHtml(k)}</td><td><pre class="mb-0 small" style="white-space: pre-wrap;">${escapeHtml(JSON.stringify(d[k], null, 2))}</pre></td></tr>`).join('')}
+        </tbody></table></div>`;
+  }
+
+  function renderRawJson(r){
+    document.getElementById('d_raw_json').textContent = JSON.stringify(r, null, 2);
+  }
+
+  function updateCrashInterpretVisibility(r){
+    const btn = document.getElementById('btn_interpret_crash');
+    const card = document.getElementById('card_interpret_crash');
+    if (!btn || !card) return;
+    const isMonkeyWithCrash = r && r.module === 'monkey' && ((r.summary || {}).crash_count || (r.summary || {}).anr_count) > 0;
+    if (isMonkeyWithCrash){ btn.classList.remove('d-none'); card.classList.remove('d-none'); }
+    else { btn.classList.add('d-none'); card.classList.add('d-none'); }
+  }
+
+  async function refresh(){
+    try{
+      const res = await ApiClient.get(`/unified/api/reports/${encodeURIComponent(DETAIL_ID)}`, { showLoading: false });
+      const r = res.data?.report;
+      if (!r){
+        toast.error('报告不存在');
+        return;
+      }
+      renderSummary(r);
+      renderArtifacts(r);
+      renderRecommendations(r);
+      renderDetails(r);
+      renderRawJson(r);
+      updateCrashInterpretVisibility(r);
+    }catch{
+      toast.error('加载失败');
+    }
+  }
+
+  async function runAnalysis(){
+    const btn = document.getElementById('btn_analyze');
+    const ph = document.getElementById('d_analysis_placeholder');
+    const resultEl = document.getElementById('d_analysis_result');
+    if (!btn || !ph || !resultEl) return;
+    btn.disabled = true;
+    ph.classList.add('d-none');
+    resultEl.classList.add('d-none');
+    resultEl.textContent = '';
+    try{
+      const res = await ApiClient.post(`/unified/api/reports/${encodeURIComponent(DETAIL_ID)}/analyze`, {}, { loadingMessage: '正在分析...', showError: false, timeout: 95000 });
+      const analysis = res.data?.analysis;
+      const fromLlm = res.data?.from_llm;
+      const fallback = res.data?.fallback;
+      if (analysis){
+        let show = analysis;
+        if (fallback) show = '【规则摘要，LLM 暂不可用】\n\n' + show;
+        resultEl.textContent = show;
+        resultEl.classList.remove('d-none');
+      } else {
+        ph.textContent = '未返回分析内容，请检查 LLM 配置。';
+        ph.classList.remove('d-none');
+      }
+    }catch(err){
+      const msg = (err && err.message) || (err && err.response && err.response.data && err.response.data.message) || '智能分析失败';
+      toast.error(typeof msg === 'string' ? msg : '智能分析失败');
+      ph.textContent = '分析失败。请确认已配置 LLM（如 llm_config.json 与 API Key）。';
+      ph.classList.remove('d-none');
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  async function runInterpret(){
+    const btn = document.getElementById('btn_interpret');
+    const ph = document.getElementById('d_interpret_placeholder');
+    const resultEl = document.getElementById('d_interpret_result');
+    if (!btn || !ph || !resultEl) return;
+    btn.disabled = true;
+    ph.classList.add('d-none');
+    resultEl.classList.add('d-none');
+    resultEl.textContent = '';
+    try{
+      const res = await ApiClient.post(`/unified/api/reports/${encodeURIComponent(DETAIL_ID)}/interpret`, {}, { loadingMessage: '正在解读...', showError: false, timeout: 65000 });
+      const text = res.data?.interpretation;
+      if (text){ resultEl.textContent = text; resultEl.classList.remove('d-none'); }
+      else { ph.textContent = '未返回解读内容。'; ph.classList.remove('d-none'); }
+    }catch(err){
+      const msg = (err && err.response && err.response.data && err.response.data.message) || (err && err.message) || '报告解读失败';
+      toast.error(typeof msg === 'string' ? msg : '报告解读失败');
+      ph.textContent = '解读失败，请确认已配置 LLM。';
+      ph.classList.remove('d-none');
+    }finally{ btn.disabled = false; }
+  }
+
+  async function runInterpretCrash(){
+    const btn = document.getElementById('btn_interpret_crash');
+    const ph = document.getElementById('d_interpret_crash_placeholder');
+    const resultEl = document.getElementById('d_interpret_crash_result');
+    if (!btn || !ph || !resultEl) return;
+    btn.disabled = true;
+    ph.classList.add('d-none');
+    resultEl.classList.add('d-none');
+    resultEl.textContent = '';
+    try{
+      const res = await ApiClient.post(`/unified/api/reports/${encodeURIComponent(DETAIL_ID)}/interpret_crash`, {}, { loadingMessage: '正在解读崩溃/ANR...', showError: false, timeout: 65000 });
+      const text = res.data?.interpretation;
+      if (text){ resultEl.textContent = text; resultEl.classList.remove('d-none'); }
+      else { ph.textContent = '未返回解读内容。'; ph.classList.remove('d-none'); }
+    }catch(err){
+      const msg = (err && err.response && err.response.data && err.response.data.message) || (err && err.message) || '解读失败';
+      toast.error(typeof msg === 'string' ? msg : '解读失败');
+      ph.textContent = '解读失败，请确认已配置 LLM 且该报告为 Monkey 且有崩溃/ANR。';
+      ph.classList.remove('d-none');
+    }finally{ btn.disabled = false; }
+  }
+
+  return { refresh, runAnalysis, runInterpret, runInterpretCrash };
+})();
+
+document.addEventListener('DOMContentLoaded', () => DetailUI.refresh());
+</script>
+{% endblock %}

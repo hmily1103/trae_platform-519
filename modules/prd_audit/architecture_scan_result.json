@@ -1,0 +1,382 @@
+{
+  "architecture_view": {
+    "module_count": 11,
+    "state_count": 0,
+    "transition_count": 0,
+    "entity_count": 3,
+    "entry_points": [
+      "歌曲播放引擎",
+      "智能推荐系统",
+      "订单系统"
+    ]
+  },
+  "modules": [
+    {
+      "name": "语音点歌模块",
+      "level": 2,
+      "parent": null,
+      "description": "PRD中识别的模块",
+      "complexity": 0.5,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "扫码点歌模块",
+      "level": 2,
+      "parent": null,
+      "description": "PRD中识别的模块",
+      "complexity": 0.5,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "歌曲播放引擎",
+      "level": 1,
+      "parent": null,
+      "description": "PRD中识别的模块",
+      "complexity": 1.0,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "智能推荐系统",
+      "level": 1,
+      "parent": null,
+      "description": "PRD中识别的模块",
+      "complexity": 1.0,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "用户管理",
+      "level": 2,
+      "parent": null,
+      "description": "PRD中识别的模块",
+      "complexity": 0.5,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "订单系统",
+      "level": 1,
+      "parent": null,
+      "description": "PRD中识别的模块",
+      "complexity": 1.0,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "支付系统",
+      "level": 1,
+      "parent": null,
+      "description": "PRD中识别的模块",
+      "complexity": 1.0,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "用户语音点歌",
+      "level": 2,
+      "parent": null,
+      "description": "从流程识别",
+      "complexity": 0.5,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "扫码点歌",
+      "level": 2,
+      "parent": null,
+      "description": "从流程识别",
+      "complexity": 0.5,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "歌曲播放",
+      "level": 2,
+      "parent": null,
+      "description": "从流程识别",
+      "complexity": 0.5,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    },
+    {
+      "name": "支付",
+      "level": 2,
+      "parent": null,
+      "description": "从流程识别",
+      "complexity": 0.5,
+      "risk": "P2",
+      "interfaces": [],
+      "dependencies": []
+    }
+  ],
+  "module_hierarchy": {
+    "name": "系统",
+    "children": [
+      {
+        "name": "歌曲播放引擎",
+        "children": [
+          {
+            "name": "语音点歌模块"
+          },
+          {
+            "name": "扫码点歌模块"
+          },
+          {
+            "name": "用户管理"
+          },
+          {
+            "name": "用户语音点歌"
+          },
+          {
+            "name": "扫码点歌"
+          },
+          {
+            "name": "歌曲播放"
+          },
+          {
+            "name": "支付"
+          }
+        ]
+      },
+      {
+        "name": "智能推荐系统",
+        "children": [
+          {
+            "name": "语音点歌模块"
+          },
+          {
+            "name": "扫码点歌模块"
+          },
+          {
+            "name": "用户管理"
+          },
+          {
+            "name": "用户语音点歌"
+          },
+          {
+            "name": "扫码点歌"
+          },
+          {
+            "name": "歌曲播放"
+          },
+          {
+            "name": "支付"
+          }
+        ]
+      },
+      {
+        "name": "订单系统",
+        "children": [
+          {
+            "name": "语音点歌模块"
+          },
+          {
+            "name": "扫码点歌模块"
+          },
+          {
+            "name": "用户管理"
+          },
+          {
+            "name": "用户语音点歌"
+          },
+          {
+            "name": "扫码点歌"
+          },
+          {
+            "name": "歌曲播放"
+          },
+          {
+            "name": "支付"
+          }
+        ]
+      },
+      {
+        "name": "支付系统",
+        "children": [
+          {
+            "name": "语音点歌模块"
+          },
+          {
+            "name": "扫码点歌模块"
+          },
+          {
+            "name": "用户管理"
+          },
+          {
+            "name": "用户语音点歌"
+          },
+          {
+            "name": "扫码点歌"
+          },
+          {
+            "name": "歌曲播放"
+          },
+          {
+            "name": "支付"
+          }
+        ]
+      }
+    ]
+  },
+  "state_machine": [],
+  "state_diagram": "未识别到状态转换",
+  "entities": [
+    {
+      "name": "歌曲信息",
+      "fields": [
+        "歌曲信息"
+      ],
+      "module": ""
+    },
+    {
+      "name": "用户订单",
+      "fields": [
+        "用户订单"
+      ],
+      "module": ""
+    },
+    {
+      "name": "播放记录",
+      "fields": [
+        "播放记录"
+      ],
+      "module": ""
+    }
+  ],
+  "entity_relations": [],
+  "interface_matrix": [],
+  "risk_hotspots": [],
+  "risk_heatmap": {
+    "high": [],
+    "medium": [],
+    "low": [
+      "语音点歌模块",
+      "扫码点歌模块",
+      "歌曲播放引擎",
+      "智能推荐系统",
+      "用户管理",
+      "订单系统",
+      "支付系统",
+      "用户语音点歌",
+      "扫码点歌",
+      "歌曲播放",
+      "支付"
+    ],
+    "scores": {
+      "语音点歌模块": 0.5,
+      "扫码点歌模块": 0.5,
+      "歌曲播放引擎": 1.0,
+      "智能推荐系统": 1.0,
+      "用户管理": 0.5,
+      "订单系统": 1.0,
+      "支付系统": 1.0,
+      "用户语音点歌": 0.5,
+      "扫码点歌": 0.5,
+      "歌曲播放": 0.5,
+      "支付": 0.5
+    }
+  },
+  "test_strategy": {
+    "priority_modules": [
+      {
+        "module": "歌曲播放引擎",
+        "reason": "系统入口",
+        "test_focus": [
+          "核心流程",
+          "异常场景",
+          "边界条件"
+        ]
+      },
+      {
+        "module": "智能推荐系统",
+        "reason": "系统入口",
+        "test_focus": [
+          "核心流程",
+          "异常场景",
+          "边界条件"
+        ]
+      },
+      {
+        "module": "订单系统",
+        "reason": "系统入口",
+        "test_focus": [
+          "核心流程",
+          "异常场景",
+          "边界条件"
+        ]
+      }
+    ],
+    "automation_candidates": [
+      {
+        "module": "语音点歌模块",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "扫码点歌模块",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "歌曲播放引擎",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "智能推荐系统",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "用户管理",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "订单系统",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "支付系统",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "用户语音点歌",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "扫码点歌",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "歌曲播放",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      },
+      {
+        "module": "支付",
+        "reason": "复杂度低、依赖少，适合自动化",
+        "coverage_target": "80%"
+      }
+    ],
+    "manual_focus": [],
+    "risk_areas": []
+  }
+}

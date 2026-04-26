@@ -1,0 +1,31 @@
+# Android Player Stress Test Configuration
+
+# 目标测试应用信息
+target_app:
+  package_name: "com.thunder.ktv:media"
+  main_activity: "com.thunder.ktv.MainActivity"
+
+# 压测策略
+test_strategy:
+  # 模式: loop_playback (循环播放), random_skip (随机切歌), fixed_skip (固定间隔切歌)
+  mode: "monitor_only"
+  
+  # 总运行时长 (分钟)
+  duration_minutes: 10
+  
+  # 固定切歌间隔 (秒), 仅在 fixed_skip 模式下有效
+  skip_interval_seconds: 30
+  
+  # 随机切歌间隔范围 (秒), 仅在 random_skip 模式下有效
+  random_skip_range: [15, 120]
+
+# 性能采集配置
+monitor:
+  # 采样间隔 (秒)
+  interval_seconds: 1
+  # 内存阈值报警 (MB) - 仅作记录参考
+  memory_warning_threshold: 500
+
+# 报告输出
+report:
+  output_dir: "./reports"

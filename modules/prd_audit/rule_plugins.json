@@ -1,0 +1,43 @@
+{
+  "profiles": [
+    {
+      "plugin_id": "generic_universal",
+      "name": "通用规则集",
+      "description": "适用于大多数通用PRD场景的基础规则组合",
+      "match": {
+        "system_types": ["general", "state_machine"],
+        "keywords": [],
+        "modules": []
+      },
+      "keyword_pack": "generic",
+      "enabled_rule_ids": [],
+      "disabled_rule_ids": []
+    },
+    {
+      "plugin_id": "scheduling_strict",
+      "name": "调度规则集",
+      "description": "面向状态调度、优先级抢占、打断恢复类PRD的增强规则组合",
+      "match": {
+        "system_types": ["scheduling_system"],
+        "keywords": ["投屏", "广告", "打断", "恢复", "优先级", "并发", "抢占"],
+        "modules": ["投屏", "游戏", "广告"]
+      },
+      "keyword_pack": "scheduling",
+      "enabled_rule_ids": [],
+      "disabled_rule_ids": []
+    },
+    {
+      "plugin_id": "lite_gate",
+      "name": "轻量门禁规则集",
+      "description": "仅覆盖阻断级与关键一致性规则，适合作为早期门禁",
+      "match": {
+        "system_types": ["general", "state_machine", "scheduling_system"],
+        "keywords": ["门禁", "快速评审", "基础审计"],
+        "modules": []
+      },
+      "keyword_pack": "generic",
+      "enabled_rule_ids": ["R01", "R02", "R03", "R04", "R05", "R07", "R08", "R09", "R24", "R28", "R30"],
+      "disabled_rule_ids": []
+    }
+  ]
+}

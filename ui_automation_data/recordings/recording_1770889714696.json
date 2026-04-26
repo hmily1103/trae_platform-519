@@ -1,0 +1,27 @@
+{
+  "id": "recording_1770889714696",
+  "device_id": "192.168.16.105:8787",
+  "package_name": "",
+  "created_at": "2026-02-12T17:48:34.700142",
+  "actions": [
+    {
+      "step_num": 1,
+      "action_type": "click",
+      "selector": null,
+      "value": null,
+      "coordinates": {
+        "x": 197,
+        "y": 264
+      },
+      "screenshot": null,
+      "ui_tree": null,
+      "timestamp": 1770889716.9066386,
+      "wait_after": 1000,
+      "description": "点击 (197, 264) (Error: 'UISelector' object has no attribute 'text')",
+      "status": "failed"
+    }
+  ],
+  "description": "",
+  "project_id": "",
+  "name": ""
+}
