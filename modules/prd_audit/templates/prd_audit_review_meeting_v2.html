@@ -1,0 +1,1534 @@
+{% extends "prd_audit_base.html" %}
+
+{% block module_content %}
+<style>
+  /* QA-led vertical workbench: readable by default */
+  /* Full-width workbench inside main content area (keep left sidebar from base layout) */
+  .v2-wrap { max-width: none; width: 100%; margin: 0; }
+  @media (min-width: 992px) {
+    .v2-wrap { padding-right: 10px; }
+  }
+  .v2-card { background: #fff; border: 1px solid rgba(15,23,42,.10); border-radius: 14px; box-shadow: 0 4px 18px rgba(2,6,23,.04); }
+  .v2-card-h { padding: 14px 16px; border-bottom: 1px solid rgba(15,23,42,.08); display:flex; align-items:center; justify-content:space-between; gap: 12px; }
+  .v2-card-b { padding: 14px 16px; }
+  .v2-title { font-size: 18px; font-weight: 700; }
+  .v2-sub { font-size: 14px; color: rgba(15,23,42,.70); }
+  .v2-body { font-size: 14px; line-height: 1.65; color: rgba(15,23,42,.92); }
+  .v2-pill { display:inline-flex; align-items:center; padding: 3px 10px; border-radius: 999px; font-size: 12px; border: 1px solid rgba(15,23,42,.14); background: rgba(15,23,42,.03); }
+  .v2-pill.p0 { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.22); }
+  .v2-pill.blocked { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.28); }
+  .v2-pill.pass { background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.25); }
+  .v2-kpis { display:flex; flex-wrap: wrap; gap: 10px; }
+  .v2-kpi { display:flex; gap: 8px; align-items:center; font-size: 13px; color: rgba(15,23,42,.78); }
+  .v2-kpi b { color: rgba(15,23,42,.95); }
+  .v2-input { display:flex; flex-direction: column; gap: 10px; }
+  .v2-row { display:flex; flex-wrap: wrap; gap: 10px; align-items:center; }
+  .v2-blocker { border: 1px solid rgba(15,23,42,.10); border-radius: 14px; padding: 12px 14px; background: rgba(2,6,23,.02); }
+  .v2-blocker h5 { font-size: 15px; margin: 0 0 8px 0; font-weight: 700; }
+  .v2-muted { color: rgba(15,23,42,.65); }
+  .v2-list { margin: 6px 0 0 0; padding-left: 18px; }
+  .v2-list li { margin-bottom: 6px; }
+  .v2-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: rgba(2,6,23,.03); border: 1px solid rgba(15,23,42,.10); border-radius: 12px; padding: 10px 12px; }
+  .v2-actions { display:flex; flex-wrap: wrap; gap: 10px; }
+  /* WeChat-like group chat */
+  .v2-chat { background: rgba(2,6,23,.02); border: 1px solid rgba(15,23,42,.08); border-radius: 14px; padding: 12px; }
+  .v2-chat .round-sep { text-align:center; color: rgba(15,23,42,.55); font-size: 12px; margin: 10px 0; }
+  .v2-msg { display:flex; gap: 10px; margin-bottom: 10px; align-items:flex-start; }
+  .v2-msg .av { width: 34px; height: 34px; border-radius: 10px; display:flex; align-items:center; justify-content:center; font-size: 12px; font-weight: 700; color:#0f172a; background: rgba(59,130,246,.12); border:1px solid rgba(59,130,246,.22); flex: 0 0 auto; }
+  .v2-msg.dev .av { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.22); }
+  .v2-msg.pm .av { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.26); }
+  .v2-bubble { max-width: 86%; background:#fff; border:1px solid rgba(15,23,42,.10); border-radius: 14px; padding: 10px 12px; }
+  .v2-meta { display:flex; align-items:center; justify-content:space-between; gap: 10px; font-size: 12px; color: rgba(15,23,42,.60); margin-bottom: 6px; }
+  .v2-bubble pre { margin: 0; font-family: inherit; font-size: 14px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+  /* Discussion empty state: keep placeholder but compact */
+  .v2-hide { display: none !important; }
+  .v2-empty-card .v2-card-b { padding: 10px 12px; }
+  .v2-empty-card .v2-card-b .v2-empty-hint { padding: 6px 8px; background: rgba(2,6,23,.02); border: 1px dashed rgba(15,23,42,.16); border-radius: 12px; }
+</style>
+
+<div class="v2-wrap">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <div class="h4 mb-1"><i class="fas fa-user-shield text-primary me-2"></i>虚拟评审会 V2（QA 主导工作台）</div>
+      <div class="text-muted small">完全独立于静态审计页面；本页只消费快照/PRD输入并生成 Gate、P0 Blockers、AC 与导出文档。</div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <!-- Left: conclusions (70%) -->
+    <div class="col-12 col-lg-8" id="leftCol">
+
+  <!-- 原需求（原文）放最上面，但默认折叠 -->
+  <details class="v2-card mb-3">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <div>
+        <div class="v2-title">原需求（原文）</div>
+        <div class="v2-sub">默认折叠；用于对照依据</div>
+      </div>
+      <span class="v2-pill">折叠</span>
+    </summary>
+    <div class="v2-card-b">
+      <div class="v2-code" id="prdSourceBox">尚未生成。</div>
+    </div>
+  </details>
+
+  <!-- 首屏 1：评审结论 -->
+  <div class="v2-card mb-3">
+    <div class="v2-card-h">
+      <div>
+        <div class="v2-title">评审结论 <span class="v2-sub">（发布门禁 / 开工门禁）</span></div>
+        <div class="v2-sub">本轮结论与下一步（可转发）</div>
+      </div>
+      <div class="v2-actions">
+        <button class="btn btn-outline-secondary" id="btnExport"><i class="fas fa-file-export me-1"></i>导出评审结论</button>
+        <span class="v2-pill blocked" id="gatePill">—</span>
+      </div>
+    </div>
+    <div class="v2-card-b">
+      <div class="v2-blocker" style="background:#fff;">
+        <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap">
+          <div>
+            <div class="fw-semibold">门禁结论</div>
+            <div class="v2-muted small mt-1" id="gateReason">未开始</div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="v2-pill blocked" id="gatePillBox">—</span>
+          </div>
+        </div>
+        <div class="v2-kpis mt-2">
+          <div class="v2-kpi">必须解决：<b id="kpiP0">0</b></div>
+          <div class="v2-kpi">还卡着：<b id="kpiBlocked">0</b></div>
+          <div class="v2-kpi">还缺什么：<b id="kpiReq">0</b></div>
+          <div class="v2-kpi">输入：<b id="kpiInput">—</b></div>
+        </div>
+        <div class="v2-muted small mt-2" id="gateQuick"></div>
+      </div>
+      <div class="mt-2">
+        <details class="v2-blocker" style="background:#fff;" id="llmOnlyDetails">
+          <summary class="d-flex align-items-center justify-content-between" style="cursor:pointer;">
+            <span class="fw-semibold">可转发结论（大模型·证据版）</span>
+            <span class="v2-pill">折叠</span>
+          </summary>
+          <div class="mt-2 d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-primary btn-sm" id="btnLlmOnly"><i class="fas fa-wand-magic-sparkles me-1"></i>可转发结论</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btnCopyLlmOnly"><i class="fas fa-copy me-1"></i>复制</button>
+          </div>
+          <div class="v2-muted small mt-1" id="llmOnlyHint">大模型会严格按 PRD 原文输出；原文未覆盖的点会明确标出“未覆盖，需要 PM 补齐”。</div>
+          <div class="v2-code mt-2" id="llmOnlyBox">尚未生成。</div>
+        </details>
+      </div>
+      <div class="mt-2">
+        <details class="v2-blocker" style="background:#fff;">
+          <summary class="d-flex align-items-center justify-content-between" style="cursor:pointer;">
+            <span class="fw-semibold">待补齐信息（开工/发布前置）</span>
+            <span class="v2-pill">折叠</span>
+          </summary>
+          <div class="mt-2 v2-body" id="reqTop"></div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- 首屏 2：P0 还卡着（默认展开） -->
+  <div class="v2-card mb-3">
+    <div class="v2-card-h">
+      <div class="v2-title">P0 问题（必须先解决） <span class="v2-sub">（P0）</span></div>
+      <div class="v2-actions">
+        <button class="btn btn-outline-dark btn-sm" id="btnCopyPmTodo"><i class="fas fa-bullhorn me-1"></i>复制闭环清单</button>
+        <span class="v2-pill" id="chipBlockers">0 条</span>
+      </div>
+    </div>
+    <div class="v2-card-b" id="blockerList">
+      <div class="text-muted small">尚未生成。</div>
+    </div>
+  </div>
+
+  <!-- 首屏 3：已定（本次定下来的结论） -->
+  <details class="v2-card mb-3" id="decisionSection">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <div class="v2-title">已定结论（可以直接做） <span class="v2-sub">（Decisions）</span></div>
+      <span class="v2-pill" id="chipDecision">0 条</span>
+    </summary>
+    <div class="v2-card-b" id="decisionList">
+      <div class="text-muted small">尚未生成。</div>
+    </div>
+  </details>
+
+  <!-- 已通过：正向反馈（不阻塞） -->
+  <details class="v2-card mb-3" id="passedSection">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <div class="v2-title">已通过（本轮确认） <span class="v2-sub">（PASSED）</span></div>
+      <span class="v2-pill" id="chipPassed">0 条</span>
+    </summary>
+    <div class="v2-card-b" id="passedList">
+      <div class="text-muted small">尚未生成。</div>
+    </div>
+  </details>
+
+  <details class="v2-card mb-3">
+    <summary class="v2-card-h" style="cursor:pointer;" id="sumPrdV2">
+      <div class="v2-title">补全后的需求稿（可下发） <span class="v2-sub">（PRD v2.0）</span></div>
+      <div class="v2-actions">
+        <span class="v2-pill" id="prdV2Source">会议内置</span>
+        <button class="btn btn-outline-success btn-sm" id="btnExportPrdV2" type="button"><i class="fas fa-magic me-1"></i>生成/刷新 PRD v2.0</button>
+        <button class="btn btn-outline-secondary btn-sm" id="btnTogglePrdV2" type="button"><i class="fas fa-eye me-1"></i>展开/收起</button>
+        <button class="btn btn-outline-secondary btn-sm" id="btnCopyPrdV2" type="button"><i class="fas fa-copy me-1"></i>复制全文</button>
+        <button class="btn btn-outline-primary btn-sm" id="btnSendFeishu" type="button"><i class="fas fa-paper-plane me-1"></i>一键飞书发送</button>
+      </div>
+    </summary>
+    <div class="v2-card-b">
+      <div class="v2-muted small mb-2" id="prdV2Hint">默认仅预览前 40 行；展开后可查看全文。</div>
+      <div class="v2-code" id="prdV2Box">请先“生成快照并开会”，系统会自动生成 PRD v2.0 并展示在这里。</div>
+    </div>
+  </details>
+
+  <details class="v2-card mb-3" id="importSection">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <span class="v2-title">导入需求</span>
+      <span class="v2-pill" id="chipMeeting">未开始</span>
+    </summary>
+    <div class="v2-card-b">
+      <div class="v2-input">
+        <div class="v2-body" id="startStatus" style="display:none;"></div>
+        <div class="v2-row">
+          <input class="form-control" id="snapshotId" placeholder="可选：输入 snapshot_id（不填则用最新审计快照）" style="min-width: 320px; flex: 1;">
+          <button class="btn btn-outline-secondary" id="btnStartFromSnapshot"><i class="fas fa-camera me-1"></i>从快照开会</button>
+        </div>
+        <div class="v2-muted small">可粘贴 PRD 文本，或上传 PDF（与 PRD 审计的上传解析一致）。</div>
+        <div class="v2-row" style="align-items:flex-start;">
+          <textarea class="form-control" id="prdText" rows="6" placeholder="粘贴 PRD 文本..." style="font-size:14px; line-height:1.65; flex: 1;"></textarea>
+          <div class="d-flex flex-column gap-2" style="min-width: 140px;">
+            <button class="btn btn-outline-secondary" id="btnUploadPdf"><i class="fas fa-file-upload me-1"></i>上传 PDF</button>
+            <input type="file" id="pdfUpload" accept=".pdf,application/pdf" class="d-none">
+            <div class="v2-muted small">上传后会自动填入文本框。</div>
+          </div>
+        </div>
+        <div class="v2-row">
+          <button class="btn btn-primary" id="btnStartFromPrd"><i class="fas fa-play me-1"></i>生成快照并开会</button>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="enforceGate" checked>
+            <label class="form-check-label" for="enforceGate">强制门禁（测试主导默认开启）</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="auditConstraint" checked>
+            <label class="form-check-label" for="auditConstraint">使用静态审计约束（推荐：锚点/缺口强绑定）</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="quickScan" checked>
+            <label class="form-check-label" for="quickScan">快速开会（轻量扫描，不跑六段式审计）</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="llmRequired" checked>
+            <label class="form-check-label" for="llmRequired">LLM 必须参与（失败则终止，不展示兜底模板）</label>
+          </div>
+          <span class="text-muted small" id="startHint">默认只收敛 P0/P1，不会无休止讨论。</span>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- 其他内容：全部折叠 -->
+  <details class="v2-card mb-3">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <div class="v2-title">更多内容（可展开）</div>
+      <span class="v2-pill">折叠</span>
+    </summary>
+    <div class="v2-card-b">
+
+  <details class="v2-card mb-3" id="freezeSection">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <span class="v2-title">冻结口径填写（把 P0 写成白纸黑字的具体数值/规则）</span>
+      <div class="v2-actions">
+        <button class="btn btn-outline-primary btn-sm" id="btnApplyFreeze" type="button"><i class="fas fa-check-circle me-1"></i>应用冻结口径</button>
+        <span class="v2-pill">折叠</span>
+      </div>
+    </summary>
+    <div class="v2-card-b">
+      <div class="v2-muted small mb-2">填写后点“应用冻结口径”，系统会把对应 P0 从 BLOCKED 收敛到 DECIDED，并重算 Gate/重生成 PRD v2.0（不会手工强制 PASS）。</div>
+      <div class="v2-row mb-2">
+        <input class="form-control" id="frTerminals" placeholder="终端范围（用逗号分隔，例如：触摸屏, TV屏幕, 星耀屏；不支持可写 NOT_SUPPORTED:XXX）" style="min-width: 420px; flex: 2;">
+        <input class="form-control" id="frTerminalQuote" placeholder="终端范围原文证据（从PRD复制一行原文，用于 Claim-Check 支撑）" style="min-width: 420px; flex: 3;">
+      </div>
+      <div class="v2-row">
+        <input class="form-control" id="frConcN" placeholder="并发最大并发 N（例如 3）" style="min-width: 220px; flex: 1;">
+        <input class="form-control" id="frConcArb" placeholder="裁决函数（按优先级/按时间/手动>自动等）" style="min-width: 320px; flex: 2;">
+      </div>
+      <div class="v2-row mt-2">
+        <input class="form-control" id="frConcQueue" placeholder="排队机制（FIFO/单用户队列/是否丢弃/提示文案）" style="min-width: 320px; flex: 1;">
+      </div>
+      <hr/>
+      <div class="v2-row">
+        <input class="form-control" id="frTimeoutMs" placeholder="超时 timeout_ms（例如 15000）" style="min-width: 220px; flex: 1;">
+        <input class="form-control" id="frRetryTimes" placeholder="重试次数（例如 3）" style="min-width: 220px; flex: 1;">
+        <input class="form-control" id="frBackoff" placeholder="重试间隔（例如 10/30/60s）" style="min-width: 320px; flex: 2;">
+      </div>
+      <div class="v2-row mt-2">
+        <input class="form-control" id="frStop" placeholder="终止条件（例如：超过重试次数/用户取消/切后台）" style="min-width: 320px; flex: 1;">
+        <input class="form-control" id="frFail" placeholder="最终失败处理（例如：进入 ERROR + 提示文案）" style="min-width: 320px; flex: 1;">
+      </div>
+      <hr/>
+      <div class="v2-row">
+        <input class="form-control" id="frStateStore" placeholder="状态存储位置（KV/SQLite/服务端等）" style="min-width: 320px; flex: 1;">
+        <input class="form-control" id="frResume" placeholder="恢复策略（回到 IDLE/恢复 RECORDING/提示用户继续等）" style="min-width: 320px; flex: 1;">
+      </div>
+      <hr/>
+      <div class="v2-row">
+        <input class="form-control" id="frWho" placeholder="谁可以操作（范围/身份）" style="min-width: 260px; flex: 1;">
+        <input class="form-control" id="frToken" placeholder="Token/凭证规则（是否需要/如何获取）" style="min-width: 320px; flex: 1;">
+        <input class="form-control" id="frTtl" placeholder="Token有效期秒（例如 600）" style="min-width: 220px; flex: 1;">
+      </div>
+      <div class="v2-row mt-2">
+        <input class="form-control" id="frCross" placeholder="跨域/跨房间拦截规则" style="min-width: 320px; flex: 1;">
+        <input class="form-control" id="frDeny" placeholder="越权错误码/提示文案（例如 ERR_PERMISSION/提示）" style="min-width: 320px; flex: 1;">
+      </div>
+    </div>
+  </details>
+
+  <!-- PRD v2.0 已移动到导入需求上方 -->
+
+  <div class="v2-card mb-3">
+    <div class="v2-card-h">
+      <div class="v2-title">怎么验收（测试标准） <span class="v2-sub">（Given/When/Then）</span></div>
+      <button class="btn btn-outline-secondary btn-sm" id="btnCopyAc"><i class="fas fa-copy me-1"></i>复制 AC</button>
+    </div>
+    <div class="v2-card-b" id="acTable">
+      <div class="text-muted small">尚未生成。</div>
+    </div>
+  </div>
+
+  <details class="v2-card mb-3">
+    <summary class="v2-card-h" style="cursor:pointer;" id="sumPatch">
+      <div class="v2-title">可回写原文的补丁 <span class="v2-sub">（Patch）</span></div>
+      <div class="v2-actions">
+        <button class="btn btn-outline-secondary btn-sm" id="btnTogglePatch" type="button"><i class="fas fa-eye me-1"></i>展开/收起</button>
+        <button class="btn btn-outline-secondary btn-sm" id="btnCopyPatch" type="button"><i class="fas fa-copy me-1"></i>复制全文</button>
+      </div>
+    </summary>
+    <div class="v2-card-b">
+      <div class="v2-code" id="patchBox">尚未生成。</div>
+    </div>
+  </details>
+
+  <details class="v2-card mb-3">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <div class="v2-title">结论有没有原文依据 <span class="v2-sub">（Claim-Check）</span></div>
+      <span class="v2-pill" id="chipClaims">0 条</span>
+    </summary>
+    <div class="v2-card-b" id="claimList">
+      <div class="text-muted small">尚未生成。</div>
+    </div>
+  </details>
+
+  <!-- （已移动到首屏外侧） -->
+
+  <details class="v2-card mb-3">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <span class="v2-title">导出</span>
+      <span class="v2-pill">折叠</span>
+    </summary>
+    <div class="v2-card-b">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" value="" id="useRewriteEngine" checked>
+        <label class="form-check-label" for="useRewriteEngine">
+          LLM 重写版（更像人写的；LLM优先，失败回退 rule）
+        </label>
+      </div>
+      <div class="mt-2">
+        <div class="fw-semibold">交付类型</div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="exportKind" id="exportKindDraft" checked>
+          <label class="form-check-label" for="exportKindDraft">可开工草案版（允许 BLOCKED，会前置开工前置条件）</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="exportKind" id="exportKindFrozen">
+          <label class="form-check-label" for="exportKindFrozen">正式冻结版（仅门禁 PASS 才允许导出）</label>
+        </div>
+      </div>
+      <div class="text-muted small mt-2">
+        如需对比“模板拼装版”，可取消勾选再导出。
+      </div>
+    </div>
+  </details>
+
+  <details class="v2-card mb-3">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <span class="v2-title">排查用信息</span>
+      <div class="v2-actions">
+        <button class="btn btn-outline-primary btn-sm" id="btnSaveSnap" type="button"><i class="fas fa-save me-1"></i>保存会议快照</button>
+        <span class="v2-pill">折叠</span>
+      </div>
+    </summary>
+    <div class="v2-card-b">
+      <div class="v2-code mb-2" id="buildInfo">Build info：未加载</div>
+      <div class="v2-code" id="rawJson">未生成</div>
+    </div>
+  </details>
+</div>
+  </details> <!-- 更多内容 -->
+
+    </div> <!-- left col -->
+
+    <!-- Right: discussion (30%) -->
+    <div class="col-12 col-lg-4" id="rightCol">
+      <div class="v2-card mb-3 v2-empty-card" id="discussionCard" style="position: sticky; top: 12px;">
+        <div class="v2-card-h">
+          <div class="v2-title">讨论记录 <span class="v2-sub">（按议题）</span></div>
+          <span class="v2-pill">右侧</span>
+        </div>
+        <div class="v2-card-b" id="discussion">
+          <div class="v2-empty-hint small v2-muted">尚未生成讨论记录。开会后会在这里按“议题”逐条追加显示。</div>
+        </div>
+      </div>
+    </div>
+  </div> <!-- row -->
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const baseUrl = '/prd_audit';
+  let meetingId = null;
+  let meetingObj = null;
+  let lastExportedPrdV2 = '';
+  let exportAttemptedForMeeting = '';
+  let lastExportedLlmOnly = '';
+  let llmOnlyAttemptedForMeeting = '';
+  let autoStarted = false;
+  let autoStartTimer = null;
+  let lastPrdAutoKey = '';
+  let busy = false;
+  // Discussion: incremental "WeChat-like" reveal
+  let discMeetingId = '';
+  let discRenderedIds = {};
+  let discQueue = [];
+  let discFlushing = false;
+
+  function escapeHtml(s) {
+    const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+    return String(s || '').replace(/[&<>"']/g, (c) => map[c] || c);
+  }
+  function stripPrefix(s) {
+    const t = String(s || '').trim();
+    return t.replace(/^required_evidence:\s*/i, '').replace(/^missing:\s*/i, '').trim();
+  }
+  function humanizeTechText(s) {
+    let t = String(s || '').trim();
+    if (!t) return '';
+    // data types / jargon
+    t = t.replace(/\bint\b/ig, '整数（如 1、2、3）');
+    t = t.replace(/\bstring\b/ig, '文本（如 v1）');
+    t = t.replace(/int\s*自增/ig, '用整数表示，每次修改自动 +1');
+    // common backend terms
+    t = t.replace(/响应体/ig, '返回内容');
+    t = t.replace(/请求体/ig, '请求参数');
+    t = t.replace(/幂等键/ig, '重复请求识别键（幂等键）');
+    // log fields (keep original token for devs)
+    t = t.replace(/\brequest_id\b/ig, '请求唯一编号（request_id）');
+    t = t.replace(/\btimestamp\b/ig, '发生时间（timestamp）');
+    t = t.replace(/\berror_code\b/ig, '错误码（error_code）');
+    // error code naming examples: keep but add intent
+    t = t.replace(/ERR_([A-Z]+)_?(\d{3})/g, (m) => '错误码（' + m + '）');
+    t = t.replace(/ERR_([A-Z]+)/g, (m) => '错误码（' + m + '）');
+    return t;
+  }
+  function formatSummaryLines(s) {
+    const t0 = String(s || '').trim();
+    if (!t0) return '';
+    // Normalize punctuation into line breaks for readability
+    let t = t0
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/；\s*/g, '；\n')
+      .replace(/。\s*/g, '。\n')
+      .replace(/！\s*/g, '！\n')
+      .replace(/？\s*/g, '？\n')
+      .replace(/，\s*但/g, '；\n但')
+      .replace(/，\s*因此/g, '；\n因此')
+      .replace(/，\s*导致/g, '；\n导致')
+      .replace(/，\s*影响/g, '；\n影响')
+      .replace(/，\s*需要/g, '；\n需要')
+      .replace(/，\s*请/g, '；\n请');
+    // Split + dedupe short lines
+    const out = [];
+    const seen = {};
+    t.split('\n').forEach((x) => {
+      const s1 = String(x || '').trim();
+      if (!s1) return;
+      const k = s1.toLowerCase();
+      if (seen[k]) return;
+      seen[k] = true;
+      out.push(s1);
+    });
+    return out.join('\n');
+  }
+  function humanizeReq(s) {
+    let t = stripPrefix(s);
+    if (!t) return '';
+    // Product-friendly rewrites for common technical phrases (display-only)
+    t = t.replace(/超时阈值\s*\(ms\)/ig, '超时时间（毫秒）');
+    t = t.replace(/超时阈值\s*\(秒\)/ig, '超时时间（秒）');
+    t = t.replace(/资源状态的字段名未定义/g, '用来表示资源状态的字段叫什么名字？（例如 state/status）');
+    t = t.replace(/资源不存在时响应体字段结构\s*\(是否含\s*human_readable message\)/ig, '资源不存在时，返回信息里要不要包含用户能看懂的提示文案？');
+    t = t.replace(/响应体字段结构\s*\(是否包含\s*human_readable message\)/ig, '返回信息里要不要包含用户能看懂的提示文案？');
+    t = t.replace(/TIMEOUT\s*和\s*CONFLICT\s*状态后的状态迁移规则/ig, '发生超时或冲突后，系统应该进入什么状态？如何恢复？');
+    t = t.replace(/状态迁移规则/g, '发生后系统进入什么状态、如何恢复');
+    t = t.replace(/响应体字段结构/g, '返回信息需要包含哪些字段');
+    // normalize spaces
+    t = t.replace(/\s+/g, ' ').trim();
+    return humanizeTechText(t);
+  }
+  function normalizeObs(s) {
+    const t = String(s || '').trim();
+    if (!t) return '';
+    if (t.startsWith('response.')) return 'resp.' + t.slice('response.'.length);
+    if (t.startsWith('resp.')) return t;
+    if (t.startsWith('client_toast_text')) return 'client.toast_text';
+    if (t.startsWith('client.')) return t;
+    if (t.startsWith('request.')) return 'req.' + t.slice('request.'.length);
+    return t;
+  }
+  function formatThen(t) {
+    const s = String(t || '').trim();
+    if (!s) return '';
+    if (s.length <= 70) return s;
+    // Split long Then into readable lines
+    return s
+      .replace(/，且/g, '；\n')
+      .replace(/，并且/g, '；\n')
+      .replace(/，并/g, '；\n')
+      .replace(/；/g, '；\n')
+      .replace(/\n\n+/g, '\n')
+      .trim();
+  }
+  function setText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
+
+  async function postJson(path, payload) {
+    const resp = await fetch(baseUrl + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {})
+    });
+    try {
+      return await resp.json();
+    } catch (e) {
+      let txt = '';
+      try { txt = await resp.text(); } catch (e2) {}
+      throw new Error('接口返回非 JSON：' + String(path) + (txt ? ('；response=' + txt.slice(0, 300)) : ''));
+    }
+  }
+
+  async function postFile(path, file) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const resp = await fetch(baseUrl + path, { method: 'POST', body: fd });
+    return await resp.json();
+  }
+
+  async function loadBuildInfo() {
+    try {
+      const el = document.getElementById('buildInfo');
+      if (!el) return;
+      const resp = await fetch(baseUrl + '/api/review_meeting_v2/build_info', { method: 'GET' });
+      const data = await resp.json();
+      if (!data || !data.success) { el.textContent = 'Build info：加载失败'; return; }
+      const p = (data.data && data.data.paths) ? data.data.paths : {};
+      const commit = (data.data && data.data.git_commit) ? data.data.git_commit : '';
+      el.textContent =
+        'Build info' + (commit ? (' @' + commit) : '') + '\n' +
+        '- views.py: ' + (p.views_py || '') + ' (' + (p.views_mtime_utc || '') + ')\n' +
+        '- review_meeting_v2.py: ' + (p.review_meeting_v2_py || '') + ' (' + (p.review_meeting_v2_mtime_utc || '') + ')\n' +
+        '- template: ' + (p.template_v2_html || '') + ' (' + (p.template_v2_mtime_utc || '') + ')';
+    } catch (e) {}
+  }
+
+  function _autoStartKeyFromText(t) {
+    const s = String(t || '').trim();
+    if (!s) return '';
+    // Cheap signature: length + first/last fragments
+    const head = s.slice(0, 80);
+    const tail = s.slice(-80);
+    return String(s.length) + '|' + head + '|' + tail;
+  }
+
+  function scheduleAutoStartFromPrd(reason) {
+    try {
+      if (autoStartTimer) { clearTimeout(autoStartTimer); autoStartTimer = null; }
+    } catch (e) {}
+    autoStartTimer = setTimeout(async () => {
+      try {
+        if (busy) return;
+        if (meetingId) return; // already started
+        const ta = document.getElementById('prdText');
+        const prd = ta ? String(ta.value || '').trim() : '';
+        // Avoid triggering on tiny inputs
+        if (!prd || prd.length < 120) return;
+        const key = _autoStartKeyFromText(prd);
+        if (!key || key === lastPrdAutoKey) return;
+        lastPrdAutoKey = key;
+        autoStarted = true;
+        setStartStatus('warn', '检测到 PRD 输入，正在自动生成快照并开会…');
+        await startFromPrd();
+      } catch (e) {}
+    }, 1200);
+  }
+
+  function setStartStatus(kind, text) {
+    const el = document.getElementById('startStatus');
+    if (!el) return;
+    const msg = String(text || '').trim();
+    if (!msg) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+    const cls = (kind === 'error') ? 'alert alert-danger py-2 mb-2'
+              : (kind === 'success') ? 'alert alert-success py-2 mb-2'
+              : 'alert alert-warning py-2 mb-2';
+    el.className = cls;
+    el.innerHTML = '<div style="font-size:14px; line-height:1.6;">' + escapeHtml(msg) + '</div>';
+  }
+
+  function setBusy(on, hintText) {
+    busy = !!on;
+    const b1 = document.getElementById('btnStartFromSnapshot');
+    const b2 = document.getElementById('btnStartFromPrd');
+    const b3 = document.getElementById('btnExport');
+    const b4 = document.getElementById('btnSaveSnap');
+    const b5 = document.getElementById('btnExportPrdV2');
+    const b6 = document.getElementById('btnCopyPrdV2');
+    const b7 = document.getElementById('btnCopyPmTodo');
+    const b8 = document.getElementById('btnApplyFreeze');
+    const b9 = document.getElementById('btnTogglePrdV2');
+    const b10 = document.getElementById('btnTogglePatch');
+    [b1,b2,b3,b4,b5,b6,b7,b8,b9,b10].forEach((b) => { if (b) b.disabled = busy; });
+    if (on) setStartStatus('warn', hintText || '正在启动会议，请稍候…');
+  }
+
+  function renderGate(m) {
+    const gate = (m && m.gate) ? m.gate : {};
+    const metrics = gate.metrics || {};
+    const g = String(gate.gate || '—').toUpperCase();
+    setText('gatePill', g);
+    setText('gatePillBox', g);
+    const pill = document.getElementById('gatePill');
+    if (pill) {
+      pill.className = 'v2-pill ' + (g === 'PASS' ? 'pass' : 'blocked');
+    }
+    const pill2 = document.getElementById('gatePillBox');
+    if (pill2) {
+      pill2.className = 'v2-pill ' + (g === 'PASS' ? 'pass' : 'blocked');
+    }
+    // Prefer LLM-first summary if available (render with line breaks)
+    const gateSummary = (gate.summary && String(gate.summary).trim()) ? String(gate.summary).trim() : '';
+    const gateReasonEl = document.getElementById('gateReason');
+    if (gateReasonEl) {
+      const txt = gateSummary || gate.reason || '—';
+      const safe = escapeHtml(String(txt || ''));
+      gateReasonEl.innerHTML = safe.replace(/\n/g, '<br/>');
+    }
+    setText('kpiP0', String(metrics.p0_count || 0));
+    setText('kpiBlocked', String(metrics.blocked_count || 0));
+    setText('kpiReq', String(metrics.required_evidence_count || 0));
+    const meta = m.meta || {};
+    setText('kpiInput', meta.snapshot_id || '—');
+
+    const reqTop0 = (gate.required_evidence_top_llm && Array.isArray(gate.required_evidence_top_llm) && gate.required_evidence_top_llm.length)
+      ? gate.required_evidence_top_llm
+      : ((gate.required_evidence_top && Array.isArray(gate.required_evidence_top)) ? gate.required_evidence_top : []);
+    // clean + dedupe
+    const seen = {};
+    const reqTop = [];
+    reqTop0.forEach((x) => {
+      const s = humanizeReq(x);
+      if (!s) return;
+      const key = s.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+      reqTop.push(s);
+    });
+    const reqEl = document.getElementById('reqTop');
+    if (reqEl) {
+      if (!reqTop.length) reqEl.innerHTML = '<div class="v2-muted">暂无必补证据 Top。</div>';
+      else {
+        let html = '<div class="v2-muted">待补齐信息（开工/发布前置）：</div><ul class="v2-list">';
+        reqTop.slice(0, 8).forEach(x => { html += '<li>' + escapeHtml(String(x || '')) + '</li>'; });
+        html += '</ul>';
+        reqEl.innerHTML = html;
+      }
+    }
+    // Quick peek: show top 3 next steps in one glance
+    const q = document.getElementById('gateQuick');
+    if (q) {
+      if (!reqTop.length) q.textContent = '';
+      else q.textContent = 'Top3 待补齐：' + reqTop.slice(0, 3).join('；');
+    }
+  }
+
+  function renderBlockers(m) {
+    const blockers = (m && Array.isArray(m.blockers)) ? m.blockers : [];
+    const p0 = blockers.filter(b => String(b.risk_level || '').toUpperCase() === 'P0');
+    setText('chipBlockers', String(p0.length) + ' 条');
+    const list = document.getElementById('blockerList');
+    if (!list) return;
+    if (!p0.length) { list.innerHTML = '<div class="v2-muted">没有 P0 Blocker。</div>'; return; }
+    const llmOk = !!(m && m.meta && m.meta.llm_ok);
+    const llmRunning = !!(m && m.meta && m.meta.llm_running);
+    let html = '';
+    // Global dedupe across P0: once an evidence item appears in earlier P0, later P0 will not repeat it.
+    const globalSeenReq = {};
+    p0.slice(0, 6).forEach((b) => {
+      const req0 = Array.isArray(b.required_evidence) ? b.required_evidence : [];
+      const req = [];
+      const seen = {};
+      req0.forEach((x) => {
+        const s = humanizeReq(x);
+        if (!s) return;
+        const key = s.toLowerCase();
+        if (seen[key]) return;
+        seen[key] = true;
+        if (globalSeenReq[key]) return;
+        globalSeenReq[key] = true;
+        req.push(s);
+      });
+      const obs = Array.isArray(b.observability) ? b.observability : [];
+      const ac = (b.ac && typeof b.ac === 'object') ? b.ac : {};
+      const qs = Array.isArray(b.evidence_quotes) ? b.evidence_quotes : [];
+      const hs = formatSummaryLines(humanizeTechText(String(b.human_summary || '').trim()));
+      html += '<div class="v2-blocker mb-2">';
+      html += '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">';
+      html += '<h5>' + escapeHtml(b.title || '未命名') + '</h5>';
+      html += '<div class="d-flex gap-2 flex-wrap">';
+      html += '<span class="v2-pill p0">P0</span>';
+      html += '<span class="v2-pill">' + escapeHtml(b.evidence_class || 'DERIVED') + '</span>';
+      html += '<span class="v2-pill">' + escapeHtml(b.status || 'OPEN') + '</span>';
+      html += '</div></div>';
+      html += '<div class="v2-muted small">模块：' + escapeHtml(b.module || '跨模块') + '</div>';
+      html += '<div class="mt-2"><div class="fw-semibold">摘要</div>';
+      if (hs) {
+        html += '<div class="small" style="white-space:pre-wrap;">' + escapeHtml(hs) + '</div>';
+      } else if (llmRunning) {
+        html += '<div class="small v2-muted">LLM 正在生成中…（完成后会自动刷新）</div>';
+      } else if (!llmOk) {
+        html += '<div class="small v2-muted">摘要尚未生成（LLM 未成功参与）。</div>';
+      } else {
+        html += '<div class="small v2-muted">摘要尚未生成。</div>';
+      }
+      html += '</div>';
+      html += '<div class="mt-2"><div class="fw-semibold">触发原文（PRD摘录）</div>';
+      html += '<div class="small">' + (qs.length ? ('“' + escapeHtml(String(qs[0] || '')) + '”') : '<span class="v2-muted">未抽到对应原文，请补充PRD条款后再审计。</span>') + '</div></div>';
+      if (req.length) {
+        html += '<div class="mt-2"><div class="fw-semibold">需要补齐的条款（按这条原文补齐）</div><ul class="v2-list">';
+        req.slice(0, 3).forEach(x => { html += '<li>' + escapeHtml(String(x || '')) + '</li>'; });
+        html += '</ul></div>';
+      }
+      html += '<div class="mt-2"><div class="fw-semibold">AC</div>';
+      html += '<div class="small" style="white-space:pre-wrap;"><span class="v2-muted">Then：</span>' + escapeHtml(formatThen(ac.then || '')) + '</div></div>';
+      if (obs.length) {
+        html += '<div class="mt-2"><div class="fw-semibold">最小观测字段</div><div class="d-flex flex-wrap gap-2 mt-1">';
+        obs.slice(0, 10).forEach(x => { html += '<span class="v2-pill">' + escapeHtml(normalizeObs(String(x || ''))) + '</span>'; });
+        html += '</div></div>';
+      }
+      html += '</div>';
+    });
+    if (p0.length > 6) {
+      html += '<div class="v2-muted small mt-2">仅展示前 6 条 P0；完整列表请看 AC 表或导出文档。</div>';
+    }
+    list.innerHTML = html;
+  }
+
+  function renderClaims(m) {
+    const claims = (m && Array.isArray(m.claims)) ? m.claims : [];
+    setText('chipClaims', String(claims.length) + ' 条');
+    const el = document.getElementById('claimList');
+    if (!el) return;
+    if (!claims.length) { el.innerHTML = '<div class="v2-muted">暂无 Claim-Check。</div>'; return; }
+    const sup = claims.filter(c => String(c.status||'').toUpperCase() === 'SUPPORTED').length;
+    const uns = claims.filter(c => String(c.status||'').toUpperCase() === 'UNSUPPORTED').length;
+    let html = '<div class="v2-muted small mb-2">汇总：SUPPORTED=' + sup + ' / UNSUPPORTED=' + uns + '（UNSUPPORTED 的 P0 结论会阻断 Gate）</div>';
+    html += '<div class="d-grid gap-2">';
+    claims.slice(0, 18).forEach((c, i) => {
+      const st = String(c.status || 'UNSUPPORTED').toUpperCase();
+      const imp = String(c.importance || 'P1').toUpperCase();
+      const pill = (st === 'SUPPORTED') ? 'pass' : 'blocked';
+      const req = Array.isArray(c.required_evidence) ? c.required_evidence : [];
+      const qs = Array.isArray(c.evidence_quotes) ? c.evidence_quotes : [];
+      html += '<div class="v2-blocker" style="background:#fff;">';
+      html += '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">';
+      html += '<div class="fw-semibold">' + escapeHtml(String(i+1) + '. ' + (c.claim || '—')) + '</div>';
+      html += '<div class="d-flex gap-2 flex-wrap">';
+      html += '<span class="v2-pill ' + pill + '">' + escapeHtml(st) + '</span>';
+      html += '<span class="v2-pill p0">' + escapeHtml(imp) + '</span>';
+      html += '</div></div>';
+      if (qs.length) {
+        html += '<div class="mt-2 v2-muted small fw-semibold">原文证据（节选）</div><ul class="v2-list">';
+        qs.slice(0,2).forEach(x => { html += '<li>“' + escapeHtml(String(x||'')) + '”</li>'; });
+        html += '</ul>';
+      }
+      if (req.length) {
+        html += '<div class="mt-2 v2-muted small fw-semibold">必补证据</div><ul class="v2-list">';
+        req.slice(0,2).forEach(x => { html += '<li>' + escapeHtml(String(x||'')) + '</li>'; });
+        html += '</ul>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function renderAcTable(m) {
+    const blockers = (m && Array.isArray(m.blockers)) ? m.blockers : [];
+    const rows = blockers.filter(b => ['P0','P1'].includes(String(b.risk_level || '').toUpperCase()));
+    const el = document.getElementById('acTable');
+    if (!el) return;
+    if (!rows.length) { el.innerHTML = '<div class="v2-muted">暂无 AC。</div>'; return; }
+    let html = '';
+    html += '<div class="table-responsive"><table class="table table-sm align-middle">';
+    html += '<thead><tr><th>优先级</th><th>场景</th><th>Given</th><th>When</th><th>Then</th><th>观测字段</th></tr></thead><tbody>';
+    rows.slice(0, 24).forEach((b) => {
+      const ac = (b.ac && typeof b.ac === 'object') ? b.ac : {};
+      const obs = Array.isArray(b.observability) ? b.observability.slice(0, 8).map(normalizeObs).join(', ') : '';
+      html += '<tr>';
+      html += '<td>' + escapeHtml(String(b.risk_level || 'P2')) + '</td>';
+      html += '<td>' + escapeHtml(ac.scene || b.title || '') + '</td>';
+      html += '<td>' + escapeHtml(ac.given || '') + '</td>';
+      html += '<td>' + escapeHtml(ac.when || '') + '</td>';
+      html += '<td>' + escapeHtml(formatThen(ac.then || '')) + '</td>';
+      html += '<td class="text-muted small">' + escapeHtml(obs) + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  }
+
+  function renderDecisions(m) {
+    const el = document.getElementById('decisionList');
+    if (!el) return;
+    const decisions0 = (m && Array.isArray(m.decisions)) ? m.decisions : [];
+    const llmOk = !!(m && m.meta && m.meta.llm_ok);
+    const llmRunning = !!(m && m.meta && m.meta.llm_running);
+    // Merge duplicate titles to avoid repeated template output
+    const mergedMap = {};
+    decisions0.forEach((d) => {
+      if (!d || typeof d !== 'object') return;
+      const title = String(d.title || '').trim() || '未命名';
+      const key = title;
+      if (!mergedMap[key]) mergedMap[key] = { title, risk_level: d.risk_level, status: d.status, owner: d.owner, decision: d.decision, required_evidence: [], human_summary: d.human_summary, _count: 0 };
+      mergedMap[key]._count += 1;
+      const req = Array.isArray(d.required_evidence) ? d.required_evidence : [];
+      req.forEach((x) => {
+        const s = String(x || '').trim();
+        if (s && mergedMap[key].required_evidence.indexOf(s) < 0) mergedMap[key].required_evidence.push(s);
+      });
+      const st = String(d.status || '').toUpperCase();
+      if (st === 'BLOCKED') mergedMap[key].status = 'BLOCKED';
+      const lv = String(d.risk_level || '').toUpperCase();
+      if (lv === 'P0') mergedMap[key].risk_level = 'P0';
+    });
+    const decisions = Object.values(mergedMap);
+    setText('chipDecision', String(decisions.length) + ' 条');
+    if (!decisions.length) { el.innerHTML = '<div class="v2-muted">尚未生成。</div>'; return; }
+    let html = '<div class="d-grid gap-2">';
+    decisions.slice(0, 12).forEach((d, i) => {
+      const st = String(d.status || 'BLOCKED').toUpperCase();
+      const pill = (st === 'DECIDED') ? 'pass' : 'blocked';
+      let req0 = Array.isArray(d.required_evidence) ? d.required_evidence : [];
+      let req = [];
+      const seen = {};
+      req0.forEach((x) => {
+        const s = humanizeReq(x);
+        if (!s) return;
+        const key = s.toLowerCase();
+        if (seen[key]) return;
+        seen[key] = true;
+        req.push(s);
+      });
+      // If DECIDED, do not keep repeating "required_evidence" list (it becomes confusing/contradictory).
+      if (st === 'DECIDED') req = [];
+      html += '<div class="v2-blocker" style="background:#fff;">';
+      html += '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">';
+      const cnt = d._count ? Number(d._count) : 1;
+      html += '<div class="fw-semibold">' + escapeHtml(String(i+1) + '. ' + (d.title||'')) + (cnt > 1 ? (' <span class="v2-muted">（合并 ' + String(cnt) + ' 条）</span>') : '') + '</div>';
+      html += '<div class="d-flex gap-2 flex-wrap">';
+      html += '<span class="v2-pill ' + pill + '">' + escapeHtml(st) + '</span>';
+      html += '<span class="v2-pill">' + escapeHtml(String(d.risk_level||'P2')) + '</span>';
+      html += '<span class="v2-pill">Owner:' + escapeHtml(String(d.owner||'PM')) + '</span>';
+      html += '</div></div>';
+      const hs = humanizeTechText(String(d.human_summary || '').trim());
+      html += '<div class="mt-2"><div class="v2-muted small fw-semibold">摘要</div>';
+      if (hs) html += '<div class="small" style="white-space:pre-wrap;">' + escapeHtml(hs) + '</div>';
+      else if (llmRunning) html += '<div class="small v2-muted">LLM 正在生成中…（完成后会自动刷新）</div>';
+      else if (!llmOk) html += '<div class="small v2-muted">摘要尚未生成（LLM 未成功参与）。</div>';
+      else html += '<div class="small v2-muted">摘要尚未生成。</div>';
+      html += '</div>';
+      const dec = humanizeTechText(String(d.decision||'').trim());
+      if (!dec || dec.indexOf('待补证据') >= 0) {
+        html += '<div class="v2-body mt-2"><span class="v2-muted">结论：</span>未拍板（请在 <a href="#freezeSection">冻结口径填写</a> 中填入项目决定；点“应用冻结口径”后会自动重算 Gate）。</div>';
+      } else {
+        html += '<div class="v2-body mt-2"><span class="v2-muted">结论：</span>' + escapeHtml(dec) + '</div>';
+      }
+      if (req.length) {
+        html += '<div class="mt-2"><div class="v2-muted small fw-semibold">下一步（最少要补什么）</div><ul class="v2-list">';
+        req.slice(0, 3).forEach(x => { html += '<li>' + escapeHtml(String(x||'')) + '</li>'; });
+        html += '</ul></div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function renderPassed(m) {
+    const el = document.getElementById('passedList');
+    if (!el) return;
+    const decisions0 = (m && Array.isArray(m.decisions)) ? m.decisions : [];
+    // "Passed" is a compact positive list from DECIDED decisions
+    const passed = decisions0.filter(d => String((d && d.status) || '').toUpperCase() === 'DECIDED');
+    setText('chipPassed', String(passed.length) + ' 条');
+    if (!passed.length) { el.innerHTML = '<div class="v2-muted">暂无已通过项（或尚未生成）。</div>'; return; }
+    let html = '<div class="d-grid gap-2">';
+    passed.slice(0, 10).forEach((d, i) => {
+      const title = String(d.title || '').trim() || '未命名';
+      const owner = String(d.owner || 'PM');
+      const hs = humanizeTechText(String(d.human_summary || '').trim());
+      const dec = humanizeTechText(String(d.decision || '').trim());
+      html += '<div class="v2-blocker" style="background:#fff;">';
+      html += '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">';
+      html += '<div class="fw-semibold">' + escapeHtml(String(i+1) + '. ' + title) + '</div>';
+      html += '<div class="d-flex gap-2 flex-wrap">';
+      html += '<span class="v2-pill pass">DECIDED</span>';
+      html += '<span class="v2-pill">Owner:' + escapeHtml(owner) + '</span>';
+      html += '</div></div>';
+      if (hs) html += '<div class="mt-2 small" style="white-space:pre-wrap;">' + escapeHtml(hs) + '</div>';
+      else if (dec) html += '<div class="mt-2 small"><span class="v2-muted">结论：</span>' + escapeHtml(dec) + '</div>';
+      html += '</div>';
+    });
+    if (passed.length > 10) html += '<div class="v2-muted small mt-2">仅展示前 10 条已通过项；完整以导出文档为准。</div>';
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function _discRoleClass(sp) {
+    const s = String(sp || '');
+    if (s.indexOf('研发') >= 0 || s.toLowerCase().indexOf('dev') >= 0) return 'dev';
+    if (s.indexOf('产品') >= 0 || s.toLowerCase().indexOf('pm') >= 0) return 'pm';
+    return 'qa';
+  }
+  function _discAvatarText(sp) {
+    const s = String(sp || '—');
+    if (s.indexOf('测试') >= 0) return 'QA';
+    if (s.indexOf('研发') >= 0) return 'DEV';
+    if (s.indexOf('产品') >= 0) return 'PM';
+    return s.slice(0, 2).toUpperCase();
+  }
+  function _discMsgId(x) {
+    // stable-enough id: issue + round + speaker + first chars
+    const it = String(x.issue_title || '其他').trim();
+    const rd = (x.round !== undefined) ? String(x.round) : '';
+    const sp = String(x.speaker || '');
+    const tx = String(x.text || '').slice(0, 48);
+    return it + '|' + rd + '|' + sp + '|' + tx;
+  }
+  function _ensureDiscussionRoot(el) {
+    if (!el) return;
+    if (el.getAttribute('data-mode') === 'stream') return;
+    el.setAttribute('data-mode', 'stream');
+    el.innerHTML = '' +
+      '<div class="v2-chat" id="discStream" style="border:none; background:transparent;"></div>' +
+      '<div class="v2-muted small mt-2" id="discHint">对话会持续追加显示。</div>';
+  }
+  function _appendDiscMsg(container, x) {
+    const sp = String(x.speaker || '—');
+    const cls = _discRoleClass(sp);
+    const ts = String(x.ts || '');
+    const rd = (x.round !== undefined) ? ('R' + String(x.round)) : '';
+    const txt = String(x.text || '');
+    const html =
+      '<div class="v2-msg ' + cls + '">' +
+        '<div class="av">' + escapeHtml(_discAvatarText(sp)) + '</div>' +
+        '<div class="v2-bubble">' +
+          '<div class="v2-meta"><span>' + escapeHtml(sp) + (rd ? (' · ' + escapeHtml(rd)) : '') + '</span><span>' + escapeHtml(ts) + '</span></div>' +
+          '<pre>' + escapeHtml(txt) + '</pre>' +
+        '</div>' +
+      '</div>';
+    container.insertAdjacentHTML('beforeend', html);
+  }
+  function _flushDiscQueue() {
+    if (discFlushing) return;
+    discFlushing = true;
+    const el = document.getElementById('discussion');
+    if (!el) { discFlushing = false; return; }
+    _ensureDiscussionRoot(el);
+    const box = document.getElementById('discStream');
+    if (!box) { discFlushing = false; return; }
+    const step = () => {
+      if (!discQueue.length) { discFlushing = false; return; }
+      const x = discQueue.shift();
+      _appendDiscMsg(box, x);
+      // keep at bottom
+      try { el.scrollTop = el.scrollHeight; } catch (e) {}
+      setTimeout(step, 380);
+    };
+    step();
+  }
+  function renderDiscussion(m) {
+    const el = document.getElementById('discussion');
+    if (!el) return;
+    const msgs = (m && Array.isArray(m.messages)) ? m.messages : [];
+    // Layout: keep right placeholder; compact empty state.
+    try {
+      const card = document.getElementById('discussionCard');
+      if (!msgs.length) {
+        if (card) card.classList.add('v2-empty-card');
+      } else {
+        if (card) card.classList.remove('v2-empty-card');
+      }
+    } catch (e) {}
+    if (!msgs.length) { el.innerHTML = '<div class="v2-empty-hint small v2-muted">尚未生成讨论记录。开会后会在这里按“议题”逐条追加显示。</div>'; return; }
+    // reset when meeting changes
+    const mid = (meetingId ? String(meetingId) : (m && m.meeting_id ? String(m.meeting_id) : ''));
+    if (mid && discMeetingId !== mid) {
+      discMeetingId = mid;
+      discRenderedIds = {};
+      discQueue = [];
+      discFlushing = false;
+      el.removeAttribute('data-mode');
+    }
+    _ensureDiscussionRoot(el);
+    // enqueue new messages only
+    msgs.slice(0, 320).forEach((x) => {
+      if (!x || typeof x !== 'object') return;
+      const id = _discMsgId(x);
+      if (discRenderedIds[id]) return;
+      discRenderedIds[id] = true;
+      discQueue.push(x);
+    });
+    _flushDiscQueue();
+  }
+
+  async function ensureExportedPrdV2() {
+    try {
+      if (!meetingId) return;
+      if (lastExportedPrdV2 && String(lastExportedPrdV2).trim()) return;
+      if (busy) return;
+      if (exportAttemptedForMeeting && exportAttemptedForMeeting === String(meetingId)) return;
+      exportAttemptedForMeeting = String(meetingId);
+      await exportPrdV2();
+    } catch (e) {}
+  }
+
+  function _runWhenNotBusy(fn, tries) {
+    const n = (typeof tries === 'number' && tries >= 0) ? tries : 20;
+    if (!busy) { try { fn(); } catch (e) {} return; }
+    if (n <= 0) return;
+    setTimeout(() => _runWhenNotBusy(fn, n - 1), 350);
+  }
+
+  async function ensureExportedLlmOnlySummary() {
+    try {
+      if (!meetingId) return;
+      if (lastExportedLlmOnly && String(lastExportedLlmOnly).trim()) return;
+      if (llmOnlyAttemptedForMeeting && llmOnlyAttemptedForMeeting === String(meetingId)) return;
+      llmOnlyAttemptedForMeeting = String(meetingId);
+      const box = document.getElementById('llmOnlyBox');
+      const hint = document.getElementById('llmOnlyHint');
+      if (box && (!String(box.textContent || '').trim() || String(box.textContent || '').indexOf('尚未生成') >= 0)) {
+        box.textContent = '正在自动生成可转发版结论（LLM-only）…';
+      }
+      if (hint) hint.textContent = '正在生成…（如失败会自动显示结构化兜底）';
+      // Do not wait for "busy" (PRD v2 export / meeting polling may keep busy true for long).
+      // The LLM-only call runs in silent mode and will not lock the page.
+      try { exportLlmOnlySummary({ silent: true }); } catch (e) {}
+    } catch (e) {}
+  }
+
+  function renderAll(m) {
+    meetingObj = m;
+    renderGate(m);
+    renderClaims(m);
+    renderDecisions(m);
+    renderPassed(m);
+    renderBlockers(m);
+    renderAcTable(m);
+    renderDiscussion(m);
+    const ps = document.getElementById('prdSourceBox');
+    if (ps) ps.textContent = (m && m.prd_source) ? String(m.prd_source) : '尚未生成。';
+    const pb = document.getElementById('patchBox');
+    if (pb) pb.textContent = (m && m.prd_patch) ? String(m.prd_patch) : '尚未生成。';
+    const p2 = document.getElementById('prdV2Box');
+    if (p2) {
+      // Only show exported PRD; do not show the old "meeting assembled" version.
+      const txt = (lastExportedPrdV2 && String(lastExportedPrdV2).trim()) ? String(lastExportedPrdV2) : '正在自动生成 PRD v2.0…';
+      p2.textContent = txt;
+      const hint = document.getElementById('prdV2Hint');
+      if (hint) hint.textContent = (lastExportedPrdV2 && String(lastExportedPrdV2).trim())
+        ? '当前显示为导出结果。'
+        : '提示：本区域仅展示导出版本（会自动生成）。';
+    }
+    try {
+      const prdSec = document.getElementById('sumPrdV2');
+      if (prdSec && lastExportedPrdV2 && String(lastExportedPrdV2).trim()) {
+        // sumPrdV2 is the summary element; open its parent <details>
+        const parent = prdSec.closest('details');
+        if (parent) parent.open = true;
+      }
+    } catch (e) {}
+    const src = document.getElementById('prdV2Source');
+    if (src) src.textContent = (lastExportedPrdV2 && String(lastExportedPrdV2).trim()) ? '导出结果' : '—';
+    const raw = document.getElementById('rawJson');
+    if (raw) raw.textContent = JSON.stringify(m || {}, null, 2);
+    applyPreview('prdV2Box', 40);
+    // Auto export if not yet exported (one-shot per meeting_id)
+    ensureExportedPrdV2();
+    ensureExportedLlmOnlySummary();
+  }
+
+  function applyPreview(id, maxLines) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const full = String(el.textContent || '');
+    if (!full.trim() || full.indexOf('尚未生成') >= 0) return;
+    // If expanded, keep full text
+    if (el.getAttribute('data-expanded') === '1') return;
+    const lines = full.split('\n');
+    if (lines.length <= maxLines) return;
+    el.textContent = lines.slice(0, maxLines).join('\n') + '\n…（已折叠，点击“展开/收起”查看全文）';
+  }
+
+  async function startFromSnapshot() {
+    if (busy) return;
+    setBusy(true, '正在从快照启动会议…');
+    try {
+      const sid = (document.getElementById('snapshotId').value || '').trim();
+      const auditConstraint = !!document.getElementById('auditConstraint').checked;
+      const llmRequired = !!document.getElementById('llmRequired').checked;
+      const data = await postJson('/api/review_meeting_v2/start', { mode: 'snapshot', snapshot_id: sid, enforce_gate: !!document.getElementById('enforceGate').checked, use_llm: true, llm_required: llmRequired, audit_constraint: auditConstraint });
+      if (!data || !data.success) {
+        const msg = (data && (data.message || data.error)) ? (data.message || data.error) : '启动失败';
+        setStartStatus('error', msg);
+        return;
+      }
+      meetingId = data.data.meeting_id;
+      setText('chipMeeting', '会议：' + meetingId);
+      try { const sec = document.getElementById('importSection'); if (sec) sec.open = false; } catch (e) {}
+      renderAll(data.data.meeting);
+      const llmHint = data.data.use_llm ? '（LLM 已启用）' : '（LLM 未启用/失败，已降级展示）';
+      const err = (data.data.llm_error || '').trim();
+      setStartStatus(err ? 'warn' : 'success', '会议已启动' + llmHint + (err ? ('；LLM异常：' + err) : '。'));
+      try { await exportPrdV2(); } catch (e) {}
+    } catch (e) {
+      setStartStatus('error', '启动失败：' + (e && e.message ? e.message : String(e)));
+    } finally {
+      setBusy(false, '');
+    }
+  }
+
+  async function startFromPrd() {
+    if (busy) return;
+    const prd = (document.getElementById('prdText').value || '').trim();
+    if (!prd) { setStartStatus('error', '请先粘贴 PRD 文本'); return; }
+    setBusy(true, '正在启动任务…');
+    try {
+      const auditConstraint = !!document.getElementById('auditConstraint').checked;
+      const llmRequired = !!document.getElementById('llmRequired').checked;
+      const scanLevel = (!!document.getElementById('quickScan').checked) ? 'quick' : 'full';
+      const start = await postJson('/api/review_meeting_v2/start_async', { mode: 'prd', prd_text: prd, scan_level: scanLevel, enforce_gate: !!document.getElementById('enforceGate').checked, use_llm: true, llm_required: llmRequired, audit_constraint: auditConstraint });
+      if (!start || !start.success) {
+        const msg = (start && (start.message || start.error)) ? (start.message || start.error) : '启动失败';
+        setStartStatus('error', msg);
+        return;
+      }
+      const taskId = (start.data && start.data.task_id) ? String(start.data.task_id) : '';
+      if (!taskId) { setStartStatus('error', '启动失败：task_id 为空'); return; }
+      setStartStatus('warn', '任务已创建：' + taskId + '\n正在生成快照并启动会议…');
+
+      // Poll progress
+      for (let i = 0; i < 180; i++) { // ~180s cap
+        await new Promise(r => setTimeout(r, 800));
+        const st = await postJson('/api/review_meeting_v2/task_status', { task_id: taskId });
+        if (!st || !st.success) {
+          setStartStatus('warn', '正在查询任务进度…（如果持续失败请刷新页面）');
+          continue;
+        }
+        const d = st.data || {};
+        const prog = Array.isArray(d.progress) ? d.progress : [];
+        const maxLog = 18;
+        const txt = prog.slice(Math.max(0, prog.length - maxLog)).join('\n');
+        setStartStatus('warn', '正在执行（' + String(prog.length) + ' 条日志，仅展示最近 ' + String(Math.min(maxLog, prog.length)) + ' 条）：\n' + txt);
+        // Stream partial meeting results (real meeting feel)
+        if (d.partial && d.partial.meeting) {
+          try {
+            renderAll(d.partial.meeting);
+            if (d.partial.meeting_id) {
+              meetingId = d.partial.meeting_id;
+              setText('chipMeeting', '会议：' + meetingId);
+            }
+          } catch (e) {}
+        }
+        const state = String(d.state || '').toUpperCase();
+        if (state === 'DONE') {
+          const res = d.result || {};
+          meetingId = res.meeting_id;
+          setText('chipMeeting', '会议：' + meetingId);
+          try { const sec = document.getElementById('importSection'); if (sec) sec.open = false; } catch (e) {}
+          renderAll(res.meeting);
+          const llmHint = res.use_llm ? '（LLM 已启用）' : '（LLM 未启用/失败，已降级展示）';
+          const err = (res.llm_error || '').trim();
+          setStartStatus(err ? 'warn' : 'success', '会议已启动（输入PRD已转为会议快照）' + llmHint + (err ? ('；LLM异常：' + err) : '。'));
+          try { await exportPrdV2(); } catch (e) {}
+          break;
+        }
+        if (state === 'ERROR') {
+          const err = (d.error || '启动失败');
+          setStartStatus('error', '启动失败：' + err + '\n\n进度：\n' + txt);
+          break;
+        }
+      }
+    } catch (e) {
+      setStartStatus('error', '启动失败：' + (e && e.message ? e.message : String(e)));
+    } finally {
+      setBusy(false, '');
+    }
+  }
+
+  async function uploadPdfToText() {
+    if (busy) return;
+    const inp = document.getElementById('pdfUpload');
+    if (!inp || !inp.files || !inp.files.length) return;
+    const file = inp.files[0];
+    try {
+      setBusy(true, '正在解析 PDF…');
+      const data = await postFile('/api/parse_pdf', file);
+      if (!data || !data.success) {
+        const msg = (data && (data.message || data.error)) ? (data.message || data.error) : 'PDF 解析失败';
+        setStartStatus('error', msg);
+        return;
+      }
+      const txt = (data.data && data.data.text) ? String(data.data.text) : '';
+      const warn = (data.data && data.data.warning) ? String(data.data.warning) : '';
+      const ta = document.getElementById('prdText');
+      if (ta) ta.value = txt;
+      setStartStatus(warn ? 'warn' : 'success', 'PDF 已解析并填入文本框。系统将自动生成快照并开会，然后自动生成 PRD v2.0。' + (warn ? ('\n提示：' + warn) : ''));
+      // Auto start meeting after PDF import
+      scheduleAutoStartFromPrd('pdf');
+    } catch (e) {
+      setStartStatus('error', 'PDF 解析失败：' + (e && e.message ? e.message : String(e)));
+    } finally {
+      try { inp.value = ''; } catch (e) {}
+      setBusy(false, '');
+    }
+  }
+
+  async function exportDoc() {
+    if (!meetingId) { alert('请先开会'); return; }
+    const data = await postJson('/api/review_meeting_v2/export_markdown', { meeting_id: meetingId });
+    if (!data || !data.success) { alert((data && data.message) || '导出失败'); return; }
+    const md = (data.data && data.data.markdown) ? data.data.markdown : '';
+    try { await navigator.clipboard.writeText(md); alert('已复制到剪贴板'); } catch (e) { alert('复制失败，请在返回里手动复制'); }
+  }
+
+  async function applyFreezeRules() {
+    if (!meetingId) { alert('请先开会'); return; }
+    const fr = {
+      terminal_scope: {
+        terminals: (document.getElementById('frTerminals') && document.getElementById('frTerminals').value) ? String(document.getElementById('frTerminals').value).trim() : '',
+        evidence_quote: (document.getElementById('frTerminalQuote') && document.getElementById('frTerminalQuote').value) ? String(document.getElementById('frTerminalQuote').value).trim() : '',
+      },
+      concurrency: {
+        max_concurrency_n: (document.getElementById('frConcN') && document.getElementById('frConcN').value) ? Number(document.getElementById('frConcN').value) : null,
+        arbitration: (document.getElementById('frConcArb') && document.getElementById('frConcArb').value) ? String(document.getElementById('frConcArb').value).trim() : '',
+        queue: (document.getElementById('frConcQueue') && document.getElementById('frConcQueue').value) ? String(document.getElementById('frConcQueue').value).trim() : '',
+      },
+      retry: {
+        timeout_ms: (document.getElementById('frTimeoutMs') && document.getElementById('frTimeoutMs').value) ? Number(document.getElementById('frTimeoutMs').value) : null,
+        retry_times: (document.getElementById('frRetryTimes') && document.getElementById('frRetryTimes').value) ? Number(document.getElementById('frRetryTimes').value) : null,
+        backoff: (document.getElementById('frBackoff') && document.getElementById('frBackoff').value) ? String(document.getElementById('frBackoff').value).trim() : '',
+        stop_condition: (document.getElementById('frStop') && document.getElementById('frStop').value) ? String(document.getElementById('frStop').value).trim() : '',
+        final_fail: (document.getElementById('frFail') && document.getElementById('frFail').value) ? String(document.getElementById('frFail').value).trim() : '',
+      },
+      resume: {
+        state_storage: (document.getElementById('frStateStore') && document.getElementById('frStateStore').value) ? String(document.getElementById('frStateStore').value).trim() : '',
+        strategy: (document.getElementById('frResume') && document.getElementById('frResume').value) ? String(document.getElementById('frResume').value).trim() : '',
+      },
+      auth: {
+        who_can: (document.getElementById('frWho') && document.getElementById('frWho').value) ? String(document.getElementById('frWho').value).trim() : '',
+        token: (document.getElementById('frToken') && document.getElementById('frToken').value) ? String(document.getElementById('frToken').value).trim() : '',
+        token_ttl_s: (document.getElementById('frTtl') && document.getElementById('frTtl').value) ? Number(document.getElementById('frTtl').value) : null,
+        cross_scope_block: (document.getElementById('frCross') && document.getElementById('frCross').value) ? String(document.getElementById('frCross').value).trim() : '',
+        deny_error: (document.getElementById('frDeny') && document.getElementById('frDeny').value) ? String(document.getElementById('frDeny').value).trim() : '',
+      }
+    };
+    const data = await postJson('/api/review_meeting_v2/apply_freeze_rules', { meeting_id: meetingId, freeze_rules: fr });
+    if (!data || !data.success) { alert((data && data.message) || '应用失败'); return; }
+    if (data.data && data.data.meeting) {
+      meetingObj = data.data.meeting;
+      renderAll(meetingObj);
+      alert('已应用冻结口径，并重算 Gate/重生成 PRD v2.0');
+    }
+  }
+
+  function buildPmTodoText(m) {
+    const gate = (m && m.gate) ? m.gate : {};
+    const formal = String(gate.formal_gate || gate.gate || '—');
+    const work = String(gate.work_gate || '—');
+    const reqTop = (gate.required_evidence_top && Array.isArray(gate.required_evidence_top)) ? gate.required_evidence_top : [];
+    const blockers = (m && m.blockers && Array.isArray(m.blockers)) ? m.blockers : [];
+    const claims = (m && m.claims && Array.isArray(m.claims)) ? m.claims : [];
+    const p0Blockers = blockers.filter(b => String((b && b.risk_level) || '').toUpperCase() === 'P0');
+    const unsupportedP0 = claims.filter(c => String((c && c.status) || '').toUpperCase() === 'UNSUPPORTED' && String((c && c.importance) || '').toUpperCase() === 'P0');
+    const lines = [];
+    lines.push('【PRD v2.0 门禁闭环（QA 催办清单）】');
+    lines.push('');
+    lines.push('- 目标：Formal Gate=PASS（正式冻结可开工PRD）；Work-start Gate 仅作临时开工过渡。');
+    lines.push(`- 当前门禁：Formal=${formal} / Work-start=${work}`);
+    lines.push('');
+    lines.push('## P0 必补闭环（请 PM 回写到 PRD 正文并给出锚点）');
+    if (!p0Blockers.length && !unsupportedP0.length) {
+      lines.push('- （无 P0 缺口）');
+    } else {
+      p0Blockers.slice(0, 12).forEach((b, idx) => {
+        const title = String((b && (b.title || b.type)) || '未命名P0');
+        const anchor = String((b && b.anchor) || '【PRD未说明】');
+        const req = (b && b.required_evidence && Array.isArray(b.required_evidence)) ? b.required_evidence : [];
+        lines.push(`${idx + 1}. [P0] ${title}`);
+        lines.push(`   - 锚点：${anchor}`);
+        if (req.length) {
+          lines.push('   - 需补齐：');
+          req.slice(0, 6).forEach(x => { if (String(x || '').trim()) lines.push('     - ' + String(x).trim()); });
+        } else {
+          lines.push('   - 需补齐：补齐裁决规则/验收口径/最小观测字段，并提供可引用锚点。');
+        }
+      });
+      if (unsupportedP0.length) {
+        lines.push('');
+        lines.push('## Claim-Check（P0 UNSUPPORTED：缺少原文证据/锚点）');
+        unsupportedP0.slice(0, 12).forEach((c, idx) => {
+          lines.push(`${idx + 1}. ${String(c.claim || '—')}`);
+        });
+      }
+    }
+    if (reqTop.length) {
+      lines.push('');
+      lines.push('## 必补证据Top（汇总）');
+      reqTop.slice(0, 10).forEach(x => { if (String(x || '').trim()) lines.push('- ' + String(x).trim()); });
+    }
+    lines.push('');
+    lines.push('交付标准：每条 P0 补齐后需变为 DECIDED/SUPPORTED；重新开会生成 PRD v2.0，系统自动将 Formal Gate → PASS。');
+    return lines.join('\\n');
+  }
+
+  async function copyPmTodo() {
+    if (!meetingObj) { alert('请先开会'); return; }
+    const txt = buildPmTodoText(meetingObj);
+    try { await navigator.clipboard.writeText(txt); alert('已复制 P0 闭环催办清单'); } catch (e) { alert('复制失败'); }
+  }
+
+  async function exportPrdV2() {
+    try {
+      if (!meetingId) { alert('请先开会'); return; }
+      // Always export via rewrite engine (do not show the old assembled default).
+      const useEngine = true;
+      // Auto pick export kind: PASS -> frozen; otherwise draft.
+      const g = (meetingObj && meetingObj.gate) ? String(meetingObj.gate.gate || '').toUpperCase() : '';
+      const exportKind = (g === 'PASS') ? 'frozen' : 'draft';
+
+      const hint = document.getElementById('prdV2Hint');
+      const box = document.getElementById('prdV2Box');
+      if (hint) hint.textContent = '正在生成 PRD v2.0…';
+      if (box) box.textContent = '正在生成 PRD v2.0…';
+
+      const data = await postJson('/api/review_meeting_v2/export_prd_v2', { meeting_id: meetingId, use_rewrite_engine: useEngine, export_kind: exportKind });
+      if (!data || !data.success) {
+        const msg = (data && data.message) ? String(data.message) : '导出失败';
+        if (msg.indexOf('meeting_id') >= 0 && (msg.indexOf('不存在') >= 0 || msg.indexOf('过期') >= 0)) {
+          meetingId = null;
+          meetingObj = null;
+          setStartStatus('warn', 'meeting_id 已过期（常见原因：服务重启）。请重新开会后再生成。');
+        }
+        if (box) box.textContent = 'PRD v2.0 自动生成失败：' + msg;
+        if (hint) hint.textContent = '可稍后重试（刷新页面或重新开会）。';
+        alert(msg);
+        return;
+      }
+      const md = (data.data && data.data.markdown) ? data.data.markdown : '';
+      const modeUsed = (data.data && data.data.mode_used) ? String(data.data.mode_used) : '';
+      const llmErr = (data.data && data.data.llm_error) ? String(data.data.llm_error) : '';
+
+      // refresh view
+      lastExportedPrdV2 = md || '';
+      if (box) box.textContent = md || '（导出为空）';
+      if (hint) hint.textContent = '当前显示为导出结果。' + (exportKind ? ('（' + exportKind + '）') : '') + (modeUsed ? ('；' + modeUsed) : '') + (llmErr ? ('；LLM异常：' + llmErr) : '');
+      const src = document.getElementById('prdV2Source');
+      if (src) src.textContent = '导出结果';
+
+      try { await navigator.clipboard.writeText(md); } catch (e) {}
+      alert('已生成 PRD v2.0' + (exportKind ? ('（' + exportKind + '）') : '') + (modeUsed ? ('；' + modeUsed) : '') + (llmErr ? ('；LLM异常：' + llmErr) : ''));
+    } catch (e) {
+      const msg = (e && e.message) ? String(e.message) : String(e);
+      const box = document.getElementById('prdV2Box');
+      const hint = document.getElementById('prdV2Hint');
+      if (box) box.textContent = 'PRD v2.0 自动生成失败：' + msg;
+      if (hint) hint.textContent = '可稍后重试（刷新页面或重新开会）。';
+      alert(msg);
+    }
+  }
+
+  async function saveMeetingSnapshot() {
+    if (!meetingId) { alert('请先开会'); return; }
+    const data = await postJson('/api/review_meeting_v2/save_snapshot', { meeting_id: meetingId });
+    if (!data || !data.success) { alert((data && data.message) || '保存失败'); return; }
+    alert('已保存会议快照：' + (data.data && data.data.meeting_snapshot_id ? data.data.meeting_snapshot_id : 'OK'));
+  }
+
+  async function copyAc() {
+    if (!meetingObj) { alert('请先开会'); return; }
+    const blockers = (meetingObj.blockers && Array.isArray(meetingObj.blockers)) ? meetingObj.blockers : [];
+    const rows = blockers.map(b => {
+      const ac = (b.ac && typeof b.ac === 'object') ? b.ac : {};
+      return `${String(b.risk_level||'P2')} | ${ac.scene||b.title||''}\nGIVEN: ${ac.given||''}\nWHEN: ${ac.when||''}\nTHEN: ${ac.then||''}\nOBS: ${(Array.isArray(b.observability)?b.observability.join(', '):'')}\n`;
+    }).join('\n---\n');
+    try { await navigator.clipboard.writeText(rows); alert('已复制 AC'); } catch (e) { alert('复制失败'); }
+  }
+
+  async function copyPatch() {
+    const pb = document.getElementById('patchBox');
+    const t = pb ? String(pb.textContent || '') : '';
+    if (!t.trim()) { alert('暂无补丁'); return; }
+    try { await navigator.clipboard.writeText(t); alert('已复制补丁'); } catch (e) { alert('复制失败'); }
+  }
+
+  async function copyPrdV2() {
+    const pb = document.getElementById('prdV2Box');
+    const t = pb ? String(pb.textContent || '') : '';
+    if (!t.trim() || t.indexOf('请点击') >= 0 || t.indexOf('尚未生成') >= 0) { alert('暂无导出版本，请先点击“一键重构 PRD v2.0”。'); return; }
+    try { await navigator.clipboard.writeText(t); alert('已复制 PRD v2.0'); } catch (e) { alert('复制失败'); }
+  }
+
+  async function sendFeishuPrdV2() {
+    try {
+      if (!meetingId) { alert('请先开会'); return; }
+      if (!lastExportedPrdV2 || !String(lastExportedPrdV2).trim()) { alert('暂无导出版本，请先生成/刷新 PRD v2.0'); return; }
+      const k = 'v2_feishu_webhook';
+      const defaultWebhook = 'https://open.feishu.cn/open-apis/bot/v2/hook/9fea5ebb-8e80-430f-8f11-10fb88fabb60';
+      let saved = (localStorage && localStorage.getItem) ? (localStorage.getItem(k) || '') : '';
+      if (!saved) {
+        saved = defaultWebhook;
+        try { if (localStorage && localStorage.setItem) localStorage.setItem(k, saved); } catch (e) {}
+      }
+      const webhook = (prompt('飞书群机器人 Webhook 地址（仅群聊机器人支持）', saved || defaultWebhook) || '').trim();
+      if (!webhook) return;
+      try { if (localStorage && localStorage.setItem) localStorage.setItem(k, webhook); } catch (e) {}
+      const who = (prompt('备注：发送给谁/哪个群（可选）', '') || '').trim();
+      setBusy(true, '正在发送到飞书…（文本较长会分多条发送）');
+      const data = await postJson('/api/review_meeting_v2/send_feishu', { meeting_id: String(meetingId), webhook_url: webhook, title: 'PRD v2.0（可开工草案）' + (who ? ('｜' + who) : ''), text: String(lastExportedPrdV2) });
+      if (!data || !data.success) {
+        const msg = (data && (data.message || data.error)) ? (data.message || data.error) : '发送失败';
+        alert(msg);
+        return;
+      }
+      alert('已发送到飞书（共 ' + String((data.data && data.data.sent_count) || 0) + ' 条）');
+    } catch (e) {
+      alert('发送失败：' + (e && e.message ? e.message : String(e)));
+    } finally {
+      setBusy(false, '');
+    }
+  }
+
+  async function exportLlmOnlySummary(opts) {
+    const silent = !!(opts && opts.silent);
+    if (busy && !silent) return;
+    try {
+      if (!meetingId) { alert('请先开会'); return; }
+      if (!silent) setBusy(true, '正在生成可转发版结论（LLM-only）…');
+      const reqP = postJson('/api/review_meeting_v2/export_llm_only_summary', { meeting_id: String(meetingId), llm_required: false, strict_mode: true });
+      const data = await Promise.race([
+        reqP,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('请求超时（>110s），请重试')), 110000)),
+      ]);
+      const box = document.getElementById('llmOnlyBox');
+      const hint = document.getElementById('llmOnlyHint');
+      if (!data || !data.success) {
+        const msg = (data && (data.message || data.error)) ? String(data.message || data.error) : '生成失败';
+        if (box) box.textContent = '生成失败：' + msg;
+        if (hint) hint.textContent = '生成失败（请查看原因）。';
+        return;
+      }
+      const txt = (data && data.data && data.data.text) ? String(data.data.text) : '生成失败。';
+      if (box) box.textContent = txt;
+      lastExportedLlmOnly = txt || '';
+      const mode = (data && data.data && data.data.mode_used) ? String(data.data.mode_used) : '';
+      const err = (data && data.data && data.data.llm_error) ? String(data.data.llm_error) : '';
+      if (hint) hint.textContent = (mode === 'llm_only')
+        ? '已生成（可转发结论）。'
+        : ((mode === 'llm_direct')
+          ? ('已生成（可转发结论｜已降级：证据抽取失败）' + (err ? ('；原因：' + err) : ''))
+          : ('LLM 未成功生成' + (err ? ('；原因：' + err) : '。')));
+      try {
+        const det = document.getElementById('llmOnlyDetails');
+        if (det) det.open = true;
+      } catch (e) {}
+    } catch (e) {
+      const box = document.getElementById('llmOnlyBox');
+      if (box) box.textContent = '生成失败：' + (e && e.message ? e.message : String(e));
+    } finally {
+      if (!silent) setBusy(false, '');
+    }
+  }
+
+  async function copyLlmOnlySummary() {
+    const el = document.getElementById('llmOnlyBox');
+    const t = el ? String(el.textContent || '') : '';
+    if (!t.trim() || t.indexOf('尚未生成') >= 0) { alert('暂无可转发版结论，请先点击“生成”。'); return; }
+    try { await navigator.clipboard.writeText(t); alert('已复制可转发版结论'); } catch (e) { alert('复制失败'); }
+  }
+
+  function toggleTextBox(id, maxLines) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const m = meetingObj || {};
+    // IMPORTANT: prdV2Box must only ever show the exported PRD v2.0 (LLM rewrite),
+    // never the old meeting-assembled m.prd_v2.
+    const full =
+      (id === 'prdV2Box')
+        ? ((lastExportedPrdV2 && String(lastExportedPrdV2).trim()) ? String(lastExportedPrdV2) : String(el.textContent || ''))
+        : ((id === 'patchBox')
+            ? (m && m.prd_patch ? String(m.prd_patch) : String(el.textContent || ''))
+            : String(el.textContent || ''));
+    const expanded = el.getAttribute('data-expanded') === '1';
+    if (expanded) {
+      el.setAttribute('data-expanded', '0');
+      el.textContent = full;
+      applyPreview(id, maxLines || 40);
+    } else {
+      el.setAttribute('data-expanded', '1');
+      el.textContent = full;
+    }
+  }
+
+  document.getElementById('btnStartFromSnapshot').addEventListener('click', startFromSnapshot);
+  document.getElementById('btnStartFromPrd').addEventListener('click', startFromPrd);
+  const prdTa = document.getElementById('prdText');
+  if (prdTa) {
+    prdTa.addEventListener('input', () => scheduleAutoStartFromPrd('input'));
+    prdTa.addEventListener('paste', () => scheduleAutoStartFromPrd('paste'));
+  }
+  const upPdf = document.getElementById('btnUploadPdf');
+  const upInp = document.getElementById('pdfUpload');
+  if (upPdf && upInp) {
+    upPdf.addEventListener('click', () => { if (!busy) upInp.click(); });
+    upInp.addEventListener('change', uploadPdfToText);
+  }
+  document.getElementById('btnExport').addEventListener('click', exportDoc);
+  document.getElementById('btnExportPrdV2').addEventListener('click', (e) => { try { e.preventDefault(); e.stopPropagation(); } catch (x) {} exportPrdV2(); });
+  document.getElementById('btnCopyPmTodo').addEventListener('click', (e) => { try { e.preventDefault(); e.stopPropagation(); } catch (x) {} copyPmTodo(); });
+  document.getElementById('btnApplyFreeze').addEventListener('click', (e) => { try { e.preventDefault(); e.stopPropagation(); } catch (x) {} applyFreezeRules(); });
+  document.getElementById('btnSaveSnap').addEventListener('click', (e) => { try { e.preventDefault(); e.stopPropagation(); } catch (x) {} saveMeetingSnapshot(); });
+  document.getElementById('btnCopyAc').addEventListener('click', copyAc);
+  document.getElementById('btnCopyPatch').addEventListener('click', copyPatch);
+  document.getElementById('btnCopyPrdV2').addEventListener('click', copyPrdV2);
+  document.getElementById('btnSendFeishu').addEventListener('click', (e) => { try { e.preventDefault(); e.stopPropagation(); } catch (x) {} sendFeishuPrdV2(); });
+  document.getElementById('btnLlmOnly').addEventListener('click', (e) => { try { e.preventDefault(); e.stopPropagation(); } catch (x) {} exportLlmOnlySummary(); });
+  document.getElementById('btnCopyLlmOnly').addEventListener('click', (e) => { try { e.preventDefault(); e.stopPropagation(); } catch (x) {} copyLlmOnlySummary(); });
+  document.getElementById('btnTogglePrdV2').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleTextBox('prdV2Box', 40); });
+  document.getElementById('btnTogglePatch').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleTextBox('patchBox', 60); });
+  loadBuildInfo();
+</script>
+{% endblock %}
+

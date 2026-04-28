@@ -10,6 +10,10 @@ import re
 import csv
 import zipfile
 import uuid
+import threading
+import subprocess
+from datetime import datetime, timezone
+import time
 from collections import Counter
 from typing import Any, Dict, List
 from flask import render_template, request, session, url_for, Response, stream_with_context, send_file
@@ -35,8 +39,74 @@ from .audit_learning import (
     rollback_rules_from_backup,
     save_outline_owner_correction,
 )
+from . import review_meeting_v2 as rmv2
+from . import prd_rewrite_engine as prd_rewrite
 
 logger = setup_logger("prd_audit_module")
+
+# V2 async task store (in-memory, MVP; V2 only)
+_RMV2_TASKS_LOCK = threading.Lock()
+_RMV2_TASKS: Dict[str, Dict[str, Any]] = {}
+
+
+def _rmv2_task_create(meta: Dict[str, Any]) -> str:
+    tid = f"rmv2task_{uuid.uuid4().hex[:10]}"
+    with _RMV2_TASKS_LOCK:
+        _RMV2_TASKS[tid] = {
+            "task_id": tid,
+            "state": "RUNNING",  # RUNNING|DONE|ERROR
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "updated_at": datetime.now().isoformat(timespec="seconds"),
+            "progress": [],
+            "result": None,
+            "error": "",
+            "meta": meta or {},
+        }
+    return tid
+
+
+def _rmv2_task_append(tid: str, text: str) -> None:
+    msg = str(text or "").strip()
+    if not msg:
+        return
+    with _RMV2_TASKS_LOCK:
+        t = _RMV2_TASKS.get(tid)
+        if not isinstance(t, dict):
+            return
+        t["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        t.setdefault("progress", [])
+        t["progress"].append(msg)
+        if len(t["progress"]) > 60:
+            t["progress"] = t["progress"][-60:]
+
+
+def _rmv2_task_finish(tid: str, *, result: Dict[str, Any]) -> None:
+    with _RMV2_TASKS_LOCK:
+        t = _RMV2_TASKS.get(tid)
+        if not isinstance(t, dict):
+            return
+        t["state"] = "DONE"
+        t["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        t["result"] = result
+
+
+def _rmv2_task_fail(tid: str, err: str) -> None:
+    with _RMV2_TASKS_LOCK:
+        t = _RMV2_TASKS.get(tid)
+        if not isinstance(t, dict):
+            return
+        t["state"] = "ERROR"
+        t["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        t["error"] = str(err or "启动失败")
+
+
+def _rmv2_task_set_partial(tid: str, partial: Dict[str, Any]) -> None:
+    with _RMV2_TASKS_LOCK:
+        t = _RMV2_TASKS.get(tid)
+        if not isinstance(t, dict):
+            return
+        t["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        t["partial"] = partial
 
 STORAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -108,6 +178,795 @@ VECTOR_DATA_FILE = os.path.join(STORAGE_DIR, "vector_data.json")
 GATE_CONFIG_FILE = os.path.join(STORAGE_DIR, "gate_config.json")
 REVIEW_STATE_FILE = os.path.join(STORAGE_DIR, "learning_repo", "review_state.json")
 FEISHU_WATCH_FILE = os.path.join(STORAGE_DIR, "learning_repo", "feishu_watch.json")
+
+# -------- 虚拟评审会（独立于静态审计）--------
+# 说明：会议态只保存在内存。输入可为 learning_repo/snapshots（snapshot 模式），或 brainstorm（无 PRD 推断草案，默认 BLOCKED）。
+_REVIEW_MEETINGS: Dict[str, Dict[str, Any]] = {}
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/build_info", methods=["GET"])
+def api_review_meeting_v2_build_info():
+    """
+    Debug helper: show which code is actually running (avoid "edited but not effective").
+    Platform-generic; no secrets.
+    """
+    try:
+        here = os.path.abspath(__file__)
+        rmv2_path = os.path.abspath(getattr(rmv2, "__file__", "") or "")
+        tpl_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "templates", "prd_audit_review_meeting_v2.html"))
+        now = datetime.now(timezone.utc).isoformat()
+
+        def _mtime(p: str) -> str:
+            try:
+                ts = os.path.getmtime(p)
+                return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+            except Exception:
+                return ""
+
+        commit = ""
+        try:
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            out = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root, stderr=subprocess.DEVNULL)
+            commit = out.decode("utf-8", errors="ignore").strip()
+        except Exception:
+            commit = ""
+
+        return success_response(
+            data={
+                "now_utc": now,
+                "git_commit": commit,
+                "paths": {
+                    "views_py": here,
+                    "views_mtime_utc": _mtime(here),
+                    "review_meeting_v2_py": rmv2_path,
+                    "review_meeting_v2_mtime_utc": _mtime(rmv2_path) if rmv2_path else "",
+                    "template_v2_html": tpl_path,
+                    "template_v2_mtime_utc": _mtime(tpl_path),
+                },
+            }
+        )
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_build_info failed")
+        return error_response(str(e), status_code=500)
+
+
+def _normalize_review_meeting_mode(data: Dict[str, Any]) -> str:
+    m = str((data or {}).get("mode") or "snapshot").strip().lower()
+    if m in ("brainstorm", "sandbox", "no_doc", "no_document", "nodoc"):
+        return "brainstorm"
+    return "snapshot"
+
+
+def _brainstorm_agenda_cards(idea: str, use_llm: bool) -> List[Dict[str, Any]]:
+    """
+    无 PRD 文档的沙盘议题：证据一律 inference，议题卡用于引导多角色讨论；
+    裁决侧默认 BLOCKED，直到补齐文档锚点。
+    """
+    idea = (idea or "").strip()
+    agenda_cards: List[Dict[str, Any]] = []
+
+    def _one_card(idx: int, topic: str) -> Dict[str, Any]:
+        return {
+            "session_id": "brainstorm",
+            "meeting_mode": "brainstorm",
+            "issue_id": f"brainstorm-P0-{idx:02d}",
+            "topic": topic,
+            "risk_level": "P0",
+            "one_liner": idea[:120] if idx == 1 else f"{idea[:80]}（{topic}）",
+            "evidence": [{"type": "inference", "ref": "", "text": "无 PRD 原文输入：本卡为推断草案"}],
+            "decision_needed": "请拍板阈值/终态/观测字段；无文档前仅记录草案，不关闭 P0。",
+            "candidate_ac": ["Given... When... Then...(含量化项，数字为暂定，需文档固化)"],
+            "constraints": ["不得将推断结论当作已发布 PRD 事实"],
+            "open_questions": ["缺少 PRD 章节/锚点：需补齐后方可关闭 P0"],
+            "source": {"idea": idea},
+        }
+
+    if use_llm:
+        try:
+            sys_p = (
+                "你是测试主导的评审会秘书。请仅输出 JSON：{\"cards\":[...]}。"
+                "每个 card 含字段：topic（exception/state/security/conflict/cross_end/data_contract）、one_liner、decision_needed。"
+                "不要引用不存在的 PRD 原文或行号。"
+            )
+            user_p = (
+                "输入是一句话需求/议题：\n"
+                f"{idea}\n\n"
+                "请生成最多 3 条、且 topic 互不重复的议题卡。"
+            )
+            obj = _llm_call_json(sys_p, user_p, timeout=60, max_tokens=1200)
+            cards = obj.get("cards") if isinstance(obj.get("cards"), list) else []
+            used_topics: set = set()
+            for c in cards:
+                if not isinstance(c, dict) or len(agenda_cards) >= 3:
+                    break
+                topic = str(c.get("topic") or "generic").strip()
+                if topic in used_topics:
+                    continue
+                used_topics.add(topic)
+                agenda_cards.append(
+                    {
+                        "session_id": "brainstorm",
+                        "meeting_mode": "brainstorm",
+                        "issue_id": f"brainstorm-P0-{len(agenda_cards)+1:02d}",
+                        "topic": topic,
+                        "risk_level": "P0",
+                        "one_liner": str(c.get("one_liner") or idea)[:120],
+                        "evidence": [{"type": "inference", "ref": "", "text": "无 PRD 原文输入：推断草案"}],
+                        "decision_needed": str(c.get("decision_needed") or "请拍板阈值/终态/观测字段。")[:300],
+                        "candidate_ac": ["Given... When... Then...(含量化项，数字为暂定，需文档固化)"],
+                        "constraints": ["不得将推断结论当作已发布 PRD 事实"],
+                        "open_questions": ["缺少 PRD 章节/锚点：需补齐后方可关闭 P0"],
+                        "source": {"idea": idea},
+                    }
+                )
+        except Exception:
+            agenda_cards = []
+
+    if len(agenda_cards) < 3:
+        used = {str(c.get("topic") or "") for c in agenda_cards}
+        fill_topics = ["exception", "state", "conflict", "security", "cross_end", "data_contract"]
+        for tp in fill_topics:
+            if len(agenda_cards) >= 3:
+                break
+            if tp in used:
+                continue
+            used.add(tp)
+            agenda_cards.append(_one_card(len(agenda_cards) + 1, tp))
+    return agenda_cards[:3]
+
+
+def _local_scenarios_for_card(card: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Scenario Generator（本地模板兜底）：
+    为单个议题卡生成可直接用于 QA 追问的 Given/When/Then 场景。
+    说明：这里只服务“虚拟评审会”，不参与静态审计的报告生成。
+    """
+    topic = str(card.get("topic") or "generic").strip().lower()
+    one_liner = str(card.get("one_liner") or "").strip()
+    subject = one_liner[:26] if one_liner else "该能力"
+    ev0 = ""
+    evidence = card.get("evidence") if isinstance(card.get("evidence"), list) else []
+    if evidence and isinstance(evidence[0], dict):
+        ev0 = str(evidence[0].get("ref") or "") or str(evidence[0].get("type") or "")
+
+    common_obs = ["session_id", "request_id", "state", "error_code"]
+    common_required = ["PRD 明确阈值/终态/错误码/提示文案", "PRD 明确最小观测字段（日志/指标）"]
+
+    def s(given: str, when: str, then: str, risk: str = "P1", required=None, obs=None, tags=None):
+        return {
+            "title": f"{subject}场景推演",
+            "risk_level": risk,
+            "given": given,
+            "when": when,
+            "then": then,
+            "required_evidence": (required or []) + common_required,
+            "observability_min": {"logs": (obs or []) + common_obs, "metrics": [], "traces": []},
+            "tags": tags or [],
+            "anchors_hint": ev0,
+        }
+
+    out: List[Dict[str, Any]] = []
+    if topic in ("exception", "exception_flow", "cloud_degrade"):
+        out.append(
+            s(
+                "Given 弱网/高延迟",
+                "When 关键请求超时并触发重试",
+                "Then 必须进入明确终态（失败/降级/待上传），并对用户有可见提示；不得静默失败。",
+                risk="P0",
+                required=["PRD 定义超时阈值T、重试次数N、退避Δ、失败提示口径"],
+                obs=["retry_count", "timeout_ms", "degrade_mode"],
+                tags=["弱网", "超时", "重试", "降级"],
+            )
+        )
+        out.append(
+            s(
+                "Given 结果需要上传/同步",
+                "When 上传失败或服务返回 5xx",
+                "Then 本地缓存策略/重试边界/最终一致性窗口必须明确；否则手机端与 TV 端列表会不一致。",
+                risk="P0",
+                required=["PRD 明确缓存保留时长、重试窗口、失败后用户可见状态"],
+                obs=["upload_state", "http_status", "queue_size"],
+                tags=["上传", "一致性"],
+            )
+        )
+    elif topic in ("state", "device_lifecycle", "transfer_cleanup"):
+        out.append(
+            s(
+                "Given 产生了未认领数据/中间态结果",
+                "When 发生重启/关台/重开台/断电上电",
+                "Then 必须按 PRD 定义清空或保留；并给出“转台不清空”等例外的对偶规则。",
+                risk="P0",
+                required=["PRD 明确清空触发条件清单", "PRD 明确不清空例外（如转台）"],
+                obs=["exit_reason", "cleanup_items_applied", "final_state"],
+                tags=["重启", "清空", "转台"],
+            )
+        )
+        out.append(
+            s(
+                "Given 用户中途退出/切后台/重进",
+                "When 状态机处于处理中/上传中/保存中",
+                "Then 必须定义是否允许恢复、恢复入口、超时收敛与最终状态；否则出现“卡死/重复执行”。",
+                risk="P1",
+                required=["PRD 提供状态机转移表或等价描述"],
+                obs=["state_before", "state_after", "state_updated_at"],
+                tags=["状态机", "恢复"],
+            )
+        )
+    elif topic in ("conflict", "rating_switch", "dispatch"):
+        out.append(
+            s(
+                "Given 同时存在自动规则与手动开关",
+                "When 用户在播控栏临时关闭，但自动规则再次触发",
+                "Then 必须按优先级裁决表决策：谁生效、何时生效、UI 图标与真实能力是否一致。",
+                risk="P0",
+                required=["PRD 给出优先级裁决表（总开关/播控栏/自动规则）"],
+                obs=["global_switch", "session_switch", "effective_switch", "conflict_reason"],
+                tags=["优先级", "开关冲突"],
+            )
+        )
+        out.append(
+            s(
+                "Given 设置页总开关关闭",
+                "When 手机端触发“快唱副歌”等自动入口",
+                "Then 必须明确是否允许强制开启；若不允许，应提示原因并记录审计日志。",
+                risk="P0",
+                required=["PRD 明确总开关是否具备最高否决权"],
+                obs=["actor", "entry", "auth_result"],
+                tags=["总开关", "自动入口"],
+            )
+        )
+    elif topic in ("security", "security_access", "qr_security"):
+        out.append(
+            s(
+                "Given 外链/扫码/分享入口存在",
+                "When 未授权用户访问或 token 过期",
+                "Then 必须拦截并给出明确提示与审计日志，禁止越权读取。",
+                risk="P0",
+                required=["PRD 明确鉴权对象、资源范围、token 过期策略与错误码"],
+                obs=["subject_id", "resource_id", "auth_result", "audit_log_id"],
+                tags=["鉴权", "越权"],
+            )
+        )
+    else:
+        out.append(
+            s(
+                "Given 核心流程存在关键阈值",
+                "When 达到/未达到阈值边界（例如 10s）",
+                "Then 必须定义保存/丢弃/提示的可验收口径，并写清最小观测字段。",
+                risk="P1",
+                required=["PRD 明确阈值与边界处理策略"],
+                obs=["threshold", "final_state"],
+                tags=["阈值", "边界"],
+            )
+        )
+
+    # 控制数量 3-6 条：补齐通用“并发”场景
+    out.append(
+        s(
+            "Given 多入口/多终端可同时操作",
+            "When 两个终端同时触发同一能力（并发）",
+            "Then 必须定义幂等/去重/锁/最终态；否则出现状态竞争与结果错乱。",
+            risk="P0" if topic in ("conflict", "state", "exception") else "P1",
+            required=["PRD 明确并发裁决与幂等策略"],
+            obs=["idempotency_key", "lock_acquired", "dedup_hit"],
+            tags=["并发", "幂等"],
+        )
+    )
+    # 去掉过长/空项
+    clean = []
+    for it in out:
+        if not isinstance(it, dict):
+            continue
+        if str(it.get("given") or "").strip() and str(it.get("when") or "").strip() and str(it.get("then") or "").strip():
+            clean.append(it)
+    return clean[:6]
+
+
+def _llm_scenarios_for_card(card: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Scenario Generator（LLM增强）：输出 JSON {"scenarios":[...]}，失败抛异常，上层降级到本地模板。
+    """
+    one_liner = str(card.get("one_liner") or "").strip()
+    topic = str(card.get("topic") or "generic").strip()
+    meeting_mode = str(card.get("meeting_mode") or "snapshot").strip().lower()
+    evidence = card.get("evidence") or []
+    ev_text = "\n".join(
+        [f"- {e.get('type')} {e.get('ref')}: {e.get('text') or ''}".strip() for e in evidence if isinstance(e, dict)]
+    ) or "- 无"
+
+    sys_p = (
+        "你是测试组长，专门负责制造“麻烦场景”，让 PRD 的缺口暴露出来。"
+        "请严格输出 JSON：{\"scenarios\":[...]}，禁止输出任何多余文字。必须中文。"
+    )
+    if meeting_mode == "brainstorm":
+        sys_p += "【无文档沙盘】禁止捏造原文锚点/章节名；required_evidence 必须写满。"
+    user_p = (
+        f"议题：{one_liner}\n"
+        f"Topic：{topic}\n"
+        f"证据：\n{ev_text}\n\n"
+        "请输出 4-6 条场景，每条场景结构：\n"
+        "{\n"
+        '  "title": "一句话场景名",\n'
+        '  "risk_level": "P0|P1|P2",\n'
+        '  "given": "Given ...",\n'
+        '  "when": "When ...",\n'
+        '  "then": "Then ...（必须是可验收口径，含阈值/终态/提示/观测字段至少其一）",\n'
+        '  "required_evidence": ["需要PRD补充的证据/定义"],\n'
+        '  "observability_min": {"logs":["..."],"metrics":["..."],"traces":["..."]},\n'
+        '  "tags": ["弱网","超时","并发","清空","优先级"]\n'
+        "}\n"
+        "要求：优先覆盖 弱网/超时/并发/清空与保留/多开关优先级。"
+    )
+    obj = _llm_call_json(sys_p, user_p, timeout=60, max_tokens=1600)
+    arr = obj.get("scenarios") if isinstance(obj, dict) else None
+    arr = arr if isinstance(arr, list) else []
+    out = []
+    for it in arr[:8]:
+        if not isinstance(it, dict):
+            continue
+        # 最小字段校验
+        if not str(it.get("given") or "").strip():
+            continue
+        if not str(it.get("when") or "").strip():
+            continue
+        if not str(it.get("then") or "").strip():
+            continue
+        out.append(it)
+    return out[:6]
+
+
+def _attach_scenarios_to_cards(agenda_cards: List[Dict[str, Any]], use_llm: bool) -> List[Dict[str, Any]]:
+    if not isinstance(agenda_cards, list) or not agenda_cards:
+        return agenda_cards
+    for c in agenda_cards:
+        if not isinstance(c, dict):
+            continue
+        scenarios = []
+        if use_llm:
+            try:
+                scenarios = _llm_scenarios_for_card(c)
+            except Exception:
+                scenarios = []
+        if not scenarios:
+            scenarios = _local_scenarios_for_card(c)
+        c["scenarios"] = scenarios
+    return agenda_cards
+
+
+def _now_str() -> str:
+    import time
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+
+def _extract_first_json_obj(text: str) -> Dict[str, Any]:
+    """
+    从模型输出中尽力抽取第一个 JSON 对象。
+    允许模型输出前后带解释文字/代码块；只要正文里有一个 JSON 对象即可。
+    """
+    raw = (text or "").strip()
+    if not raw:
+        return {}
+    # 清理常见 markdown fence
+    raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE)
+    raw = re.sub(r"\s*```$", "", raw)
+    start = raw.find("{")
+    if start < 0:
+        return {}
+    depth = 0
+    in_str = None
+    esc = False
+    for i in range(start, len(raw)):
+        c = raw[i]
+        if esc:
+            esc = False
+            continue
+        if in_str:
+            if c == "\\":
+                esc = True
+                continue
+            if c == in_str:
+                in_str = None
+            continue
+        if c in ('"', "'"):
+            in_str = c
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                seg = raw[start : i + 1]
+                try:
+                    obj = json.loads(seg)
+                    return obj if isinstance(obj, dict) else {}
+                except Exception:
+                    return {}
+    return {}
+
+
+def _llm_call_json(system_prompt: str, user_prompt: str, timeout: int = 60, max_tokens: int = 1400) -> Dict[str, Any]:
+    """
+    调用 LLM 并要求输出 JSON。失败则抛异常，由上层决定是否降级到模板会议。
+    """
+    from utils.llm_client import call_llm, load_llm_config
+
+    config_path = _pick_llm_config_path()
+    cfg = load_llm_config(config_path)
+    if not (cfg.get("api_key") or "").strip():
+        raise ValueError("LLM API Key 未配置")
+    text = call_llm(
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        config_path=config_path,
+        timeout=int(timeout or 60),
+        max_tokens=max_tokens,
+    )
+    obj = _extract_first_json_obj(str(text or ""))
+    if not obj:
+        raise ValueError("LLM 未输出可解析 JSON")
+    return obj
+
+
+def _llm_build_rounds_for_card(card: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    为单个议题卡生成 QA→Dev→PM 三轮结构化输出（JSON）。
+    """
+    topic = str(card.get("topic") or "generic")
+    meeting_mode = str(card.get("meeting_mode") or "snapshot").strip().lower()
+    evidence = card.get("evidence") or []
+    ev_text = "\n".join([f"- {e.get('type')} {e.get('ref')}: {e.get('text') or ''}".strip() for e in evidence if isinstance(e, dict)]) or "- 无"
+
+    common_rules = (
+        "你在虚拟评审会中扮演指定角色。请严格输出一个 JSON 对象，禁止输出任何额外文字。"
+        "必须用中文。不要编造 PRD 原文；若缺信息请列为 question/open_questions。"
+    )
+    if meeting_mode == "brainstorm":
+        common_rules += (
+            "【无文档沙盘】当前没有可引用的 PRD 原文：禁止捏造锚点/行号/章节名。"
+            "所有结论必须可被证伪：在 PM 输出中必须把 if_blocked 写满（缺失证据/待确认口径）；"
+            "ac_final 只能是“待文档固化”的草案条款，且必须标注“暂定”。"
+        )
+
+    qa_schema = (
+        "{\n"
+        '  "qa_challenges": [\n'
+        '    {"gap": "...", "trigger": "...", "user_visible": "...", "system_visible": "...", "worst_case": "...", "question_for_pm": "..."}\n'
+        "  ]\n"
+        "}"
+    )
+    dev_schema = (
+        "{\n"
+        '  "dev_responses": [\n'
+        '    {"to_gap": "...", "feasibility": "can_do|need_constraint|reject", "proposal": "...", "cost_boundary": "...", "residual_risk": "...", "needs_pm_decision": ["..."]}\n'
+        "  ]\n"
+        "}"
+    )
+    pm_schema = (
+        "{\n"
+        '  "pm_decision": {\n'
+        '    "option": "A|B|C",\n'
+        '    "decision_summary": "...",\n'
+        '    "ac_final": ["Given... When... Then...(含量化项)"],\n'
+        '    "acceptance_scope": "..." \n'
+        "  },\n"
+        '  "if_blocked": ["若无法裁决，列出缺失信息"]\n'
+        "}"
+    )
+
+    base_context = (
+        f"议题ID：{card.get('issue_id')}\n"
+        f"风险等级：{card.get('risk_level')}\n"
+        f"Topic：{topic}\n"
+        f"一句话问题：{card.get('one_liner')}\n"
+        f"证据（锚点/引用/推断）：\n{ev_text}\n"
+        f"需要拍板：{card.get('decision_needed')}\n"
+    )
+
+    qa_sys = f"{common_rules}\n你的角色：测试（QA），目标是把问题变成可验收条款（阈值/终态/观测字段），并指出不可验收点。"
+    qa_user = base_context + f"\n请输出 QA 质疑清单 JSON，结构如下：\n{qa_schema}"
+    qa = _llm_call_json(qa_sys, qa_user, timeout=60, max_tokens=1400)
+
+    # 将 QA gap 列表串给 Dev
+    gaps = qa.get("qa_challenges") if isinstance(qa.get("qa_challenges"), list) else []
+    gap_text = "\n".join([f"- {g.get('gap')}" for g in gaps if isinstance(g, dict)]) or "- （无）"
+
+    dev_sys = f"{common_rules}\n你的角色：研发（Dev），目标是给出最小可实现方案、成本边界，并指出必须由 PM 裁决的点。"
+    dev_user = base_context + f"\nQA质疑点：\n{gap_text}\n\n请输出 Dev 回应 JSON，结构如下：\n{dev_schema}"
+    dev = _llm_call_json(dev_sys, dev_user, timeout=70, max_tokens=1600)
+
+    needs = []
+    for r in (dev.get("dev_responses") or []):
+        if isinstance(r, dict):
+            for x in (r.get("needs_pm_decision") or []):
+                xs = str(x or "").strip()
+                if xs and xs not in needs:
+                    needs.append(xs)
+    needs_text = "\n".join([f"- {x}" for x in needs]) or "- （无）"
+
+    pm_sys = f"{common_rules}\n你的角色：产品（PM），必须做裁决并把 AC 定稿（Given-When-Then，含量化阈值）。不允许“视情况而定”。"
+    if meeting_mode == "brainstorm":
+        pm_sys += "【无文档】你不得宣布“已决定可上线”；必须把 if_blocked 列为阻塞项（缺 PRD 证据），ac_final 仅作草案。"
+    pm_user = base_context + f"\nDev 需要 PM 决策点：\n{needs_text}\n\n请输出 PM 裁决 JSON，结构如下：\n{pm_schema}"
+    pm = _llm_call_json(pm_sys, pm_user, timeout=70, max_tokens=1700)
+
+    return {"qa": qa, "dev": dev, "pm": pm}
+
+
+def _decision_log_from_llm(card: Dict[str, Any], rounds: Dict[str, Any]) -> Dict[str, Any]:
+    meeting_mode = str(card.get("meeting_mode") or "snapshot").strip().lower()
+    pm = rounds.get("pm") if isinstance(rounds.get("pm"), dict) else {}
+    pm_dec = pm.get("pm_decision") if isinstance(pm.get("pm_decision"), dict) else {}
+    blocked = pm.get("if_blocked") if isinstance(pm.get("if_blocked"), list) else []
+    ac_final = pm_dec.get("ac_final") if isinstance(pm_dec.get("ac_final"), list) else []
+    status = "blocked" if blocked or not ac_final else "decided"
+    summary = str(pm_dec.get("decision_summary") or "").strip()
+    blocked_by = [str(x) for x in blocked if str(x or "").strip()]
+    entry: Dict[str, Any] = {
+        "issue_id": card.get("issue_id"),
+        "status": status,
+        "decision": {
+            "option": pm_dec.get("option") or ("A" if status == "decided" else ""),
+            "summary": summary,
+            "rationale": "由多角色评审会裁决生成",
+        },
+        "ac_final": [str(x) for x in ac_final if str(x or "").strip()][:6],
+        "observability_min": {
+            "logs": ["session_id", "request_id", "state", "error_code"],
+            "metrics": [],
+            "traces": [],
+        },
+        "owners": {"pm": "PM", "dev": "Dev", "qa": "QA"},
+        "follow_ups": [
+            {"type": "prd_update", "content": "将裁决口径写入 PRD 附录/补丁包并发布。"},
+            {"type": "test_case", "content": "按 ac_final 与观测字段补齐验收用例。"},
+        ],
+        "blocked_by": blocked_by,
+    }
+    if meeting_mode == "brainstorm":
+        entry["status"] = "blocked"
+        entry["evidence_class"] = "inference"
+        hard = [
+            "无 PRD 原文锚点：无法在文档层关闭 P0",
+            "推断草案不得作为生产就绪的唯一验收依据",
+        ]
+        merged = list(blocked_by)
+        for h in hard:
+            if h not in merged:
+                merged.append(h)
+        entry["blocked_by"] = merged
+        if summary and not summary.startswith("（推断草案"):
+            entry["decision"]["summary"] = "（推断草案，待文档固化）" + summary
+        elif not summary:
+            entry["decision"]["summary"] = "（推断草案，待文档固化）待 PM 在 PRD 中落地阈值/终态/观测字段。"
+        entry["decision"]["option"] = ""
+        fu = [{"type": "evidence", "content": "补齐 PRD 章节/锚点/量化口径后重新开会或跑静态审计关闭 P0。"}]
+        fu.extend(entry.get("follow_ups") or [])
+        entry["follow_ups"] = fu
+    return entry
+
+
+def _topic_from_merged_issue(m: Dict[str, Any]) -> str:
+    t = " ".join([str(m.get("name") or ""), str(m.get("description") or ""), " ".join(m.get("types") or [])])
+    if re.search(r"(矛盾|冲突|互斥|抢占|优先级|总开关)", t):
+        return "conflict"
+    if re.search(r"(越权|鉴权|权限|未授权|二维码|扫码|外链|受控|凭证)", t):
+        return "security"
+    if re.search(r"(退出|中断|切后台|重进|回滚|恢复|清理|状态)", t):
+        return "state"
+    if re.search(r"(失败|超时|弱网|断网|降级|重试|兜底|错误码|不可用)", t):
+        return "exception"
+    if re.search(r"(多端|跨端|同步|对账|列表一致)", t):
+        return "cross_end"
+    if re.search(r"(字段|返回|接口|错误码|枚举)", t):
+        return "data_contract"
+    return "generic"
+
+
+def _build_agenda_cards_from_snapshot(snapshot: Dict[str, Any], limit: int = 3) -> List[Dict[str, Any]]:
+    """
+    从学习快照中重建 Stage3（不依赖 L3 文本），然后按 P0 优先 + topic 去重挑 3 条议题卡。
+    """
+    stage1 = snapshot.get("stage1_output") if isinstance(snapshot.get("stage1_output"), dict) else {}
+    stage2 = snapshot.get("stage2_output") if isinstance(snapshot.get("stage2_output"), dict) else {}
+    offline_mode = bool(snapshot.get("offline_mode"))
+    s3 = pipeline._build_stage3_report(stage1, stage2, offline_mode=offline_mode)
+    merged = s3.get("merged_issues") if isinstance(s3.get("merged_issues"), list) else []
+    p0 = [m for m in merged if isinstance(m, dict) and str(m.get("risk_level") or "").upper() == "P0"]
+    # topic 去重：保证 3 条不是同一类
+    picked: List[Dict[str, Any]] = []
+    used_topics = set()
+    for m in p0:
+        topic = _topic_from_merged_issue(m)
+        if topic in used_topics:
+            continue
+        used_topics.add(topic)
+        picked.append(m)
+        if len(picked) >= max(1, int(limit or 1)):
+            break
+    if len(picked) < max(1, int(limit or 1)):
+        for m in p0:
+            if m not in picked:
+                picked.append(m)
+            if len(picked) >= max(1, int(limit or 1)):
+                break
+
+    cards: List[Dict[str, Any]] = []
+    for idx, m in enumerate(picked, start=1):
+        topic = _topic_from_merged_issue(m)
+        anchors = m.get("anchors") or []
+        evidence = []
+        if anchors:
+            evidence.append({"type": "anchor", "ref": str(anchors[0]), "text": ""})
+        else:
+            evidence.append({"type": "inference", "ref": "", "text": "缺少可引用锚点，本条来自合并问题推断"})
+        one_liner = str(m.get("description") or m.get("name") or f"P0议题{idx}").strip()
+        if len(one_liner) > 120:
+            one_liner = one_liner[:118] + "…"
+        cards.append(
+            {
+                "session_id": str(snapshot.get("snapshot_id") or ""),
+                "meeting_mode": "snapshot",
+                "issue_id": f"{str(snapshot.get('snapshot_id') or 'snap')[:16]}-P0-{idx:02d}",
+                "topic": topic,
+                "risk_level": "P0",
+                "one_liner": one_liner,
+                "evidence": evidence,
+                "decision_needed": "为保证可测与可复盘：需要拍板阈值/优先级/终态落点/错误码与最小可观测字段。",
+                "candidate_ac": [
+                    "Given 触发关键动作 When 达到阈值/条件 Then 系统进入明确终态并提示用户下一步（可量化）。",
+                ],
+                "constraints": [],
+                "open_questions": [],
+                "source": {"merged_issue": m},
+            }
+        )
+    return cards
+
+
+def _meeting_system_message(mode: str) -> str:
+    if str(mode or "").strip().lower() == "brainstorm":
+        return (
+            "会议已启动：无 PRD「无文档沙盘」模式。证据为推断（inference），"
+            "Decision Log 默认 BLOCKED，直至补齐文档锚点/量化口径。本页对话仅展示过程，最终以裁决表为准。"
+        )
+    return "会议已启动：输入来自静态审计快照（P0议题）。本页对话仅展示过程，最终以裁决表为准。"
+
+
+def _seed_meeting_messages(agenda_cards: List[Dict[str, Any]], mode: str = "snapshot") -> List[Dict[str, Any]]:
+    """模板版三轮发言（不含系统行，由上层统一插入一条 system）。"""
+    msgs: List[Dict[str, Any]] = []
+    is_brain = str(mode or "").strip().lower() == "brainstorm"
+    for c in agenda_cards:
+        if is_brain:
+            msgs.append(
+                {
+                    "role": "assistant",
+                    "speaker": "测试（QA）",
+                    "ts": _now_str(),
+                    "text": f"议题：{c.get('one_liner')}\n无原文：我只记录可测缺口与风险假设；任何数字阈值都标「暂定」，不当作已发布需求。",
+                }
+            )
+            msgs.append(
+                {
+                    "role": "assistant",
+                    "speaker": "研发（Dev）",
+                    "ts": _now_str(),
+                    "text": "可做技术预案（状态机/重试/超时），但无 PRD 锚点无法承诺接口契约；需 PM 在文档里固化后再估排期。",
+                }
+            )
+            msgs.append(
+                {
+                    "role": "assistant",
+                    "speaker": "产品（PM）",
+                    "ts": _now_str(),
+                    "text": "接受「先草案后文档」：本议题在裁决表里保持 BLOCKED，补齐章节后再开一次会关闭。",
+                }
+            )
+        else:
+            msgs.append({"role": "assistant", "speaker": "测试（QA）", "ts": _now_str(), "text": f"议题：{c.get('one_liner')}\n我先卡三件事：阈值/终态/观测字段。缺任何一个都不可验收。"})
+            msgs.append({"role": "assistant", "speaker": "研发（Dev）", "ts": _now_str(), "text": "可做最小方案：补状态枚举与错误码，增加幂等/防抖；成本可控。需要 PM 拍板阈值与提示强度。"})
+            msgs.append({"role": "assistant", "speaker": "产品（PM）", "ts": _now_str(), "text": "同意以“可验收”为硬门槛：给出阈值与最小字段集；失败不允许静默。具体数值可在裁决表里落地。"})
+    return msgs
+
+
+def _build_decision_log_for_cards(agenda_cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    out = []
+    for c in agenda_cards:
+        topic = c.get("topic") or "generic"
+        if str(c.get("meeting_mode") or "").strip().lower() == "brainstorm":
+            out.append(
+                {
+                    "issue_id": c.get("issue_id"),
+                    "status": "blocked",
+                    "evidence_class": "inference",
+                    "decision": {
+                        "option": "",
+                        "summary": "（推断草案，待文档固化）无 PRD 原文：仅记录讨论方向，不关闭 P0。",
+                        "rationale": "无文档沙盘：模板会议无法替代文档证据。",
+                    },
+                    "ac_final": [
+                        str(x) for x in (c.get("candidate_ac") or ["Given... When... Then...(含量化项，数字为暂定)"]) if str(x or "").strip()
+                    ][:4],
+                    "observability_min": {"logs": ["session_id", "request_id", "state", "error_code"], "metrics": [], "traces": []},
+                    "owners": {"pm": "PM", "dev": "Dev", "qa": "QA"},
+                    "follow_ups": [
+                        {"type": "evidence", "content": "补齐 PRD 章节/锚点/量化口径后重新开会或跑静态审计关闭 P0。"},
+                        {"type": "prd_update", "content": "将草案口径写入 PRD 附录并标注“已确认/已废弃”。"},
+                    ],
+                    "blocked_by": [
+                        "无 PRD 原文锚点：无法在文档层关闭 P0",
+                        "推断草案不得作为生产就绪的唯一验收依据",
+                    ],
+                }
+            )
+            continue
+        # 给一个“可落地”的默认门槛，后续可在 UI 中编辑或二次会议调整
+        if topic == "exception":
+            ac = ["T=1.0s 超时判失败；N=2 次重试；Δ=2s；失败必须提示且记录 error_code。"]
+            obs = {"logs": ["session_id", "request_id", "business_id", "state", "error_code", "retry_count", "start_latency_ms"], "metrics": ["success_rate", "p95_latency_ms"], "traces": []}
+        elif topic == "state":
+            ac = ["W=2.0s 内收敛到 READY/RESUME_ALLOWED/FAILED；清理清单逐项可对账。"]
+            obs = {"logs": ["session_id", "exit_reason", "cleanup_items_applied", "final_state", "state_updated_at"], "metrics": ["state_converge_p95_ms"], "traces": []}
+        elif topic == "conflict":
+            ac = ["总开关最高否决权；任务启动锁定 config_snapshot；冲突必须提示且各入口一致。"]
+            obs = {"logs": ["config_snapshot_id", "global_switch", "session_switch", "effective_switch", "conflict_reason"], "metrics": ["conflict_rate"], "traces": []}
+        elif topic == "security":
+            ac = ["外显/扫码/外链访问必须鉴权；过期/无资源/越权有明确提示与审计日志。"]
+            obs = {"logs": ["subject_id", "actor", "resource_id", "auth_result", "error_code", "audit_log_id"], "metrics": ["unauthorized_block_rate"], "traces": []}
+        else:
+            ac = ["给出可验收口径：阈值/终态/观测字段齐全。"]
+            obs = {"logs": ["session_id", "state", "error_code"], "metrics": [], "traces": []}
+
+        out.append(
+            {
+                "issue_id": c.get("issue_id"),
+                "status": "decided",
+                "decision": {
+                    "option": "A",
+                    "summary": "以测试可验收为硬门槛：阈值+终态+观测字段齐全，失败不静默。",
+                    "rationale": "没有阈值/终态/观测字段，线上无法复盘，测试无法对结果负责。",
+                },
+                "ac_final": ac,
+                "observability_min": obs,
+                "owners": {"pm": "PM", "dev": "Dev", "qa": "QA"},
+                "follow_ups": [
+                    {"type": "prd_update", "content": "补齐裁决口径（阈值、终态、错误码/字段）并作为 PRD 附录发布。"},
+                    {"type": "test_case", "content": "按 error_code / 退出原因 / 冲突矩阵分桶补齐用例并回归。"},
+                ],
+                "blocked_by": [],
+            }
+        )
+    return out
+
+
+def _build_prd_patch(decision_log: List[Dict[str, Any]]) -> str:
+    lines = ["## 附录：审计裁决版口径（自动生成）", ""]
+    for item in decision_log or []:
+        if not isinstance(item, dict):
+            continue
+        issue_id = str(item.get("issue_id") or "")
+        lines.append(f"### {issue_id}")
+        st = str(item.get("status") or "").strip().lower()
+        if st == "blocked":
+            lines.append("- **状态**：BLOCKED（待 PRD 证据后再冻结口径）")
+            bb = item.get("blocked_by") if isinstance(item.get("blocked_by"), list) else []
+            for b in bb[:8]:
+                bs = str(b or "").strip()
+                if bs:
+                    lines.append(f"- **阻塞**：{bs}")
+        evc = str(item.get("evidence_class") or "").strip().lower()
+        if evc == "inference":
+            lines.append("- **证据等级**：inference（推断草案，不得单独作为上线验收依据）")
+        for ac in item.get("ac_final") or []:
+            lines.append(f"- {str(ac)}")
+        obs = item.get("observability_min") if isinstance(item.get("observability_min"), dict) else {}
+        logs = obs.get("logs") if isinstance(obs.get("logs"), list) else []
+        if logs:
+            lines.append(f"- 最小观测字段：{', '.join(str(x) for x in logs[:24])}")
+        lines.append("")
+    return "\n".join(lines).strip()
 
 DEFAULT_BUG_PATTERNS = [
     {"pattern_id": "P001", "keywords": ["黑屏", "无画面", "无视频"], "category": "媒体异常", "design_gap": ["异常处理缺失", "资源释放缺失"], "rule": "媒体流程必须定义失败兜底策略", "weight": 0.9, "enabled": True},
@@ -866,6 +1725,1135 @@ def index():
     return render_template("prd_audit_index.html")
 
 
+@prd_audit_bp.route("/review_meeting")
+def review_meeting_page():
+    """虚拟评审会控制台（带对话框）"""
+    return render_template("prd_audit_review_meeting.html")
+
+
+@prd_audit_bp.route("/review_meeting_v2")
+def review_meeting_v2_page():
+    """虚拟评审会 V2：QA 主导竖版工作台（独立于静态审计输出）"""
+    return render_template("prd_audit_review_meeting_v2.html")
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/start", methods=["POST"])
+def api_review_meeting_v2_start():
+    """
+    V2：启动会议（QA 主导）。
+    - mode=snapshot: 从 learning_repo/snapshots 读取静态审计快照（只读消费）
+    - mode=prd: 传入 prd_text，先跑一次静态审计（不修改静态审计页），再用 stage3_output 生成会议
+    """
+    try:
+        data = request.get_json() or {}
+        mode = str(data.get("mode") or "snapshot").strip().lower()
+        enforce_gate = bool(data.get("enforce_gate", True))
+        # V2 默认智能优先：尽量使用 LLM 讨论；失败则可降级，但会明牌提示。
+        use_llm = bool(data.get("use_llm", True))
+        # 若为 true：LLM 失败则直接终止/报错，不允许兜底模板。
+        # 默认开启：确保“人话摘要”只在 LLM 真成功时出现，避免静默降级造成误判。
+        llm_required = bool(data.get("llm_required", True))
+        # 静态审计约束：默认开启（强绑定锚点/缺口/required_evidence，不跑偏）。
+        audit_constraint = bool(data.get("audit_constraint", True))
+        snapshot_id = str(data.get("snapshot_id") or "").strip()
+        prd_text = str(data.get("prd_text") or "").strip()
+
+        stage3_output = {}
+        snap_id_for_meeting = ""
+        llm_config_path = ""
+        llm_config_error = ""
+
+        if mode == "prd":
+            if not prd_text:
+                return error_response("prd_text 不能为空", status_code=400)
+            # Run audit sync to get Stage3 output. This does not alter static audit page behavior.
+            from utils.llm_client import load_llm_config
+
+            config_path = _pick_llm_config_path()
+            try:
+                llm_config = load_llm_config(config_path)
+            except FileNotFoundError:
+                return error_response("API Key 未配置", status_code=400)
+            if not (llm_config.get("api_key") or "").strip():
+                return error_response("API Key 未配置", status_code=400)
+            _, _, _, stage3_output = pipeline.run_prd_audit_sync(prd_text, llm_config_path=config_path, timeout=90)
+            llm_config_path = config_path
+            # meeting snapshot id (not static snapshot)
+            snap_id_for_meeting = "prd_input_" + uuid.uuid4().hex[:8]
+        else:
+            from .audit_learning import SNAPSHOT_DIR, load_all_snapshots
+
+            snapshot = None
+            if snapshot_id:
+                fp = os.path.join(SNAPSHOT_DIR, f"{snapshot_id}.json")
+                if not os.path.exists(fp):
+                    return error_response("snapshot_id 不存在", status_code=404)
+                with open(fp, "r", encoding="utf-8") as f:
+                    snapshot = json.load(f)
+            else:
+                snaps = load_all_snapshots(limit=1)
+                snapshot = snaps[0] if snaps else None
+            if not isinstance(snapshot, dict):
+                return error_response("未找到可用快照，请先执行一次 PRD 审计生成快照", status_code=400)
+            snap_id_for_meeting = str(snapshot.get("snapshot_id") or snapshot_id or "")
+            stage3_output = snapshot.get("stage3_output") if isinstance(snapshot.get("stage3_output"), dict) else {}
+
+            # Optional: enforce gate by P0 in stage2 defects (same as V1 semantics), but only blocks meeting start.
+            if enforce_gate:
+                stage2 = snapshot.get("stage2_output") if isinstance(snapshot.get("stage2_output"), dict) else {}
+                defects = stage2.get("defects") if isinstance(stage2.get("defects"), list) else []
+                p0_cnt = sum(1 for d in defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P0")
+                if p0_cnt > 0:
+                    return error_response(
+                        "门禁未通过：存在 P0 风险缺陷，建议先修正 PRD 或关闭 enforce_gate 用于复盘讨论。",
+                        status_code=412,
+                        data={"p0_defects_count": p0_cnt, "snapshot_id": snap_id_for_meeting},
+                    )
+            # LLM config is optional for snapshot mode; if missing we will fall back to template discussion.
+            try:
+                from utils.llm_client import load_llm_config
+
+                config_path = _pick_llm_config_path()
+                llm_config = load_llm_config(config_path)
+                if (llm_config.get("api_key") or "").strip():
+                    llm_config_path = config_path
+                else:
+                    llm_config_error = "LLM 配置存在但 api_key 为空，已降级为模板讨论"
+            except Exception as e:
+                llm_config_path = ""
+                llm_config_error = f"LLM 配置读取失败，已降级为模板讨论：{e}"
+
+        if not isinstance(stage3_output, dict) or not stage3_output:
+            return error_response("缺少 stage3_output，无法生成会议", status_code=400)
+
+        # Pass PRD content to V2 so it can extract quotes by anchor (strengthen PRD binding in discussion/UI).
+        prd_for_v2 = ""
+        if mode == "prd":
+            prd_for_v2 = prd_text
+        else:
+            try:
+                prd_for_v2 = str(snapshot.get("stage2_output", {}).get("prd_content") or "") if isinstance(snapshot, dict) else ""
+            except Exception:
+                prd_for_v2 = ""
+        meeting = rmv2.create_meeting_from_stage3(stage3_output, snapshot_id=snap_id_for_meeting, mode=mode, prd_content=prd_for_v2)
+        llm_error = ""
+        if use_llm and llm_config_path:
+            meeting, llm_error = rmv2.run_llm_discussion_for_meeting(
+                meeting=meeting,
+                llm_config_path=llm_config_path,
+                max_rounds=2,
+                audit_constraint=audit_constraint,
+            )
+        # 明牌降级：用户选择 use_llm 但无法加载配置时，也要把原因回传到前端。
+        if use_llm and (not llm_config_path) and (not llm_error) and llm_config_error:
+            llm_error = llm_config_error
+        if llm_required and (not use_llm or not llm_config_path or llm_error):
+            return error_response(
+                "LLM 必须参与，但当前未成功调用 LLM：" + (llm_error or llm_config_error or "未知原因"),
+                status_code=412,
+                data={"llm_error": llm_error or llm_config_error},
+            )
+        return success_response(
+            data={
+                "meeting_id": meeting.meeting_id,
+                "meeting": meeting.to_dict(),
+                "use_llm": bool(use_llm and bool(llm_config_path) and not bool(llm_error)),
+                "llm_error": llm_error,
+                "llm_required": llm_required,
+                "audit_constraint": audit_constraint,
+            }
+        )
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_start failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/export_markdown", methods=["POST"])
+def api_review_meeting_v2_export_markdown():
+    try:
+        data = request.get_json() or {}
+        mid = str(data.get("meeting_id") or "").strip()
+        m = rmv2.get_meeting(mid)
+        if not m:
+            return error_response("meeting_id 不存在或已过期", status_code=404)
+        md = rmv2.export_meeting_markdown(m.to_dict())
+        return success_response(data={"meeting_id": mid, "markdown": md})
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_export_markdown failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/export_prd_v2", methods=["POST"])
+def api_review_meeting_v2_export_prd_v2():
+    """
+    V2：导出“重构后的 PRD v2.0（Executable Version）”，用于一键交付可开工规范。
+    """
+    try:
+        data = request.get_json() or {}
+        mid = str(data.get("meeting_id") or "").strip()
+        # Default to LLM rewrite export to produce a more "human-like" PRD.
+        # Callers can explicitly turn it off via use_rewrite_engine=false.
+        use_rewrite_engine = bool(data.get("use_rewrite_engine", True))
+        export_kind = str(data.get("export_kind") or "draft").strip().lower()
+        if export_kind not in ("draft", "frozen"):
+            export_kind = "draft"
+        m = rmv2.get_meeting(mid)
+        if not m:
+            return error_response("meeting_id 不存在或已过期", status_code=404)
+
+        gate = m.gate if isinstance(getattr(m, "gate", None), dict) else {}
+        gate_state = str(gate.get("gate") or "").strip().upper()
+        if export_kind == "frozen" and gate_state != "PASS":
+            reason = str(gate.get("reason") or "门禁未通过").strip()
+            return error_response(
+                "无法导出“正式冻结版”：当前门禁未 PASS。请先闭环 P0/必补证据并重新开会生成 PASS。\n"
+                + (f"当前结论：{gate_state or '—'}；原因：{reason}" if reason else f"当前结论：{gate_state or '—'}"),
+                status_code=412,
+            )
+        llm_error = ""
+        mode_used = "native"
+        if use_rewrite_engine:
+            cfg = _pick_llm_config_path()
+            md, mode_used, llm_error = prd_rewrite.rewrite_prd(
+                original_prd=str(m.prd_source or ""),
+                blockers=m.blockers if isinstance(m.blockers, list) else [],
+                decisions=m.decisions if isinstance(m.decisions, list) else [],
+                prd_patch=str(m.prd_patch or ""),
+                gate=gate,
+                export_kind=export_kind,
+                now_str=rmv2._now_str() if hasattr(rmv2, "_now_str") else "",
+                llm_config_path=cfg,
+                use_llm=True,
+                timeout=120,
+            )
+        else:
+            md = rmv2.export_prd_v2_markdown(m.to_dict())
+        return success_response(
+            data={
+                "meeting_id": mid,
+                "markdown": md,
+                "mode_used": mode_used,
+                "llm_error": llm_error,
+                "use_rewrite_engine": use_rewrite_engine,
+                "export_kind": export_kind,
+                "gate": gate,
+            }
+        )
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_export_prd_v2 failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/export_llm_only_summary", methods=["POST"])
+def api_review_meeting_v2_export_llm_only_summary():
+    """
+    V2: Export an LLM-only, forwardable summary (Gate + top P0) with strict traceability.
+    This does NOT change meeting state and does NOT replace the structured Gate.
+    """
+    try:
+        data = request.get_json() or {}
+        mid = str(data.get("meeting_id") or "").strip()
+        llm_required = bool(data.get("llm_required", False))
+        # strict_mode=True: Scheme A first; if it fails, auto-fallback to LLM direct (still PRD-only, no hard refuse)
+        # strict_mode=False: LLM direct only
+        strict_mode = bool(data.get("strict_mode", True))
+        if not mid:
+            return error_response("meeting_id 不能为空", status_code=400)
+        m = rmv2.get_meeting(mid)
+        if not m:
+            return error_response("meeting_id 不存在或已过期", status_code=404)
+
+        gate = m.gate if isinstance(getattr(m, "gate", None), dict) else {}
+        blockers = m.blockers if isinstance(getattr(m, "blockers", None), list) else []
+        decisions = m.decisions if isinstance(getattr(m, "decisions", None), list) else []
+
+        # Structured fallback (always available)
+        gate_state = str((gate or {}).get("gate") or "—").strip().upper() or "—"
+        gate_reason = str((gate or {}).get("reason") or "").strip()
+        req_top = (gate or {}).get("required_evidence_top_llm")
+        if not isinstance(req_top, list) or not req_top:
+            req_top = (gate or {}).get("required_evidence_top")
+        if not isinstance(req_top, list):
+            req_top = []
+        p0 = [
+            b
+            for b in blockers
+            if isinstance(b, dict) and str(b.get("risk_level") or "").upper() == "P0"
+        ]
+        p0_blocked = [
+            b
+            for b in p0
+            if str(b.get("status") or "").upper() == "BLOCKED"
+        ]
+        fb_lines = []
+        fb_lines.append("## 可转发版结论（结构化兜底）")
+        fb_lines.append(f"- 发布门禁/开工门禁结论：{gate_state}")
+        if gate_reason:
+            fb_lines.append(f"- 原因：{gate_reason}")
+        if req_top:
+            fb_lines.append("- Top 待补齐：")
+            for x in req_top[:6]:
+                xs = str(x or "").strip()
+                if xs:
+                    fb_lines.append(f"  - {xs}")
+        if p0_blocked:
+            fb_lines.append("- P0（卡住的前2条）：")
+            for b in p0_blocked[:2]:
+                title = str(b.get("title") or "未命名").strip()
+                hs = str(b.get("human_summary") or "").strip()
+                fb_lines.append(f"  - {title}" + (f"：{hs}" if hs else ""))
+        fallback_text = "\n".join(fb_lines).strip()
+
+        cfg = _pick_llm_config_path()
+        if not cfg:
+            if llm_required:
+                return error_response("LLM 未配置（llm_config_path 为空）", status_code=412, data={"fallback": fallback_text})
+            return success_response(data={"meeting_id": mid, "text": fallback_text, "mode_used": "fallback", "llm_error": "LLM 未配置", "fallback": fallback_text})
+
+        # Build LLM prompt with strict constraints (no new facts; evidence required).
+        # Scheme A: 2-pass LLM
+        # - Pass 1: extract evidence-only facts (strict JSON, quotes must exist in PRD or known blocker quotes)
+        # - Pass 2: write forwardable summary using ONLY extracted facts
+        from utils.llm_client import call_llm_with_retry
+        import re
+
+        def _pick(x: dict, k: str, default: str = "") -> str:
+            return str((x or {}).get(k) or default).strip()
+
+        def _enforce_llm_only_safety(out: str) -> str:
+            """
+            Hard safety rules for forwardable text: no invented specifics, no code tokens.
+            This is intentionally conservative: prefer "待补/未覆盖" over any concrete value.
+            """
+            t = str(out or "").strip()
+            if not t:
+                return t
+
+            # Never allow markdown inline-code (commonly used to sneak in fields/codes).
+            t = t.replace("`", "")
+
+            # Gate is not PRD; re-label citation if model misuses it.
+            t = t.replace("[SRC:PRD]", "[SRC:GATE]")
+
+            # Normalize "TBD" into Chinese.
+            t = re.sub(r"\bTBD\b", "待补齐", t, flags=re.IGNORECASE)
+
+            # Remove typical "oral confirmed/decided" hallucination phrasing (keep sentence fluent).
+            t = re.sub(
+                r"PM\s*已?\s*口头\s*确(?:认|定)[^。\n]*",
+                "该口径尚未在 PRD 中形成可追溯文本（需 PM 补齐并冻结）",
+                t,
+            )
+            t = re.sub(r"已决定采用[^。\n]*", "冲突处理策略尚未形成可追溯文本（需 PM 冻结）", t)
+            t = re.sub(r"已确定[^。\n]*", "相关规则尚未形成可追溯文本（需 PM 冻结）", t)
+
+            # Mask list markers / Top3 to avoid over-sanitizing numbering.
+            # e.g. "1. xxx", "2) xxx", "1、xxx", "Top3"
+            t = re.sub(r"(?m)^\s*(\d+)\s*([.)、])", r"__LIST__\1\2", t)
+            t = t.replace("Top3", "__TOP3__").replace("TOP3", "__TOP3__").replace("top3", "__TOP3__")
+
+            # Strip / neutralize high-risk specifics ONLY (do not nuke all digits).
+            # - error code tokens
+            t = re.sub(r"\bERR_[A-Z0-9_]+\b", "（错误码名称待 PM 冻结）", t)
+            # - explicit durations
+            t = re.sub(r"\b\d+\s*(ms|毫秒|秒|s|分钟|min)\b", "（时长待 PM 冻结）", t, flags=re.IGNORECASE)
+            # - retry/backoff counts/intervals (common patterns)
+            t = re.sub(r"(重试|退避|间隔)\s*\d+\s*(次|轮|秒|s)?", r"\1（规则待 PM 冻结）", t, flags=re.IGNORECASE)
+            t = re.sub(r"\b\d+\s*次\b", "（次数待 PM 冻结）", t)
+            # - request method / explicit paths
+            t = re.sub(r"\b(GET|POST|HTTP)\b", "（接口细节待 PM 冻结）", t, flags=re.IGNORECASE)
+            t = re.sub(r"/[A-Za-z0-9_\-/{}/\.]+", "（路径待 PM 冻结）", t)
+
+            # Prevent over-strong language when gate isn't PASS.
+            if gate_state != "PASS":
+                t = t.replace("正式冻结PRD", "正式冻结版 PRD")
+                t = t.replace("可作为最终开测依据", "可作为最终依据")
+
+            # Restore masks.
+            t = t.replace("__TOP3__", "Top3")
+            t = re.sub(r"__LIST__(\d+)([.)、])", r"\1\2", t)
+
+            # Light "make sentences read better" cleanup (no new facts).
+            t = re.sub(r"[ 　]+\n", "\n", t)
+            t = re.sub(r"\n{3,}", "\n\n", t)
+            t = re.sub(r"（\s*）", "", t)
+            t = re.sub(r"：\s*（", "：（", t)
+            t = re.sub(r"\s+（", "（", t)
+            t = re.sub(r"）\s+", "）", t)
+            return t.strip()
+
+        def _contains_quote_in_sources(q: str, prd_text: str, extra_sources) -> bool:
+            qq = str(q or "").strip()
+            if not qq:
+                return False
+            if prd_text and qq in prd_text:
+                return True
+            for s in extra_sources or []:
+                if s and qq in s:
+                    return True
+            return False
+
+        def _validate_forwardable_output(out: str):
+            t = str(out or "").strip()
+            if not t:
+                return False, "输出为空"
+            # Must contain required three headers
+            for h in ("## 评审结论（可转发版）", "## Top3 待补齐（按优先级）", "## P0 两条（各1-2行，面向PM）"):
+                if h not in t:
+                    return False, f"缺少小节标题：{h}"
+            # Must contain at least 3 evidence lines
+            if "依据：" not in t:
+                return False, "缺少“依据：”行"
+            # Forbid code-ish tokens and inline-code
+            if "`" in t:
+                return False, "包含反引号代码格式"
+            if re.search(r"\bERR_[A-Z0-9_]+\b", t):
+                return False, "包含错误码 token（ERR_...）"
+            if re.search(r"\b(GET|POST|HTTP)\b", t, flags=re.IGNORECASE):
+                return False, "包含请求方法/HTTP 字样"
+            if re.search(r"/[A-Za-z0-9_\-/{}/\.]+", t):
+                return False, "包含疑似路径"
+            # Forbid explicit durations / retry numbers (high risk)
+            if re.search(r"\b\d+\s*(ms|毫秒|秒|s|分钟|min)\b", t, flags=re.IGNORECASE):
+                return False, "包含具体时长数值"
+            if re.search(r"\b\d+\s*次\b", t):
+                return False, "包含具体次数数值"
+            return True, ""
+
+        # Keep only a small, high-signal package to avoid drift.
+        blocked_pack = []
+        for b in p0_blocked[:6]:
+            blocked_pack.append(
+                {
+                    "title": _pick(b, "title", "未命名"),
+                    "module": _pick(b, "module", ""),
+                    "summary": _pick(b, "human_summary", ""),
+                    "required": (b.get("required_evidence") if isinstance(b.get("required_evidence"), list) else [])[:6],
+                    "quotes": (b.get("evidence_quotes") if isinstance(b.get("evidence_quotes"), list) else [])[:2],
+                }
+            )
+        decided_pack = []
+        for d in decisions[:12]:
+            if not isinstance(d, dict):
+                continue
+            if str(d.get("status") or "").upper() != "DECIDED":
+                continue
+            decided_pack.append(
+                {
+                    "title": _pick(d, "title", "未命名"),
+                    "owner": _pick(d, "owner", "PM"),
+                    "summary": _pick(d, "human_summary", ""),
+                    "decision": _pick(d, "decision", ""),
+                }
+            )
+
+        import json as _json
+
+        prd_text = str(getattr(m, "prd_source", "") or "")
+
+        def _llm_direct() -> dict:
+            direct_prompt = f"""你是资深产品经理，请仅基于【原始PRD原文】写一段“可直接转发”的评审结论摘要（人话、可执行）。
+
+要求：
+1) 禁止编造：不要发明具体数值/接口路径/字段名/错误码 token/状态枚举/次数/间隔；若原文没有，就写“PRD 原文未覆盖，需要 PM 补齐”。
+2) 结构固定（只输出这 3 个小节）：
+   - ## 评审结论（可转发版）
+   - ## Top3 待补齐（按优先级）
+   - ## P0 两条（各1-2行，面向PM）
+3) 尽量引用原文短摘录作为依据：每条关键结论后写“依据：”并引用一句原文（用引号），没有就写“PRD原文未覆盖该点”。
+4) 不要工程黑话，不要用反引号。
+
+原始PRD原文：
+\"\"\"{prd_text[:18000]}\"\"\"
+
+辅助信息（门禁与P0标题，仅用于帮助你定位重点，不可当作 PRD 事实来写死）：
+{_json.dumps({
+  "gate": {"gate": gate_state, "reason": gate_reason, "required_evidence_top": req_top[:8]},
+  "p0_titles": [str(b.get("title") or "").strip() for b in p0_blocked[:6] if isinstance(b, dict)],
+}, ensure_ascii=False)}
+
+请直接输出 Markdown，不要解释。"""
+            try:
+                text = call_llm_with_retry(
+                    messages=[{"role": "user", "content": direct_prompt}],
+                    config_path=cfg,
+                    timeout=90,
+                    max_retries=3,
+                    retry_delay=3,
+                )
+                text = str(text or "").strip()
+                if not text:
+                    raise RuntimeError("LLM 返回为空")
+                # Best-effort safety (do not reject; just sanitize risky tokens)
+                text = _enforce_llm_only_safety(text)
+                return {
+                    "meeting_id": mid,
+                    "text": text,
+                    "mode_used": "llm_direct",
+                    "llm_error": "",
+                    "fallback": fallback_text,
+                }
+            except Exception as e:
+                raise
+
+        # Non-strict: direct LLM output only
+        if not strict_mode:
+            try:
+                return success_response(data=_llm_direct())
+            except Exception as e:
+                if llm_required:
+                    return error_response(f"LLM 生成失败：{e}", status_code=412, data={"fallback": fallback_text})
+                return success_response(
+                    data={"meeting_id": mid, "text": fallback_text, "mode_used": "fallback", "llm_error": str(e), "fallback": fallback_text}
+                )
+
+        # Pass 1: evidence-only extraction (strict JSON)
+        extract_prompt = f"""你是“证据抽取器”。你的唯一任务是：从【原始PRD原文】中抽取可引用的原句证据（短摘录），并整理成严格 JSON。
+
+硬约束（必须遵守）：
+1) 你只能输出 JSON（不要 Markdown、不要解释、不要多余文字）。
+2) quote 必须是【原始PRD原文】里的原句短摘录（必须能在原文中逐字找到），长度 12-80 字。
+3) 如果 PRD 原文完全没有覆盖某个点，不要编；用 covered=false，quote 为空字符串，并在 reason 写“PRD原文未覆盖该点”，并给出 src=[SRC:B#]（对应 blocker 序号）。
+4) 禁止输出任何具体数值/接口路径/字段名/错误码 token；如果 PRD 原句里出现这些，也不要摘录那部分（换一段不包含这些的原句；实在没有就按未覆盖处理）。
+
+输出 JSON schema（必须完全匹配）：
+{{
+  "gate": {{"gate":"PASS|FAIL|—","reason":"...","src":"[SRC:GATE]"}},
+  "top3_gaps":[
+    {{"title":"...","impact":"...","pm_questions":["..."],"covered":true|false,"quote":"...","src":"[SRC:PRD]|[SRC:B1]|[SRC:B2]"}}
+  ],
+  "p0_two":[
+    {{"title":"...","ask":"...","covered":true|false,"quote":"...","src":"[SRC:PRD]|[SRC:B1]"}}
+  ]
+}}
+
+原始PRD原文：
+\"\"\"{prd_text[:12000]}\"\"\"
+
+门禁与P0事实包（辅助你定位缺口标题，不可当作 PRD 证据）：
+{_json.dumps({
+  "gate": {"gate": gate_state, "reason": gate_reason, "required_evidence_top": req_top[:8]},
+  "p0_blocked": blocked_pack,
+}, ensure_ascii=False)}
+"""
+
+        # Pass 2: forwardable writing using ONLY extracted facts
+        prompt = f"""你是资深产品经理，请基于【事实 JSON】写一段可直接转发给产品/研发的短文（人话、可执行）。
+
+硬约束（必须遵守）：
+1) 不得新增事实：禁止发明任何具体数值/接口路径/字段名/错误码 token/状态枚举/次数/间隔。
+2) 只能使用【事实 JSON】里的字段与 quote；禁止输出事实 JSON 之外的信息。
+3) 强制可追溯：每条关键结论后必须带“依据：…”，规则：
+   - 若 covered=true：必须引用 quote（用引号包起来）并保留对应 src；
+   - 若 covered=false：必须写“PRD原文未覆盖该点”并保留对应 src（[SRC:B#]）。
+4) 输出只允许包含 3 个小节（标题必须一致）：
+   - ## 评审结论（可转发版）
+   - ## Top3 待补齐（按优先级）
+   - ## P0 两条（各1-2行，面向PM）
+5) 禁止出现代码符号/格式：不要使用反引号，不要输出路径/请求方法。
+
+事实 JSON：
+{{FACTS_JSON}}
+
+请直接输出 Markdown，不要解释。"""
+
+        try:
+            # Pass 1 call
+            facts_raw = call_llm_with_retry(
+                messages=[{"role": "user", "content": extract_prompt}],
+                config_path=cfg,
+                timeout=90,
+                max_retries=3,
+                retry_delay=3,
+            )
+            facts_raw = str(facts_raw or "").strip()
+            # Robust JSON extraction (model may wrap in ```json fences)
+            if facts_raw.startswith("```"):
+                facts_raw = re.sub(r"^```[a-zA-Z]*\s*", "", facts_raw).strip()
+                facts_raw = re.sub(r"\s*```$", "", facts_raw).strip()
+            facts = {}
+            if facts_raw:
+                try:
+                    facts = _json.loads(facts_raw)
+                except Exception:
+                    mobj = re.search(r"\{[\s\S]*\}\s*$", facts_raw)
+                    if mobj:
+                        facts = _json.loads(mobj.group(0))
+                    else:
+                        raise
+            if not isinstance(facts, dict):
+                raise RuntimeError("Pass1 输出不是 JSON object")
+
+            # Validate extracted quotes really exist in PRD (or known evidence quotes as extra source)
+            extra_sources = []
+            for b in blocked_pack:
+                if isinstance(b, dict):
+                    qs = b.get("quotes")
+                    if isinstance(qs, list):
+                        for q in qs:
+                            if q:
+                                extra_sources.append(str(q))
+
+            def _check_items(items: list, label: str) -> None:
+                if not isinstance(items, list):
+                    raise RuntimeError(f"Pass1 字段 {label} 非 list")
+                for it in items:
+                    if not isinstance(it, dict):
+                        raise RuntimeError(f"Pass1 {label} item 非 dict")
+                    covered = bool(it.get("covered", False))
+                    quote = str(it.get("quote") or "").strip()
+                    if covered:
+                        if not quote:
+                            raise RuntimeError(f"Pass1 {label} 有 covered=true 但 quote 为空")
+                        if not _contains_quote_in_sources(quote, prd_text, extra_sources):
+                            raise RuntimeError(f"Pass1 {label} quote 不在原文/证据中：{quote[:30]}…")
+                    else:
+                        # covered=false must not provide quote
+                        if quote:
+                            raise RuntimeError(f"Pass1 {label} covered=false 但 quote 非空")
+
+            _check_items(facts.get("top3_gaps"), "top3_gaps")
+            _check_items(facts.get("p0_two"), "p0_two")
+
+            # Pass 2 call
+            prompt2 = prompt.replace("{FACTS_JSON}", _json.dumps(facts, ensure_ascii=False))
+            text = call_llm_with_retry(
+                messages=[{"role": "user", "content": prompt2}],
+                config_path=cfg,
+                timeout=90,
+                max_retries=3,
+                retry_delay=3,
+            )
+            text = str(text or "").strip()
+            if not text:
+                raise RuntimeError("LLM 返回为空")
+            ok, why = _validate_forwardable_output(text)
+            if not ok:
+                raise RuntimeError(f"Pass2 输出校验失败：{why}")
+            text = _enforce_llm_only_safety(text)
+            return success_response(
+                data={
+                    "meeting_id": mid,
+                    "text": text,
+                    "mode_used": "llm_only",
+                    "llm_error": "",
+                    "fallback": fallback_text,
+                }
+            )
+        except Exception as e:
+            # Strict mode auto-fallback: still PRD-only, but don't block delivery
+            try:
+                d = _llm_direct()
+                d["llm_error"] = f"证据版失败，已自动降级：{e}"
+                return success_response(data=d)
+            except Exception as e2:
+                if llm_required:
+                    return error_response(f"LLM-only 生成失败：{e}", status_code=412, data={"fallback": fallback_text})
+                return success_response(
+                    data={
+                        "meeting_id": mid,
+                        "text": fallback_text,
+                        "mode_used": "fallback",
+                        "llm_error": f"{e}；降级也失败：{e2}",
+                        "fallback": fallback_text,
+                    }
+                )
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_export_llm_only_summary failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/send_feishu", methods=["POST"])
+def api_review_meeting_v2_send_feishu():
+    """
+    Send exported PRD v2.0 markdown to Feishu group bot webhook.
+    This is a UI convenience API; it does not modify meeting state.
+    """
+    try:
+        data = request.get_json() or {}
+        mid = str(data.get("meeting_id") or "").strip()
+        webhook_url = str(data.get("webhook_url") or "").strip()
+        title = str(data.get("title") or "PRD v2.0").strip()
+        text = str(data.get("text") or "").strip()
+        if not mid:
+            return error_response("meeting_id 不能为空", status_code=400)
+        if not webhook_url:
+            return error_response("webhook_url 不能为空", status_code=400)
+        if not text:
+            return error_response("text 不能为空", status_code=400)
+
+        # Basic allowlist for safety (Feishu/Lark webhooks)
+        if ("open.feishu.cn" not in webhook_url) and ("open.larksuite.com" not in webhook_url):
+            return error_response("webhook_url 域名不合法（仅支持飞书/ Lark 机器人 Webhook）", status_code=400)
+
+        import json as _json
+        import urllib.request as _urlreq
+
+        def _post(payload: dict) -> None:
+            body = _json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            req = _urlreq.Request(
+                webhook_url,
+                data=body,
+                headers={"Content-Type": "application/json; charset=utf-8"},
+                method="POST",
+            )
+            with _urlreq.urlopen(req, timeout=10) as resp:
+                _ = resp.read()
+
+        # Split long text into chunks (Feishu has message length limits)
+        max_len = 3200
+        chunks = []
+        t = text
+        while t:
+            chunks.append(t[:max_len])
+            t = t[max_len:]
+            if len(chunks) > 12:
+                # avoid runaway
+                break
+
+        sent = 0
+        # First message includes title + meeting id
+        head = f"{title}\nmeeting_id={mid}\n\n"
+        if chunks:
+            chunks[0] = head + chunks[0]
+        for c in chunks:
+            payload = {"msg_type": "text", "content": {"text": c}}
+            _post(payload)
+            sent += 1
+
+        return success_response(data={"meeting_id": mid, "sent_count": sent})
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_send_feishu failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/apply_freeze_rules", methods=["POST"])
+def api_review_meeting_v2_apply_freeze_rules():
+    """
+    Apply PM-decided concrete rules to meeting (project-specific values).
+    This does NOT "force PASS". It updates meeting.decisions/blockers and recomputes gate+prd_v2.
+    """
+    try:
+        data = request.get_json() or {}
+        mid = str(data.get("meeting_id") or "").strip()
+        payload = data.get("freeze_rules") if isinstance(data.get("freeze_rules"), dict) else {}
+        m = rmv2.get_meeting(mid)
+        if not m:
+            return error_response("meeting_id 不存在或已过期", status_code=404)
+        updated = rmv2.apply_freeze_rules(meeting=m, freeze_rules=payload)
+        return success_response(
+            data={
+                "meeting_id": updated.meeting_id,
+                "meeting": updated.to_dict(),
+            }
+        )
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_apply_freeze_rules failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/start_async", methods=["POST"])
+def api_review_meeting_v2_start_async():
+    """
+    V2：异步启动会议（用于 mode=prd 的耗时步骤），前端可轮询 progress 展示“正在做什么”。
+    """
+    try:
+        data = request.get_json() or {}
+        mode = str(data.get("mode") or "prd").strip().lower()
+        if mode != "prd":
+            return error_response("start_async 目前仅支持 mode=prd", status_code=400)
+        prd_text = str(data.get("prd_text") or "").strip()
+        if not prd_text:
+            return error_response("prd_text 不能为空", status_code=400)
+        scan_level = str(data.get("scan_level") or "quick").strip().lower()
+        if scan_level not in ("quick", "full"):
+            scan_level = "quick"
+        enforce_gate = bool(data.get("enforce_gate", True))
+        use_llm = bool(data.get("use_llm", True))
+        llm_required = bool(data.get("llm_required", True))
+        audit_constraint = bool(data.get("audit_constraint", True))
+
+        tid = _rmv2_task_create({"mode": "prd"})
+        _rmv2_task_append(tid, "已接收 PRD 输入，开始生成会议用快照…")
+
+        def _runner():
+            try:
+                config_path = ""
+                # Only require LLM config when we will call LLM (meeting discussion) or run full audit.
+                if use_llm or scan_level == "full":
+                    from utils.llm_client import load_llm_config
+
+                    _rmv2_task_append(tid, "读取 LLM 配置…")
+                    config_path = _pick_llm_config_path()
+                    llm_config = load_llm_config(config_path)
+                    if not (llm_config.get("api_key") or "").strip():
+                        raise RuntimeError("API Key 未配置")
+                else:
+                    _rmv2_task_append(tid, "跳过 LLM 配置（use_llm=false 且 scan_level=quick）…")
+
+                if scan_level == "full":
+                    _rmv2_task_append(tid, "运行静态审计（Stage1~Stage3/L3 母表）…")
+                else:
+                    _rmv2_task_append(tid, "快速扫描生成会议（不跑六段式静态审计）…")
+                hb_stop = {"stop": False}
+                audit_timeout_s = int(data.get("audit_timeout_s") or 150)  # hard wall-clock cap for async task
+                audit_started_at = time.time()
+
+                def _hb():
+                    start_ts = time.time()
+                    while not hb_stop.get("stop"):
+                        time.sleep(8)
+                        if hb_stop.get("stop"):
+                            break
+                        waited = int(max(0, time.time() - start_ts))
+                        total = int(max(0, time.time() - audit_started_at))
+                        _rmv2_task_append(tid, f"静态审计仍在运行中…（已等待 {waited}s）")
+                        if total >= audit_timeout_s:
+                            # hard stop signal; runner will fail shortly
+                            hb_stop["stop"] = True
+                            _rmv2_task_append(tid, f"静态审计超过硬超时 {audit_timeout_s}s，准备终止并返回失败（避免一直卡住）。")
+
+                snap_id_for_meeting = "prd_input_" + uuid.uuid4().hex[:8]
+                if scan_level == "full":
+                    threading.Thread(target=_hb, daemon=True).start()
+                    # Run audit in a sub-thread so we can enforce a hard wall-clock timeout.
+                    audit_out = {"stage3": None, "err": None}
+
+                    def _run_audit():
+                        try:
+                            _, _, _, s3 = pipeline.run_prd_audit_sync(prd_text, llm_config_path=config_path, timeout=90)
+                            audit_out["stage3"] = s3
+                        except Exception as e:
+                            audit_out["err"] = str(e)
+
+                    th = threading.Thread(target=_run_audit, daemon=True)
+                    th.start()
+                    th.join(timeout=max(1, audit_timeout_s))
+                    hb_stop["stop"] = True
+                    if th.is_alive():
+                        raise RuntimeError(f"静态审计执行超时（>{audit_timeout_s}s）。建议缩短 PRD 文本或检查 LLM/网络状态。")
+                    if audit_out.get("err"):
+                        raise RuntimeError("静态审计失败：" + str(audit_out.get("err")))
+                    stage3_output = audit_out.get("stage3")
+                    if not isinstance(stage3_output, dict) or not stage3_output:
+                        raise RuntimeError("缺少 stage3_output，无法生成会议")
+                    _rmv2_task_append(tid, "生成 V2 会议（完整版：基于审计输出）…")
+                    meeting = rmv2.create_meeting_from_stage3(stage3_output, snapshot_id=snap_id_for_meeting, mode="prd", prd_content=prd_text)
+                else:
+                    _rmv2_task_append(tid, "生成 V2 会议（轻量版：不跑六段式审计）…")
+                    meeting = rmv2.create_meeting_from_quick_scan(prd_text=prd_text, snapshot_id=snap_id_for_meeting, mode="prd")
+                _rmv2_task_set_partial(tid, {"meeting_id": meeting.meeting_id, "meeting": meeting.to_dict()})
+
+                llm_error = ""
+                if use_llm and config_path:
+                    _rmv2_task_append(tid, "启动多角色 LLM 讨论（QA→Dev→PM，限轮收敛）…")
+                    meeting, llm_error = rmv2.run_llm_discussion_for_meeting(
+                        meeting=meeting,
+                        llm_config_path=config_path,
+                        max_rounds=2,
+                        audit_constraint=audit_constraint,
+                        on_update=lambda m, note="": _rmv2_task_set_partial(
+                            tid,
+                            {"meeting_id": m.meeting_id, "meeting": m.to_dict(), "note": note},
+                        ),
+                    )
+                if llm_required and (not use_llm or llm_error):
+                    raise RuntimeError("LLM 必须参与，但本次 LLM 讨论失败：" + str(llm_error or "未知原因"))
+
+                if enforce_gate:
+                    _rmv2_task_append(tid, "门禁评估完成。")
+                _rmv2_task_append(tid, "完成：已生成会议结果与 PRD v2.0。")
+                _rmv2_task_finish(
+                    tid,
+                    result={
+                        "meeting_id": meeting.meeting_id,
+                        "meeting": meeting.to_dict(),
+                        "use_llm": bool(use_llm and bool(config_path) and not bool(llm_error)),
+                        "llm_error": llm_error,
+                        "llm_required": llm_required,
+                        "audit_constraint": audit_constraint,
+                        "scan_level": scan_level,
+                    },
+                )
+            except Exception as e:
+                _rmv2_task_append(tid, "失败：" + str(e))
+                _rmv2_task_fail(tid, str(e))
+
+        threading.Thread(target=_runner, daemon=True).start()
+        return success_response(data={"task_id": tid})
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_start_async failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/task_status", methods=["GET", "POST"])
+def api_review_meeting_v2_task_status():
+    try:
+        data = request.get_json(silent=True) or {}
+        tid = str((data.get("task_id") or request.args.get("task_id") or "")).strip()
+        if not tid:
+            return error_response("task_id 不能为空", status_code=400)
+        with _RMV2_TASKS_LOCK:
+            t = _RMV2_TASKS.get(tid)
+            if not isinstance(t, dict):
+                return error_response("task_id 不存在或已过期", status_code=404)
+            out = {
+                "task_id": t.get("task_id"),
+                "state": t.get("state"),
+                "created_at": t.get("created_at"),
+                "updated_at": t.get("updated_at"),
+                "progress": t.get("progress") if isinstance(t.get("progress"), list) else [],
+                "error": t.get("error") or "",
+                "result": t.get("result"),
+                "partial": t.get("partial"),
+            }
+        return success_response(data=out)
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_task_status failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting_v2/save_snapshot", methods=["POST"])
+def api_review_meeting_v2_save_snapshot():
+    try:
+        data = request.get_json() or {}
+        mid = str(data.get("meeting_id") or "").strip()
+        m = rmv2.get_meeting(mid)
+        if not m:
+            return error_response("meeting_id 不存在或已过期", status_code=404)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        info = rmv2.save_meeting_snapshot(base_dir, m)
+        return success_response(data={"meeting_id": mid, **info})
+    except Exception as e:
+        logger.exception("api_review_meeting_v2_save_snapshot failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting/start", methods=["POST"])
+def api_review_meeting_start():
+    """启动一场虚拟评审会：快照模式消费 Stage3；brainstorm 模式可无 PRD（推断+默认 BLOCKED）。"""
+    try:
+        data = request.get_json() or {}
+        mode = _normalize_review_meeting_mode(data)
+        sid = str(data.get("snapshot_id") or "").strip()
+        use_llm = bool(data.get("use_llm", True))
+        enforce_gate = bool(data.get("enforce_gate", True))
+        from .audit_learning import SNAPSHOT_DIR, load_all_snapshots
+
+        snapshot: Any = None
+        agenda_cards: List[Dict[str, Any]] = []
+        if mode == "brainstorm":
+            idea = str(data.get("idea") or "").strip()
+            if not idea:
+                return error_response("brainstorm 模式需要提供 idea", status_code=400)
+            agenda_cards = _brainstorm_agenda_cards(idea, use_llm=use_llm)
+            agenda_cards = _attach_scenarios_to_cards(agenda_cards, use_llm=use_llm)
+        else:
+            if sid:
+                file_path = os.path.join(SNAPSHOT_DIR, f"{sid}.json")
+                if not os.path.exists(file_path):
+                    return error_response("snapshot_id 不存在", status_code=404)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    snapshot = json.load(f)
+            else:
+                snaps = load_all_snapshots(limit=1)
+                snapshot = snaps[0] if snaps else None
+            if not isinstance(snapshot, dict):
+                return error_response("未找到可用快照，请先执行一次 PRD 审计生成快照", status_code=400)
+
+            # 门禁：快照模式默认强制要求“可直接同步的共识摘要通过最小事实校验”且 P0 已清零。
+            # 仅在 enforce_gate=False 时允许绕过（例如内部沙盘复盘/演示）。
+            if enforce_gate:
+                extras = snapshot.get("extras") if isinstance(snapshot.get("extras"), dict) else {}
+                shared_summary = extras.get("shared_summary") if isinstance(extras.get("shared_summary"), dict) else {}
+                gen_mode = str(shared_summary.get("generation_mode") or "").strip()
+                failures = shared_summary.get("validation_failures") if isinstance(shared_summary.get("validation_failures"), list) else []
+                p0_cnt = 0
+                try:
+                    stage2 = snapshot.get("stage2_output") if isinstance(snapshot.get("stage2_output"), dict) else {}
+                    defects = stage2.get("defects") if isinstance(stage2.get("defects"), list) else []
+                    p0_cnt = sum(
+                        1
+                        for d in defects
+                        if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P0"
+                    )
+                except Exception:
+                    p0_cnt = 0
+                gate_failures = []
+                if p0_cnt > 0:
+                    gate_failures.append(f"存在 P0 风险缺陷：{p0_cnt} 项")
+                if gen_mode != "llm_validated":
+                    gate_failures.append("全员共识摘要未通过最小事实校验（未使用 llm_validated 直写版本）")
+                for f in failures[:6]:
+                    fs = str(f or "").strip()
+                    if fs:
+                        gate_failures.append("摘要校验失败：" + fs)
+                if gate_failures:
+                    required = []
+                    for f in gate_failures:
+                        if "型号缺失" in f or "范围收缩" in f:
+                            required.append("补齐《目标与范围》：明确盒子型号/版本/端，并确保枚举不被缩窄。")
+                        if "红线缺失" in f:
+                            required.append("补齐《数据生命周期/清空规则》：清空触发条件 + 不清空例外（如转台不清空）。")
+                        if "冲突缺失" in f or "优先级" in f:
+                            required.append("补齐《开关优先级裁决表》：设置总开关/播控栏开关/自动规则的抢占顺序。")
+                        if "P0 风险缺陷" in f:
+                            required.append("逐条关闭 P0：为每条 P0 给出可验收 AC + 最小观测字段 + 锚点证据。")
+                    # 去重
+                    dedup = []
+                    seen = set()
+                    for x in required:
+                        xs = str(x or "").strip()
+                        if not xs or xs in seen:
+                            continue
+                        seen.add(xs)
+                        dedup.append(xs)
+                    return error_response(
+                        "门禁未通过：请先修正 PRD 再开评审会（或传 enforce_gate=false 绕过）。",
+                        status_code=412,
+                        data={
+                            "gate_result": {
+                                "mode": "GATE",
+                                "pass": False,
+                                "failures": gate_failures[:12],
+                                "required_evidence": dedup[:12],
+                                "signals": {
+                                    "p0_defects_count": p0_cnt,
+                                    "summary_generation_mode": gen_mode,
+                                },
+                            }
+                        },
+                    )
+            agenda_cards = _build_agenda_cards_from_snapshot(snapshot, limit=3)
+            agenda_cards = _attach_scenarios_to_cards(agenda_cards, use_llm=use_llm)
+
+        meeting_id = f"meet_{uuid.uuid4().hex[:10]}"
+        msgs = [{"role": "system", "speaker": "系统", "ts": _now_str(), "text": _meeting_system_message(mode)}]
+
+        decision_log = []
+        llm_ok = False
+        llm_error = ""
+        if use_llm:
+            try:
+                for c in agenda_cards:
+                    try:
+                        rounds = _llm_build_rounds_for_card(c)
+                        # 对话区：展示三轮摘要（不直接把 JSON 长段塞进对话）
+                        qa = rounds.get("qa") if isinstance(rounds.get("qa"), dict) else {}
+                        dev = rounds.get("dev") if isinstance(rounds.get("dev"), dict) else {}
+                        pm = rounds.get("pm") if isinstance(rounds.get("pm"), dict) else {}
+                        qa_gaps = qa.get("qa_challenges") if isinstance(qa.get("qa_challenges"), list) else []
+                        qa_lines = []
+                        for g in qa_gaps[:4]:
+                            if isinstance(g, dict) and str(g.get("gap") or "").strip():
+                                qa_lines.append(f"- {str(g.get('gap')).strip()}")
+                        msgs.append({"role": "assistant", "speaker": "测试（QA）", "ts": _now_str(), "text": f"议题：{c.get('one_liner')}\n不可验收点：\n" + ("\n".join(qa_lines) if qa_lines else "（无）")})
+                        dev_rs = dev.get("dev_responses") if isinstance(dev.get("dev_responses"), list) else []
+                        dev_lines = []
+                        for r in dev_rs[:3]:
+                            if isinstance(r, dict):
+                                feas = str(r.get("feasibility") or "").strip()
+                                prop = str(r.get("proposal") or "").strip()
+                                if prop:
+                                    dev_lines.append(f"- [{feas or 'n/a'}] {prop[:80]}")
+                        msgs.append({"role": "assistant", "speaker": "研发（Dev）", "ts": _now_str(), "text": "最小实现回应：\n" + ("\n".join(dev_lines) if dev_lines else "（无）")})
+                        pm_dec = pm.get("pm_decision") if isinstance(pm.get("pm_decision"), dict) else {}
+                        ac_final = pm_dec.get("ac_final") if isinstance(pm_dec.get("ac_final"), list) else []
+                        ac_lines = [f"- {str(x)[:120]}" for x in ac_final[:3] if str(x or "").strip()]
+                        pm_msg = f"裁决：{str(pm_dec.get('decision_summary') or '').strip()}\nAC（节选）：\n" + ("\n".join(ac_lines) if ac_lines else "（无）")
+                        if str(c.get("meeting_mode") or "").strip().lower() == "brainstorm":
+                            pm_msg += "\n（无文档沙盘：Decision Log 侧默认 BLOCKED，直至补齐 PRD 锚点/量化口径）"
+                        msgs.append({"role": "assistant", "speaker": "产品（PM）", "ts": _now_str(), "text": pm_msg})
+                        decision_log.append(_decision_log_from_llm(c, rounds))
+                        llm_ok = True
+                    except Exception as e:
+                        # 单条议题 LLM 失败：降级为模板，保证会议仍可用
+                        err = str(e)
+                        llm_error = err or llm_error
+                        logger.warning("LLM meeting card failed, fallback to local. issue_id=%s err=%s", c.get("issue_id"), err)
+                        # 追加模板版三句，避免 UI 空白
+                        msgs.append({"role": "assistant", "speaker": "系统", "ts": _now_str(), "text": f"该议题 LLM 生成失败，已降级为本地模板。原因：{err}"})
+                        msgs.extend(_seed_meeting_messages([c], mode))
+                        decision_log.append(_build_decision_log_for_cards([c])[0])
+            except Exception as e:
+                llm_error = str(e)
+                logger.warning("LLM meeting start failed, fallback to local: %s", llm_error)
+
+        if not llm_ok and not decision_log:
+            # 降级：模板会议（不影响能用）
+            if use_llm and llm_error:
+                msgs.append({"role": "assistant", "speaker": "系统", "ts": _now_str(), "text": f"LLM 评审会调用失败，已降级到本地模板会议。原因：{llm_error}"})
+            msgs.extend(_seed_meeting_messages(agenda_cards, mode))
+            decision_log = _build_decision_log_for_cards(agenda_cards)
+
+        patch = _build_prd_patch(decision_log)
+        snap_id_out = str(snapshot.get("snapshot_id") or "") if isinstance(snapshot, dict) else ""
+        _REVIEW_MEETINGS[meeting_id] = {
+            "meeting_id": meeting_id,
+            "meeting_mode": mode,
+            "snapshot_id": snap_id_out,
+            "agenda_cards": agenda_cards,
+            "decision_log": decision_log,
+            "prd_patch": patch,
+            "messages": msgs,
+            "created_at": _now_str(),
+            "use_llm": bool(use_llm and llm_ok),
+        }
+        return success_response(
+            data={
+                "meeting_id": meeting_id,
+                "meeting_mode": mode,
+                "snapshot_id": snap_id_out,
+                "agenda_cards": agenda_cards,
+                "decision_log": decision_log,
+                "prd_patch": patch,
+                "messages": msgs,
+                "use_llm": bool(use_llm and llm_ok),
+                "llm_error": llm_error if (use_llm and not llm_ok and llm_error) else "",
+            }
+        )
+    except Exception as e:
+        logger.exception("api_review_meeting_start failed")
+        return error_response(str(e), status_code=500)
+
+
+@prd_audit_bp.route("/api/review_meeting/send", methods=["POST"])
+def api_review_meeting_send():
+    """对话追加（测试补充/追问）。本地 MVP：记录对话并把内容沉淀到补丁末尾。"""
+    try:
+        data = request.get_json() or {}
+        mid = str(data.get("meeting_id") or "").strip()
+        text = str(data.get("text") or "").strip()
+        if not mid or mid not in _REVIEW_MEETINGS:
+            return error_response("meeting_id 不存在或已过期，请重新开始会议", status_code=404)
+        if not text:
+            return error_response("text 不能为空", status_code=400)
+        st = _REVIEW_MEETINGS[mid]
+        st["messages"].append({"role": "user", "speaker": "你", "ts": _now_str(), "text": text})
+        # 系统回声：把用户补充收敛为“待确认/补丁增补”，保持测试主导风格
+        st["messages"].append(
+            {
+                "role": "assistant",
+                "speaker": "秘书（收敛）",
+                "ts": _now_str(),
+                "text": "已记录为补充关注点：将进入会议纪要/PRD补丁的“待确认/验收补充”段落。",
+            }
+        )
+        # 追加到补丁末尾（不改原裁决表，只做补充）
+        st["prd_patch"] = (st.get("prd_patch") or "") + "\n\n### 会议补充（测试关注点）\n- " + text.replace("\n", "\n- ")
+        return success_response(
+            data={
+                "meeting_id": mid,
+                "messages": st.get("messages") or [],
+                "decision_log": st.get("decision_log") or [],
+                "prd_patch": st.get("prd_patch") or "",
+            }
+        )
+    except Exception as e:
+        logger.exception("api_review_meeting_send failed")
+        return error_response(str(e), status_code=500)
+
+
 @prd_audit_bp.route("/knowledge")
 def knowledge_page():
     return render_template("prd_audit_knowledge.html")
@@ -1260,39 +3248,44 @@ def api_analyze_prd():
         merged_report, stage1_output, stage2_output, stage3_output = pipeline.run_prd_audit_sync(
             prd_text, llm_config_path=config_path, timeout=90
         )
-        try:
-            from .test_matrix_generator import TestMatrixGenerator
-            test_matrix = TestMatrixGenerator(stage1_output, stage2_output).generate()
-        except Exception:
-            logger.exception("api_analyze_prd: generate test_matrix failed")
+        # 纯 PRD 分析模式下跳过测试资产生成（避免与“仅分析 PRD”意图冲突）
+        if getattr(pipeline, "PRD_ANALYSIS_ONLY_MODE", False):
             test_matrix = {}
-        try:
-            from .test_points_engine import run_test_points_engine, generate_validation_outline
-            test_points_obj = run_test_points_engine(
-                prd_text=prd_text,
-                stage1_output=stage1_output if isinstance(stage1_output, dict) else {},
-                stage2_output=stage2_output if isinstance(stage2_output, dict) else {},
-                outline_engine={},
-                platform_impact={},
-                dependency_analysis={},
-                test_matrix=test_matrix if isinstance(test_matrix, dict) else {},
-            )
-            # 生成验证大纲
-            validation_outline = generate_validation_outline(test_points_obj)
-        except Exception:
-            logger.exception("api_analyze_prd: generate test_points failed")
             test_points_obj = {}
             validation_outline = {}
+        else:
+            try:
+                from .test_matrix_generator import TestMatrixGenerator
+                test_matrix = TestMatrixGenerator(stage1_output, stage2_output).generate()
+            except Exception:
+                logger.exception("api_analyze_prd: generate test_matrix failed")
+                test_matrix = {}
+            try:
+                from .test_points_engine import run_test_points_engine, generate_validation_outline
+                test_points_obj = run_test_points_engine(
+                    prd_text=prd_text,
+                    stage1_output=stage1_output if isinstance(stage1_output, dict) else {},
+                    stage2_output=stage2_output if isinstance(stage2_output, dict) else {},
+                    outline_engine={},
+                    platform_impact={},
+                    dependency_analysis={},
+                    test_matrix=test_matrix if isinstance(test_matrix, dict) else {},
+                )
+                # 生成验证大纲
+                validation_outline = generate_validation_outline(test_points_obj)
+            except Exception:
+                logger.exception("api_analyze_prd: generate test_points failed")
+                test_points_obj = {}
+                validation_outline = {}
 
         score = stage3_output.get("summary", {}).get("quality_score")
-        shared_summary = pipeline._build_shared_summary(
-            stage1_output if isinstance(stage1_output, dict) else {},
-            llm_config_path=llm_config_path,
-        )
-        reader_guide = pipeline._build_reader_guide(
-            stage1_output if isinstance(stage1_output, dict) else {},
-            stage3_output if isinstance(stage3_output, dict) else {},
-        )
+        # run_prd_audit_sync 已构建 shared_summary/reader_guide 并挂到 stage3_output，避免重复调用浪费 token
+        shared_summary = stage3_output.get("shared_summary") if isinstance(stage3_output, dict) else {}
+        reader_guide = stage3_output.get("reader_guide") if isinstance(stage3_output, dict) else {}
+        if not isinstance(shared_summary, dict):
+            shared_summary = {}
+        if not isinstance(reader_guide, dict):
+            reader_guide = {}
         quality_summary = {
             "overall": score,
             "dimensions": {},

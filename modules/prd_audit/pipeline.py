@@ -30,6 +30,9 @@ from utils.llm_client import call_llm, call_llm_with_retry
 
 logger = logging.getLogger(__name__)
 
+# 纯 PRD 分析模式：仅保留 Stage1/2/3 与 L1/L2/L3 主报告，跳过测试与扩展资产生成。
+PRD_ANALYSIS_ONLY_MODE = True
+
 STORAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 STAGE3_MINIMAL_PROMPT_FILE = os.path.join(STORAGE_DIR, "prd_audit_prompt_stage3_minimal.txt")
 
@@ -1127,6 +1130,10 @@ def _build_core_issue_title(item: Dict[str, Any]) -> str:
     text = " ".join([feature, description, reason] + types_arr)
     topic = _issue_topic(item)
     subject_is_rule = _is_rule_style_subject(feature)
+
+    # 并发/多人同时操作：优先产出“裁决/互斥/幂等”类标题，避免被“字段/接口”分支抢走导致标题错位
+    if re.search(r"(并发|多人|同时操作|重复点击|抢占|互斥|幂等|排队|限流)", text):
+        return f"{feature}未定义" if subject_is_rule else f"{feature}并发裁决与互斥规则未定义"
     
     if topic == "cloud_degrade":
         return f"{feature}未定义" if subject_is_rule else f"{feature}异常处理：服务异常或网络中断时状态丢失"
@@ -1862,9 +1869,115 @@ def _build_stage3_report(
     stage2_output: Dict[str, Any],
     offline_mode: bool = False,
 ) -> Dict[str, Any]:
+    prd_content = str((stage2_output or {}).get("prd_content") or "")
     defects = stage2_output.get("defects") if isinstance(stage2_output, dict) else []
     defects = defects if isinstance(defects, list) else []
     defects, tool_defects = _filter_tool_defects(defects)
+    # 推断扫描来源分布：用于 scan_meta 自洽（平台通用，避免 UI 误判“LLM=0”）
+    inferred_source_stats = {"rule": 0, "llm": 0, "hybrid": 0}
+    for d in defects:
+        if not isinstance(d, dict):
+            continue
+        src = str(d.get("source") or "").strip().lower()
+        # Stage2 历史兼容：未标 source 的默认视为 llm（旧链路就是这么做的）
+        if not src:
+            src = "llm"
+        if src in inferred_source_stats:
+            inferred_source_stats[src] += 1
+
+    def _evidence_quotes_for_defect(defect: Dict[str, Any]) -> List[str]:
+        """
+        平台通用：将 L0001-L0022 / L0015-L0016 这类范围锚点还原成可复制原句，避免前端检索命中为 0。
+        """
+        if not isinstance(defect, dict):
+            return []
+        anchor = str(defect.get("anchor") or "").strip()
+        if not anchor:
+            return []
+        # 1) 直接包含 Lxxxx: 原句（最可靠）
+        m = re.findall(r"(?:^|[；;\n])\s*(L\d{3,5})\s*[:：]\s*([^\n；;]{6,220})", anchor)
+        out: List[str] = []
+        for _, txt in m[:2]:
+            q = _clean_report_text(txt)
+            if q and _l3_is_usable_quote(q) and q not in out:
+                out.append(q)
+        if out:
+            return out[:2]
+        # 2) 纯范围锚点：L0003-L0012 / L0015-L0016
+        mm = re.fullmatch(r"(L\d{3,5})\s*-\s*(L?\d{3,5})", _clean_report_text(anchor), flags=re.I)
+        if not mm:
+            # 也兼容 anchor 里夹杂范围但无冒号的情况
+            mm2 = re.search(r"(L\d{3,5})\s*-\s*(L?\d{3,5})", anchor, flags=re.I)
+            mm = mm2
+        if not mm:
+            # 3) “功能：xxx” 这类不算原文引用
+            return []
+        try:
+            s1 = int(re.sub(r"\D", "", mm.group(1) or "0") or 0)
+            s2 = int(re.sub(r"\D", "", mm.group(2) or "0") or 0)
+        except Exception:
+            return []
+        if s1 <= 0 or s2 <= 0:
+            return []
+        start = min(s1, s2)
+        end = max(s1, s2)
+        if not prd_content:
+            return []
+        lines = (prd_content or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        # 取范围内的“像原文的句子”，避免标题/空行
+        for i in range(start, min(end, len(lines)) + 1):
+            raw = lines[i - 1].strip().strip("•-—*")
+            q = _clean_report_text(raw)
+            if not q:
+                continue
+            if not _l3_is_usable_quote(q):
+                continue
+            out.append(q[:200])
+            if len(out) >= 2:
+                break
+        return out[:2]
+
+    # 把 evidence_quotes 写入 defects（供前端直接展示）
+    for d in defects:
+        if not isinstance(d, dict):
+            continue
+        if isinstance(d.get("evidence_quotes"), list) and d.get("evidence_quotes"):
+            continue
+        eq = _evidence_quotes_for_defect(d)
+        if eq:
+            d["evidence_quotes"] = eq
+
+    # 归一化：低证据的“模板洞察”不应推高 P0（平台通用，不绑定任何业务）
+    # 典型：状态孤岛/死路/非法跳转 在 PRD 未提供状态转移表时无法验证，应归为“状态机缺失”类缺口。
+    for d in defects:
+        if not isinstance(d, dict):
+            continue
+        dtype = str(d.get("type") or "").strip()
+        desc_blob = " ".join(
+            [
+                dtype,
+                str(d.get("description") or ""),
+                str(d.get("reason") or ""),
+            ]
+        )
+        # 兼容：type/描述可能被拼接或改写，优先按关键词命中
+        if not re.search(r"(状态孤岛|状态死路|非法状态跳转|状态不可达|无法结束|不合理跳转|没有入口|没有出口)", desc_blob):
+            continue
+        quotes = d.get("evidence_quotes") if isinstance(d.get("evidence_quotes"), list) else []
+        has_quote = any(_l3_is_usable_quote(str(q or "")) for q in (quotes or [])) or _l3_is_usable_quote(_issue_quote(d))
+        if has_quote:
+            continue
+        # 降级为“缺失定义”，避免用不可验证的模板推高门禁
+        d["type"] = "状态机缺失"
+        d["risk_level"] = "P1"  # 仍然重要，但不应等同“已证实的P0缺陷”
+        desc = str(d.get("description") or "")
+        if "状态机" not in desc and "转移" not in desc:
+            d["description"] = "未提供状态/事件/转移条件/终态表，无法验证可达性/终止性/合法跳转。"
+        if not str(d.get("reason") or "").strip():
+            d["reason"] = "该类结论需要可回溯的状态转移定义作为证据，否则属于缺失定义而非已证实缺陷。"
+        if not str(d.get("suggestion") or "").strip():
+            d["suggestion"] = "补充状态机定义（状态、触发事件、转移条件、终态）并给出异常回滚与恢复路径。"
+
     coverage = stage2_output.get("coverage") if isinstance(stage2_output, dict) else None
     dims = _score_dimensions(stage1_output or {}, defects)
     score = round(sum(v["score"] for v in dims.values()) / float(len(dims)), 1) if dims else _calc_quality_score(defects)[0]
@@ -1873,6 +1986,18 @@ def _build_stage3_report(
     if not isinstance(scan_meta, dict):
         scan_meta = {}
     llm_stage2_ok = scan_meta.get("llm_scan_ok", True)
+    # 修复：scan_meta 缺字段/字段为 0 时，按 defects 推断回填，避免“LLM 实际有返回但 UI 显示 0 条”
+    if scan_meta.get("rule_defects_count") is None:
+        scan_meta["rule_defects_count"] = int(inferred_source_stats.get("rule") or 0)
+    if scan_meta.get("llm_defects_parsed") is None:
+        scan_meta["llm_defects_parsed"] = int(inferred_source_stats.get("llm") or 0)
+    # 兼容：字段存在但为 0，且推断显示非 0 时，也回填（避免误杀 llm_empty_suspected）
+    try:
+        _llm_parsed_raw = int(scan_meta.get("llm_defects_parsed") or 0)
+    except (TypeError, ValueError):
+        _llm_parsed_raw = 0
+    if _llm_parsed_raw == 0 and int(inferred_source_stats.get("llm") or 0) > 0:
+        scan_meta["llm_defects_parsed"] = int(inferred_source_stats.get("llm") or 0)
     llm_defects_parsed = int(scan_meta.get("llm_defects_parsed") or 0)
     rule_defects_count = int(scan_meta.get("rule_defects_count") or 0)
     llm_empty_suspected = bool(llm_stage2_ok and llm_defects_parsed == 0)
@@ -1928,11 +2053,8 @@ def _build_stage3_report(
     test_focus = [str(x.get("focus_point") or "") for x in (semantic_schema.get("test_focus") or []) if isinstance(x, dict) and str(x.get("focus_point") or "").strip()]
     dev_focus = [str(x.get("focus_point") or "") for x in (semantic_schema.get("dev_focus") or []) if isinstance(x, dict) and str(x.get("focus_point") or "").strip()]
     plan = [str(x.get("action") or "") for x in (semantic_schema.get("plan") or []) if isinstance(x, dict) and str(x.get("action") or "").strip()]
-    source_stats = {"rule": 0, "llm": 0, "hybrid": 0}
-    for d in defects:
-        src = str(d.get("source") or "llm").strip().lower()
-        if src in source_stats:
-            source_stats[src] += 1
+    # scan_stats 以推断结果为准（与 scan_meta 同源）
+    source_stats = dict(inferred_source_stats)
     p0_count = sum(1 for d in defects if str(d.get("risk_level", "")).upper() == "P0")
     offline_suffix = "（本地规则体检版，无大模型推理）" if offline_mode else ""
     # 报告标题不附带 Stage2/模型状态尾缀，避免「工具未调通」观感；扫描元信息在仪表盘或 JSON 中可见。
@@ -2031,6 +2153,15 @@ def _l3_is_usable_quote(text: str) -> bool:
         return False
     if _l3_heading_like_quote(s):
         return False
+    # 排期/负责人/表格类内容：可被行号还原，但通常不构成业务规则证据（平台通用过滤）
+    if re.search(
+        r"(负责人|完成时间|上线时间|排期|里程碑|节点|UI设计|小程序开发|服务端开发|客户端开发|测试负责人|开发负责人)",
+        s,
+    ):
+        return False
+    # 无断句符号且较长：常见于表格字段堆叠/标题行，不适合作为可复制引用句
+    if len(s) >= 60 and not re.search(r"[，。；：、,.!?！？]", s):
+        return False
     if re.search(r"[\u2E80-\u2FDF]", s):
         return False
     if s.endswith(("：", ":")):
@@ -2105,7 +2236,7 @@ def _l3_render_topic(item: Dict[str, Any]) -> str:
     ) or (
         any(
             k in sub
-            for k in [
+        for k in [
                 "二维码",
                 "扫码",
                 "未授权",
@@ -2560,6 +2691,119 @@ def _l3_test_drafts(item: Dict[str, Any]) -> List[str]:
             f"用例2：mock 字段缺失或异常返回，验证前后端兼容和错误提示是否符合 PRD。",
         ]
     return _build_issue_test_drafts(item)
+
+
+def _l3_if_then_action(item: Dict[str, Any]) -> str:
+    """
+    将 L3 建议落成可执行口径，优先输出 IF/THEN 风格动作。
+    """
+    text = _l3_issue_text(item)
+    topic = _issue_topic(item)
+    issue_id = str(item.get("id") or "").upper()
+    if issue_id == "D006" or topic in ("device_lifecycle",):
+        return "IF 发生关台/重启/断电, THEN 明确未认领录音的清空/保留规则并记录清理原因与会话ID。"
+    if issue_id == "D014" or topic in ("conflict_rule", "concurrency_control"):
+        return "IF 自动开启与手动开关同时命中, THEN 按优先级矩阵裁决并落字段 effective_rule/decision_source。"
+    # 权限/访问控制：不要误套“上传失败重传”这类异常动作
+    if topic in ("security_access", "qr_security"):
+        return "IF 通过扫码/外链/小程序等入口访问受控资源, THEN 校验身份与权限并校验有效期/一次性，越权时返回统一错误码并留审计日志。"
+    # 多端一致/同步：强调时效、触发与可观测
+    if topic in ("sync_latency", "cross_end_sync"):
+        return "IF 多端/多入口依赖同一结果, THEN 明确同步时效阈值、刷新触发与最终一致口径，并落字段 sync_ts/sync_status 便于对账。"
+    # 失败/超时/弱网：强调错误态、重试与兜底（不绑定具体业务词）
+    if topic in ("exception_flow", "cloud_degrade"):
+        return "IF 依赖失败或超时, THEN 明确错误态与提示、重试次数/间隔/终止条件，以及失败后的状态回退与补偿策略。"
+    # 中断/重进/回滚：强调唯一落点与资源清理
+    if topic == "state_recovery" or re.search(r"(退出|重进|切后台|恢复)", text):
+        return "IF 用户中断后重进, THEN 系统落到唯一状态并回填 state_before/state_after/resume_policy。"
+    if topic in ("transfer_cleanup",):
+        return "IF 发生退出/切换/重进/环境重置, THEN 明确清理/保留的状态与资源清单，并保证再次进入的落点唯一可复现。"
+    if topic == "data_contract" or re.search(r"(字段|错误码|状态值|接口)", text):
+        return "IF 接口返回异常/缺字段, THEN 按统一错误码降级并记录 result_status/error_code。"
+    if topic in ("acceptance_logging",):
+        return "IF 核心流程达到终态, THEN 输出可验收的成功/失败判定与最小观测字段（日志/埋点/错误码），确保可复现可对账。"
+    if topic in ("boundary_rule",):
+        return "IF 输入触达边界值或非法值, THEN 明确最小/最大/默认与越界处理方式，并给出用户提示与错误码。"
+    return "IF 命中该风险场景, THEN 按 PRD 固化可验收阈值、终态与最小观测字段。"
+
+
+def _l3_build_risk_clusters(cards: List[Dict[str, Any]], limit: int = 6) -> List[Dict[str, Any]]:
+    """
+    将碎片问题归并为风险簇，便于研发按模块一次消灭多条缺陷。
+    """
+    if not cards:
+        return []
+    def _low_signal_template(seed: Dict[str, Any]) -> bool:
+        """
+        平台通用：过滤/降权“模板洞察”类 seed（如状态孤岛/死路/非法跳转但缺少可追溯 quote），
+        避免风险簇标题与动作被低信号项带偏。
+        """
+        if not isinstance(seed, dict):
+            return True
+        t = str(seed.get("type") or "")
+        if t in ("状态孤岛", "状态死路", "非法状态跳转"):
+            return not _l3_is_usable_quote(_issue_quote(seed))
+        return False
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for c in cards:
+        if not isinstance(c, dict):
+            continue
+        seed = c.get("seed") if isinstance(c.get("seed"), dict) else {}
+        topic = _issue_topic(seed)
+        kind = _build_l2_issue_kind(seed) if isinstance(seed, dict) else "generic"
+        # topic 纠偏（平台通用）：避免因为“同步/列表”等词误把“退出/中断/清理”归到 sync_latency
+        seed_text = _l3_issue_text(seed) if isinstance(seed, dict) else ""
+        # 设备/会话生命周期必须优先归一，避免误落到 sync_latency
+        if re.search(r"(关台|待机|重开台|重开|重启|断电|上电|全断电|软重启|会话结束)", seed_text):
+            topic = "device_lifecycle"
+        if kind == "state" and topic in ("sync_latency", "cross_end_sync"):
+            if re.search(r"(中断|退出|重进|切后台|清理|环境重置|回滚|恢复)", seed_text):
+                topic = "transfer_cleanup"
+        if kind == "security" and topic not in ("security_access", "qr_security"):
+            if re.search(r"(扫码|二维码|越权|鉴权|有效期|失效|重放|访问边界)", seed_text):
+                topic = "security_access"
+        # 异常/弱网/超时：即便 kind 被打成 generic，也要避免误套 sync_latency 动作
+        if topic in ("sync_latency", "cross_end_sync") and re.search(r"(失败|超时|弱网|断网|重试|降级|错误码|异常)", seed_text):
+            topic = "exception_flow"
+        # 冲突/裁决：优先级、开关、手动/自动打架时，不应归入 sync_latency
+        if topic in ("sync_latency", "cross_end_sync", "generic_rule") and re.search(
+            r"(优先级|裁决|互斥|冲突|手动|自动|开关|谁先生效|覆盖|按.{0,6}为准|decision_source|effective_rule)",
+            seed_text,
+        ):
+            topic = "conflict_rule"
+        module = str(c.get("module_label") or "跨模块").strip() or "跨模块"
+        # key 加入 kind，避免“权限/状态/异常”等跨域条目被同 topic 名误合并
+        key = f"{kind}|{topic}|{module}"
+        cur = grouped.get(key)
+        if not cur:
+            cur = {
+                "topic": topic or "generic",
+                "kind": kind or "generic",
+                "module": module,
+                "level": str(c.get("level") or "P2").upper(),
+                "count": 0,
+                "titles": [],
+                "seed": seed,
+                "actions": [],
+            }
+            grouped[key] = cur
+        cur["count"] += max(1, len(c.get("related_defects") or []))
+        lv = str(c.get("level") or "P2").upper()
+        if _risk_rank_local(lv) < _risk_rank_local(str(cur.get("level") or "P2")):
+            cur["level"] = lv
+            # 避免用低信号模板覆盖 seed
+            if seed and not _low_signal_template(seed):
+                cur["seed"] = seed
+        tit = str(c.get("title") or "").strip()
+        if tit and tit not in cur["titles"]:
+            cur["titles"].append(tit)
+        for act in (c.get("fix_items") or [])[:2]:
+            a = str(act or "").strip()
+            if a and a not in cur["actions"]:
+                cur["actions"].append(a)
+    out = list(grouped.values())
+    out.sort(key=lambda x: (_risk_rank_local(str(x.get("level") or "")), -int(x.get("count") or 0)))
+    return out[:limit]
 
 
 def _l3_scene(item: Dict[str, Any]) -> str:
@@ -3078,13 +3322,15 @@ def _l3_cluster_p1_by_identical_title(cards: List[Dict[str, Any]]) -> List[Dict[
 
 
 def _l3_summary_from_cards(issue_cards: List[Dict[str, Any]], defects: List[Dict[str, Any]]) -> Tuple[str, str, List[str]]:
-    p0 = sum(1 for c in issue_cards if str(c.get("level") or "").upper() == "P0")
-    p1 = sum(1 for c in issue_cards if str(c.get("level") or "").upper() == "P1")
-    p2 = sum(1 for c in issue_cards if str(c.get("level") or "").upper() == "P2")
-    if not issue_cards:
+    if defects:
+        # L3 作为 Ground Truth：摘要计数优先使用去重后的缺陷母表，与详细矩阵保持一致。
         p0 = sum(1 for d in defects if str(d.get("risk_level") or "").upper() == "P0")
         p1 = sum(1 for d in defects if str(d.get("risk_level") or "").upper() == "P1")
         p2 = sum(1 for d in defects if str(d.get("risk_level") or "").upper() == "P2")
+    else:
+        p0 = sum(1 for c in issue_cards if str(c.get("level") or "").upper() == "P0")
+        p1 = sum(1 for c in issue_cards if str(c.get("level") or "").upper() == "P1")
+        p2 = sum(1 for c in issue_cards if str(c.get("level") or "").upper() == "P2")
     counts = f"P0 {p0} 项"
     if p1:
         counts += f"、P1 {p1} 项"
@@ -3092,27 +3338,65 @@ def _l3_summary_from_cards(issue_cards: List[Dict[str, Any]], defects: List[Dict
         counts += f"、P2 {p2} 项"
     top_titles: List[str] = []
     top3: List[str] = []
-    # 摘要优先展示高风险项，但若 P0 不足 3 条，则继续补 P1/P2，避免只剩 1 条。
     title_seen: set = set()
+    lane_seen: set = set()
     meeting_seen: set = set()
-    for card in issue_cards:
+
+    def _lane_of_card(card: Dict[str, Any]) -> str:
+        txt = " ".join([
+            str(card.get("title") or ""),
+            str(card.get("meeting_statement") or ""),
+            str(card.get("problem") or ""),
+        ])
+        if re.search(r"(失败|超时|弱网|上传|回写|重试|降级|容错)", txt):
+            return "容错链路"
+        if re.search(r"(优先级|裁决|冲突|互斥|自动开启|手动开关|总开关|播控栏)", txt):
+            return "优先级裁决"
+        if re.search(r"(状态机|状态|重进|退出|关台|重启|断电|清理|恢复)", txt):
+            return "状态一致性"
+        if re.search(r"(权限|鉴权|越权|安全|失效|重放)", txt):
+            return "安全边界"
+        return "通用闭环"
+
+    sorted_cards = sorted(
+        [c for c in issue_cards if isinstance(c, dict)],
+        key=lambda c: (
+            _risk_rank_local(str(c.get("level") or "")),
+            -len(str(c.get("problem") or "")) - len(str(c.get("title") or "")),
+        ),
+    )
+    for card in sorted_cards:
         level = str(card.get("level") or "P2").upper()
         title = str(card.get("title") or "").strip()
-        if title in title_seen:
-            continue
-        title_seen.add(title)
+        lane = _lane_of_card(card)
         if title and title not in top_titles:
             top_titles.append(title)
+        if lane in lane_seen:
+            continue
+        lane_seen.add(lane)
         statement = str(card.get("meeting_statement") or "").strip()
         if statement and statement not in meeting_seen:
-            bullet = f"{statement}（{level}）"
+            bullet = f"{lane}：{statement}（{level}）"
             meeting_seen.add(statement)
         else:
-            bullet = f"{title}（{level}）" if title else ""
+            bullet = f"{lane}：{title}（{level}）" if title else ""
         if bullet and bullet not in top3:
             top3.append(bullet)
         if len(top3) >= 3:
             break
+
+    if len(top3) < 3:
+        for card in sorted_cards:
+            level = str(card.get("level") or "P2").upper()
+            title = str(card.get("title") or "").strip()
+            if not title or title in title_seen:
+                continue
+            title_seen.add(title)
+            bullet = f"{title}（{level}）"
+            if bullet not in top3:
+                top3.append(bullet)
+            if len(top3) >= 3:
+                break
     if top_titles:
         main_problem = f"当前 PRD 存在 {counts} 待处理问题，优先需补齐：{'；'.join(top_titles[:3])}。"
     else:
@@ -3132,7 +3416,12 @@ def _brief_text(text: Any, limit: int = 2000, keep_newlines: bool = False) -> st
     return s if len(s) <= limit else s[:limit].rstrip() + "..."
 
 
-def _build_shared_summary(stage1_output: Dict[str, Any], llm_config_path: str = None, llm_config_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def _build_shared_summary(
+    stage1_output: Dict[str, Any],
+    llm_config_path: str = None,
+    llm_config_override: Optional[Dict[str, Any]] = None,
+    prd_text: str = "",
+) -> Dict[str, Any]:
     s1 = stage1_output if isinstance(stage1_output, dict) else {}
     irrelevant_pattern = re.compile(r"(换脸|修音|(?<![A-Za-z])MV(?![A-Za-z])|mv换脸)", re.IGNORECASE)
     
@@ -3147,14 +3436,1310 @@ def _build_shared_summary(stage1_output: Dict[str, Any], llm_config_path: str = 
             return ""
         return s.strip()
 
-    product_name = _clean_summary_text(s1.get("product_name"), 200) or "本PRD"
+    def _clean_summary_item(text: str, limit: int = 160) -> str:
+        s = _clean_summary_text(text, limit)
+        if not s:
+            return ""
+        s = re.sub(r"^(本期核心功能包括|核心功能包括|支持功能包括|功能包括)[：:]\s*", "", s)
+        s = re.sub(r"^适合[^。]{0,80}(快速拉齐|看懂|理解)[^。]*[。]?", "", s)
+        s = re.sub(r"^(新手导读|认知大纲|总览)\s*", "", s)
+        s = re.sub(r"(且|并且)?不(会)?被认领", "，不形成有效结果", s)
+        s = re.sub(r"[。]{2,}", "。", s)
+        s = re.sub(r"([。！？；])([、，])", r"\1", s)
+        s = re.sub(r"([、，]){2,}", "、", s)
+        s = re.sub(r"([，,])\s*([，,])+", r"\1", s)
+        s = s.strip("，、；。 ")
+        return s
+
+    def _looks_like_summary_noise(text: str) -> bool:
+        s = _clean_summary_text(text, 800)
+        if not s:
+            return False
+        noise_hits = 0
+        if re.search(
+            r"(负责人|完成时间|上线时间|评审时间|客户端开发|服务端开发|测试负责人|UI设计|开发负责人|测试负责人|服务器|小程序开发)",
+            s,
+        ):
+            noise_hits += 1
+        if re.search(r"([一二三四五六七八九十]+、|[0-9]+\.)\s*(背景|目标|需求描述|功能|展示|规则|流程|范围)", s):
+            noise_hits += 1
+        if len(re.findall(r"[：:]", s)) >= 4:
+            noise_hits += 1
+        if len(re.findall(r"(负责人|时间|背景|目标|需求描述|功能|规则)", s)) >= 3:
+            noise_hits += 1
+        return noise_hits >= 2
+
+    def _normalize_summary_source_text(text: str) -> str:
+        s = _brief_text(text, 4000, keep_newlines=True)
+        if not s:
+            return ""
+        replace_map = {
+            "⼀": "一",
+            "⼆": "二",
+            "⼈": "人",
+            "⼊": "入",
+            "⼤": "大",
+            "⼩": "小",
+            "⼿": "手",
+            "⼦": "子",
+            "⼝": "口",
+            "⼼": "心",
+            "⼾": "户",
+            "⽤": "用",
+            "⽰": "示",
+            "⾳": "音",
+            "⽂": "文",
+            "⽀": "支",
+            "⻚": "页",
+        }
+        for src, dst in replace_map.items():
+            s = s.replace(src, dst)
+        s = re.sub(r"[\t\r\f\v]+", " ", s)
+        s = re.sub(r"(?<=[\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])", "", s)
+        s = re.sub(r"(?<=[A-Za-z])\s+(?=[A-Za-z])", "", s)
+        s = re.sub(r"\s{2,}", " ", s)
+        return s.strip()
+
+    def _looks_like_scope_constraint(text: str) -> bool:
+        s = _clean_summary_text(text, 300)
+        if not s:
+            return False
+        constraint_hits = 0
+        if re.search(
+            r"(型号|机型|版本|版型|系统|平台|设备|终端|客户端|服务端|浏览器|操作系统|渠道|环境|适配|兼容|支持范围|适用于|仅支持|限于|范围|清单|列表|配置|参数|规格|套餐|标准版|专业版|企业版|定制版)",
+            s,
+            re.IGNORECASE,
+        ):
+            constraint_hits += 1
+        if re.search(r"[：:]", s):
+            constraint_hits += 1
+        if s.count("、") >= 1 or s.count("，") >= 2 or s.count(",") >= 2 or "/" in s:
+            constraint_hits += 1
+        if len(s) <= 40:
+            constraint_hits += 1
+        intent_hits = 0
+        if re.search(
+            r"(用于|为了|以便|实现|提供|帮助|完成|达成|规范|优化|提升|建立|打通|确保|交付|减少|降低|沉淀|构建|形成|支撑)",
+            s,
+        ):
+            intent_hits += 1
+        return constraint_hits >= 2 and intent_hits == 0
+
+    def _build_goal_from_scope(scope_items: List[str], product_label: str) -> str:
+        clean_items: List[str] = []
+        for item in scope_items[:3]:
+            text = _clean_summary_item(item, 80)
+            if not text or _looks_like_scope_constraint(text):
+                continue
+            text = re.sub(r"^(点击|通过|当|在|若|如果|用户)", "", text).strip()
+            text = re.sub(r"(后|时)$", "", text).strip()
+            clean_items.append(text)
+        if clean_items:
+            subject = clean_items[0]
+            if len(subject) > 28:
+                subject = subject[:28].rstrip("，、； ")
+            return f"明确{subject}的核心流程、状态规则与交互边界"
+        return f"规范 {product_label} 的核心功能与交互逻辑"
+
+    def _build_scope_items(scope_items: List[str]) -> List[str]:
+        out: List[str] = []
+        seen: set = set()
+        for item in scope_items[:12]:
+            text = _clean_summary_item(item, 160)
+            if not text or irrelevant_pattern.search(text):
+                continue
+            # 范围/适配约束更适合放到红线口径，不放到“核心功能”里。
+            if _looks_like_scope_constraint(text):
+                continue
+            if len(text) < 4:
+                continue
+            if text not in seen:
+                seen.add(text)
+                out.append(text)
+        return out
+
+    def _normalize_purpose_sentence(text: str, scope_items: List[str], product_label: str) -> str:
+        s = _clean_summary_item(text, 220)
+        if not s:
+            return _build_goal_from_scope(scope_items, product_label)
+        s = re.sub(r"^适合[^。]{0,80}(快速拉齐|看懂|理解)[^。]*[。]?", "", s)
+        s = re.sub(r"^在[^，。；]{0,80}?(上|中|下)", "", s)
+        s = re.sub(r"^(面向|针对)[^，。；]{0,60}", "", s)
+        if re.search(r"(型号|机型|版本|系统|设备|终端)", s) and re.search(r"(实现|支持|提供)", s):
+            s = re.sub(r"^为[^，。；]{0,80}?(实现|支持|提供)", r"\1", s)
+        s = s.strip("，、；。 ")
+        clauses = [x.strip("，、；。 ") for x in re.split(r"[，。；]", s) if x and x.strip("，、；。 ")]
+        if not clauses:
+            return _build_goal_from_scope(scope_items, product_label)
+        purpose = clauses[0]
+        if _looks_like_scope_constraint(purpose):
+            for clause in clauses[1:]:
+                if not _looks_like_scope_constraint(clause):
+                    purpose = clause
+                    break
+        if len(purpose) < 6 or _looks_like_scope_constraint(purpose):
+            purpose = _build_goal_from_scope(scope_items, product_label)
+        purpose = purpose.strip("，、；。 ")
+        if purpose and not purpose.endswith("。"):
+            purpose += "。"
+        return purpose
+
+    def _normalize_summary_items(items: List[str], limit: int = 5, keep_constraints: bool = False) -> List[str]:
+        def _looks_like_broken_rule_line(text: str) -> bool:
+            s = _clean_summary_item(text, 220)
+            if not s:
+                return True
+            if re.search(
+                r"(清空|开启|关闭|显示|保存|上传).{0,20}但.{0,20}(不清空|不开启|不关闭|不显示|不保存|不上传)",
+                s,
+            ):
+                return True
+            parts = [p.strip() for p in re.split(r"[，；]", s) if p and p.strip()]
+            if len(parts) >= 2:
+                verb_pattern = r"(是|为|可|会|需|应|支持|展示|开启|关闭|保存|清空|上传|进入|关联|点击|点播|触发|提示|生成|返回|播放)"
+                for p in parts:
+                    if len(p) <= 8 and not re.search(verb_pattern, p):
+                        return True
+            return False
+
+        out: List[str] = []
+        seen: set = set()
+        for raw in items:
+            text = _clean_summary_item(raw, 180)
+            if not text or irrelevant_pattern.search(text):
+                continue
+            if not keep_constraints and _looks_like_scope_constraint(text):
+                continue
+            if keep_constraints and _looks_like_broken_rule_line(text):
+                continue
+            text = re.sub(r"\s+", " ", text)
+            if len(text) < 4:
+                continue
+            if text not in seen:
+                seen.add(text)
+                out.append(text)
+            if len(out) >= limit:
+                break
+        return out
+
+    def _looks_like_generic_purpose(text: str) -> bool:
+        s = _clean_summary_item(text, 120)
+        if not s:
+            return True
+        if len(s) <= 10:
+            return True
+        if len(s) <= 22 and not re.search(r"(保存|上传|同步|获取|列表|下载|状态|边界|结果)", s):
+            return True
+        return bool(
+            re.fullmatch(
+                r"(实现|支持|提供|规范).{0,10}(相关)?(功能|能力|逻辑|流程)(与|及|、)?.{0,8}。",
+                s,
+            )
+        )
+
+    def _purpose_candidate_score(text: str) -> int:
+        s = _clean_summary_item(text, 120)
+        if not s:
+            return -99
+        score = 0
+        if _looks_like_scope_constraint(s):
+            score -= 6
+        if re.search(r"(功能|能力|流程|作品|资源|文件|列表|服务)", s):
+            score += 4
+        if re.search(r"(保存|上传|获取|同步|播放|录制|提交|生成|回写)", s):
+            score += 3
+        if re.search(r"(列表|扫码|取回|下载|云端|上传)", s):
+            score += 2
+        if re.search(r"(展示|页面|图标|icon|按钮|小字提示|提示语|右侧展示|弹窗|入口)", s, re.I):
+            score -= 3
+        if len(s) >= 12:
+            score += 1
+        return score
+
+    def _extract_purpose_focus(text: str) -> str:
+        s = _clean_summary_item(text, 120)
+        if not s:
+            return ""
+        s = re.sub(r"^(用户|系统|平台|终端|设备|客户端|服务端|TV屏幕|电视端|触摸屏|播控栏|设置页)", "", s).strip()
+        s = re.sub(r"^(点击|点播|通过|当|在|若|如果|并|且)", "", s).strip()
+        m = re.search(r"([\u4e00-\u9fffA-Za-z0-9_-]{2,24}(功能|能力|流程|作品|资源|文件|列表|服务))", s)
+        if m:
+            return m.group(1)
+        m = re.search(r"(支持|实现|提供|管理|处理)([\u4e00-\u9fffA-Za-z0-9_-]{2,24})", s)
+        if m:
+            return m.group(2)
+        s = re.sub(r"[，。；].*$", "", s).strip()
+        return s[:18].strip("，、；。 ")
+
+    def _build_specific_purpose_candidate(scope_items: List[str], flow_items: List[str], product_label: str) -> str:
+        candidates: List[str] = []
+        for text in scope_items[:4] + flow_items[:3] + rules[:3]:
+            s = _clean_summary_item(text, 120)
+            if not s or _looks_like_scope_constraint(s):
+                continue
+            if len(s) >= 6:
+                candidates.append(s)
+        if candidates:
+            candidates.sort(key=lambda x: (_purpose_candidate_score(x), len(x)), reverse=True)
+            core = _extract_purpose_focus(candidates[0]) or product_label
+            merged = " ".join(candidates[:5])
+            trigger_hit = bool(re.search(r"(点击|点播|选择|触发|开启|关闭|打开|扫码)", merged))
+            result_hit = bool(re.search(r"(保存|上传|同步|获取|进入|生成|回写|归入|下载)", merged))
+            process_hit = bool(re.search(r"(展示|录制|执行|处理|播放|回放|开始)", merged))
+            archive_hit = bool(re.search(r"(保存|上传|同步|回写|归入|进入.*列表|落库)", merged))
+            fetch_hit = bool(re.search(r"(获取|取回|下载|扫码|列表)", merged))
+            status_hit = bool(re.search(r"(录制中|展示.*状态|提示|反馈)", merged))
+            if archive_hit and fetch_hit:
+                return f"围绕{core}，明确触发方式、执行过程、结果归档与用户取回链路。"
+            if trigger_hit and process_hit and result_hit and status_hit:
+                return f"围绕{core}，明确触发方式、状态反馈、执行规则与结果链路。"
+            if trigger_hit and result_hit:
+                return f"围绕{core}，明确触发方式、执行规则与结果链路。"
+            if trigger_hit or process_hit:
+                return f"围绕{core}，明确核心流程、录制规则与交互边界。"
+            return f"明确{core}的能力边界与结果规则。"
+        return f"规范 {product_label} 的核心功能与交互逻辑。"
+
+    def _build_flow_items(flow_items: List[str], scope_items: List[str], rule_items: List[str], limit: int = 3) -> List[str]:
+        def _flow_signature(text: str) -> str:
+            if re.search(r"(录制中|展示.*状态|TV右侧展示)", text):
+                return "display-status"
+            if re.search(r"(快唱副歌|手机端点播|自动开启|自动关闭|点播其他歌曲)", text):
+                return "auto-trigger"
+            if re.search(r"(保存|上传|进入.*列表|归入|获取|下载|扫码|回写|落库)", text):
+                return "result-chain"
+            if re.search(r"(重新播放|回放)", text):
+                return "replay"
+            return re.sub(r"\s+", "", text)[:24]
+
+        def _flow_bucket(text: str) -> str:
+            if re.search(r"(录制中|展示.*状态|TV右侧展示)", text):
+                return "process"
+            if re.search(r"(保存|上传|同步|进入.*列表|归入|获取|下载|生成作品|回写|落库)", text):
+                return "result"
+            if re.search(r"(点击|点播|选择|触发|开启|关闭|打开|扫码|进入)", text):
+                return "trigger"
+            if re.search(r"(展示|开始|录制|执行|处理中|弹出|提示)", text):
+                return "process"
+            return "other"
+
+        def _step_score(text: str, bucket: str) -> int:
+            score = 0
+            if bucket == "trigger":
+                if re.search(r"(点击|点播|选择|扫码|触发)", text):
+                    score += 4
+                if re.search(r"(展示.*状态|录制中)", text):
+                    score -= 3
+                if re.search(r"(保存|上传|进入.*列表|获取|下载)", text):
+                    score -= 3
+            elif bucket == "process":
+                if re.search(r"(录制中|展示.*状态|开始录制|自动开启|自动关闭|执行)", text):
+                    score += 4
+                if re.search(r"(保存|上传|进入.*列表|获取|下载)", text):
+                    score -= 2
+            elif bucket == "result":
+                if re.search(r"(保存|生成作品)", text):
+                    score += 3
+                if re.search(r"(上传|同步|进入.*列表|归入|获取|下载|回写|落库)", text):
+                    score += 4
+            return score
+
+        def _pick_best_step(items: List[str], bucket: str) -> str:
+            if not items:
+                return ""
+            ranked = sorted(
+                items,
+                key=lambda t: (_step_score(t, bucket), len(_clean_summary_item(t, 180))),
+                reverse=True,
+            )
+            return ranked[0]
+
+        def _build_result_step(items: List[str]) -> str:
+            if not items:
+                return ""
+            ranked = sorted(
+                items,
+                key=lambda t: (_step_score(t, "result"), len(_clean_summary_item(t, 180))),
+                reverse=True,
+            )
+            save_step = next((t for t in ranked if re.search(r"(保存|生成作品)", t)), "")
+            deliver_step = next((t for t in ranked if re.search(r"(上传|同步|进入.*列表|归入|获取|下载|回写|落库)", t)), "")
+            if save_step and deliver_step and save_step != deliver_step:
+                combined = f"{save_step}；{deliver_step}"
+                return _clean_summary_item(combined, 220)
+            return ranked[0]
+
+        def _has_result_delivery(text: str) -> bool:
+            return bool(re.search(r"(上传|同步|进入.*列表|归入|获取|下载|回写|落库)", text or ""))
+
+        candidates: List[str] = []
+        seen: set = set()
+        for source in (flow_items, scope_items, rule_items):
+            for raw in source:
+                text = _clean_summary_item(raw, 180)
+                if not text or text in seen:
+                    continue
+                if source is rule_items and _looks_like_scope_constraint(text):
+                    continue
+                if re.search(r"(展示方式|展示设备|触摸屏和电视端|触摸屏、电视端|仅支持|适用于|型号|版本)", text):
+                    continue
+                if source is not flow_items and not re.search(
+                    r"(点击|点播|选择|触发|开始|开启|关闭|展示|保存|上传|进入|生成|返回|播放|结束|停止|提交|同步|获取|下载)",
+                    text,
+                ):
+                    continue
+                seen.add(text)
+                candidates.append(text)
+        if not candidates:
+            return []
+
+        buckets: Dict[str, List[str]] = {"trigger": [], "process": [], "result": [], "other": []}
+        for text in candidates:
+            buckets[_flow_bucket(text)].append(text)
+
+        out: List[str] = []
+        seen_signatures: set = set()
+        first_trigger = _pick_best_step(buckets["trigger"], "trigger")
+        if first_trigger:
+            sig = _flow_signature(first_trigger)
+            out.append(first_trigger)
+            seen_signatures.add(sig)
+        first_process = _pick_best_step(
+            [t for t in buckets["process"] if _flow_signature(t) not in seen_signatures and _flow_signature(t) != "replay"],
+            "process",
+        )
+        if first_process:
+            sig = _flow_signature(first_process)
+            out.append(first_process)
+            seen_signatures.add(sig)
+        first_result = _build_result_step([t for t in buckets["result"] if _flow_signature(t) not in seen_signatures])
+        if first_result:
+            sig = _flow_signature(first_result)
+            out.append(first_result)
+            seen_signatures.add(sig)
+        if first_result and not _has_result_delivery(first_result):
+            extra_delivery = next(
+                (
+                    t
+                    for t in candidates
+                    if _has_result_delivery(t) and _flow_signature(t) not in seen_signatures
+                ),
+                "",
+            )
+            if extra_delivery:
+                out[-1] = _clean_summary_item(f"{out[-1]}；{extra_delivery}", 220)
+                seen_signatures.add(_flow_signature(extra_delivery))
+        for text in candidates:
+            sig = _flow_signature(text)
+            if sig in seen_signatures:
+                continue
+            if text not in out:
+                out.append(text)
+                seen_signatures.add(sig)
+            if len(out) >= limit:
+                break
+        return out[:limit]
+
+    def _build_conflict_hint(scope_items: List[str], rule_items: List[str]) -> str:
+        combined = [x for x in (scope_items[:6] + rule_items[:6]) if x]
+        if not combined:
+            return ""
+        auto_hit = any(re.search(r"(自动(开启|执行|触发|生效)|默认(开启|执行|生效)|系统自动)", x) for x in combined)
+        manual_hit = any(
+            re.search(
+                r"(最终是否.*根据用户.*(开关|设置|选择).*(决定|控制)|最终.*由用户.*(开关|设置|选择)决定|根据用户.*(开关|设置|手动|播控栏).*(决定|控制)|由用户.*(开关|设置|手动|播控栏).*(决定|控制)|依据.*(开关|设置).*(决定|控制)|手动(开启|关闭)|用户.*(开启|关闭|控制).*(开关|设置))",
+                x,
+            )
+            for x in combined
+        )
+        dual_switch_hit = any(re.search(r"(播控栏.*开关|录音开关)", x) for x in combined) and any(
+            re.search(r"(设置页.*开关|总开关|图标.*展示)", x) for x in combined
+        )
+        if dual_switch_hit:
+            return "播控栏开关与设置页开关同时参与录制决策，需明确两者的作用范围、优先级，以及图标展示与实际录制是否共用同一套规则。"
+        if auto_hit and manual_hit:
+            return "存在“自动执行”与“用户开关/手动控制”并存的规则，需明确冲突时以谁为准，否则不同入口会得出相反结果。"
+        return ""
+
+    def _refine_key_points(rule_items: List[str], scope_items: List[str]) -> List[str]:
+        refined: List[str] = []
+        seen: set = set()
+        for raw in rule_items:
+            text = _clean_summary_item(raw, 220)
+            if not text:
+                continue
+            if re.search(r"(版本|版型|型号|机型|系统|终端|展示渠道|展示端|触摸屏|电视端)", text):
+                text = "适用范围需限定到明确的版本、运行环境与展示终端，避免不同环境下口径不一致。"
+            elif re.search(r"(图标|icon|展示)", text) and re.search(r"(开关|设置|启停|录制|生效)", text):
+                text = "开关控制、图标展示与实际能力启停需保持一致，避免出现“可见但不可用”或“已执行但无提示”。"
+            elif re.search(r"(保存|上传|同步|进入.*列表|归入|获取|下载|回写|落库)", text):
+                text = "结果链路需明确保存条件、上传时机与用户可见结果，避免各端对完成状态理解不一致。"
+            if text not in seen:
+                seen.add(text)
+                refined.append(text)
+        if not refined:
+            return rule_items[:5]
+        return refined[:5]
+
+    def _summary_term_bigram_guard(output: str, source_text: str) -> bool:
+        out = _clean_summary_item(output, 220)
+        src = _clean_summary_text(source_text, 2000)
+        if not out or not src:
+            return True
+        allowed = {
+            "核心", "流程", "状态", "规则", "边界", "交互", "能力", "功能", "系统", "用户",
+            "实现", "支持", "明确", "需求", "逻辑", "目标", "产品", "场景", "主线", "结果",
+        }
+        suspicious: set = set()
+        for token in re.findall(r"[\u4e00-\u9fff]{2,12}", out):
+            for i in range(len(token) - 1):
+                bg = token[i : i + 2]
+                if bg in allowed:
+                    continue
+                if bg not in src:
+                    suspicious.add(bg)
+        return len(suspicious) <= 1
+
+    def _collect_summary_source_text() -> str:
+        chunks: List[str] = []
+        raw_prd = _normalize_summary_source_text(prd_text)
+        if raw_prd:
+            chunks.append(raw_prd)
+        for key in ("goal", "background"):
+            text = _normalize_summary_source_text(s1.get(key))
+            if text:
+                chunks.append(text)
+        blocks = s1.get("blocks") if isinstance(s1.get("blocks"), list) else []
+        for block in blocks[:8]:
+            if not isinstance(block, dict):
+                continue
+            text = _normalize_summary_source_text(
+                f"{block.get('title') or ''}\n{block.get('content') or ''}"
+            )
+            if text:
+                chunks.append(text)
+        merged = "\n".join(x for x in chunks if x).strip()
+        if not merged:
+            return ""
+        return merged[:4000]
+
+    def _guess_product_name(raw_text: str) -> str:
+        text = _normalize_summary_source_text(raw_text)
+        if not text:
+            return ""
+        for pat in (
+            r"([\u4e00-\u9fffA-Za-z0-9_-]{2,24}(?:功能|模块|系统|平台|服务|流程|方案|能力))",
+            r"([\u4e00-\u9fffA-Za-z0-9_-]{2,24})\s*(?:需求|PRD)",
+        ):
+            m = re.search(pat, text)
+            if m:
+                return m.group(1).strip("：:，、；。 ")
+        return ""
+
+    def _extract_fallback_summary_candidates(raw_text: str) -> Dict[str, List[str]]:
+        text = _normalize_summary_source_text(raw_text)
+        if not text:
+            return {"scope": [], "flow": [], "rules": []}
+        normalized = text
+        normalized = re.sub(r"\b[a-zA-Z]\.\s*", "；", normalized)
+        normalized = re.sub(r"([。！？；;])", r"\1\n", normalized)
+        normalized = re.sub(r"(?:^|[\n\s])(?:[一二三四五六七八九十]+、|\d+[\.、）)])\s*", "\n", normalized)
+        pieces: List[str] = []
+        for raw in re.split(r"[\n]+", normalized):
+            item = _clean_summary_item(raw, 220)
+            if not item or _looks_like_summary_noise(item) or len(item) < 4:
+                continue
+            if re.search(r"(负责人|完成时间|上线时间|UI设计|开发|测试|服务端|客户端)", item):
+                continue
+            if item not in pieces:
+                pieces.append(item)
+        scope_candidates: List[str] = []
+        flow_candidates: List[str] = []
+        rule_candidates: List[str] = []
+        for item in pieces:
+            item_lower = item.lower()
+            scope_hit = bool(
+                re.search(
+                    r"(功能|模块|能力|开关|列表|图标|二维码|入口|页面|作品|文件|资源|按钮|状态|录制|上传|下载|取回|展示|同步|保存|回写|扫码)",
+                    item,
+                )
+            )
+            flow_hit = bool(
+                re.search(
+                    r"(点击|点播|扫码|扫描|打开|关闭|进入|生成|上传|保存|下载|获取|展示|开始|结束|返回|提交|同步|弹出|自动开启|自动关闭)",
+                    item,
+                )
+            )
+            rule_hit = bool(
+                re.search(
+                    r"(自动|手动|默认|仅支持|需明确|必须|应当|大于|小于|阈值|开关|优先级|失效|有效期|清空|保留|失败|超时|异常|重试|谁为准|是否录制|边界)",
+                    item,
+                )
+            ) or _looks_like_scope_constraint(item)
+            if scope_hit and not _looks_like_scope_constraint(item) and item not in scope_candidates:
+                scope_candidates.append(item)
+            if flow_hit and item not in flow_candidates:
+                flow_candidates.append(item)
+            if rule_hit and item not in rule_candidates:
+                rule_candidates.append(item)
+            if "icon" in item_lower and item not in rule_candidates:
+                rule_candidates.append(item)
+        return {
+            "scope": scope_candidates[:8],
+            "flow": flow_candidates[:8],
+            "rules": rule_candidates[:8],
+        }
+
+    def _extract_first_json_obj(text: str) -> Dict[str, Any]:
+        raw = str(text or "").strip()
+        if not raw:
+            return {}
+
+        def _scan_json_obj(buf: str) -> Dict[str, Any]:
+            start = buf.find("{")
+            if start < 0:
+                return {}
+            depth = 0
+            in_str = None
+            esc = False
+            for i in range(start, len(buf)):
+                ch = buf[i]
+                if esc:
+                    esc = False
+                    continue
+                if in_str:
+                    if ch == "\\":
+                        esc = True
+                        continue
+                    if ch == in_str:
+                        in_str = None
+                    continue
+                if ch in ('"', "'"):
+                    in_str = ch
+                    continue
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        seg = buf[start : i + 1]
+                        try:
+                            obj = json.loads(seg)
+                            return obj if isinstance(obj, dict) else {}
+                        except Exception:
+                            break
+            return {}
+
+        fenced_blocks = re.findall(r"```(?:json)?\s*([\s\S]*?)```", raw, flags=re.I)
+        for block in fenced_blocks:
+            obj = _scan_json_obj(str(block or "").strip())
+            if obj:
+                return obj
+        obj = _scan_json_obj(raw)
+        if obj:
+            return obj
+        for idx, ch in enumerate(raw):
+            if ch != "{":
+                continue
+            obj = _scan_json_obj(raw[idx:])
+            if obj:
+                return obj
+        return {}
+
+    def _normalize_summary_token(text: str) -> str:
+        s = _normalize_summary_source_text(text)
+        if not s:
+            return ""
+        s = s.strip("：:，、；。()（）[]【】 ")
+        # 英文/数字类枚举按大小写不敏感处理，中文原样保留
+        if re.search(r"[A-Za-z0-9]", s):
+            s = s.lower()
+        return s
+
+    def _split_enum_items(text: str) -> List[str]:
+        if not text:
+            return []
+        cleaned = _normalize_summary_source_text(text)
+        cleaned = re.sub(r"^[^：:]*[：:]\s*", "", cleaned)
+        cleaned = re.sub(r"[。；;].*$", "", cleaned)
+        out: List[str] = []
+        for part in re.split(r"[、，,/ ]+", cleaned):
+            item = _normalize_summary_token(part)
+            if item and item not in out:
+                out.append(item)
+        return out
+
+    def _extract_summary_facts(raw_text: str) -> Dict[str, Any]:
+        text = _normalize_summary_source_text(raw_text)
+        box_models: List[str] = []
+        inline_models: List[str] = []
+        system_fields: List[str] = []
+        system_models: List[str] = []
+        versions: List[str] = []
+        terminals: List[str] = []
+
+        def _norm_model_token(token: str) -> str:
+            s = _normalize_summary_token(token)
+            if not s:
+                return ""
+            # 常见别名：PAI2/pai2 -> 派2
+            if re.fullmatch(r"pai\s*2", s, re.I) or s in ("pai2",):
+                return "派2".lower()
+            return s.lower()
+
+        def _push_model(dst: List[str], token: str) -> None:
+            norm = _norm_model_token(token)
+            if not norm:
+                return
+            if not re.fullmatch(r"(?:x\d+|派\d+)", norm, re.I):
+                return
+            if norm not in dst:
+                dst.append(norm)
+        for m in re.finditer(r"(?:盒子型号|型号|机型)[：:]\s*([^\n。；]{1,80})", text, re.I):
+            for token in _split_enum_items(m.group(1)):
+                _push_model(box_models, token)
+        # 表格/换行场景兜底：如“盒子型号 x9、x7”或“盒子型号：x9、x7、”被分隔符打断，导致上面的 key:value 未命中
+        # 仅在同一行出现“型号/机型/盒子”时才抓取，避免把正文示例误判为范围。
+        for ln in (text or "").splitlines():
+            line = _normalize_summary_source_text(ln)
+            if not line:
+                continue
+            if not re.search(r"(盒子|机顶盒).{0,6}(型号|机型)|(?:盒子型号|型号|机型)", line, re.I):
+                continue
+            toks = re.findall(r"[xX]\d+|派\d+|PAI2", line, flags=re.I)
+            if not toks:
+                continue
+            for tok in toks:
+                _push_model(box_models, tok)
+
+        # 降级提取：只在“支持/适配/范围/仅支持”邻近区域里识别型号，避免把示例/编号误当范围
+        for m in re.finditer(
+            r"(?:支持|适配|范围|仅支持|只支持)[^。\n]{0,24}((?:[xX]\d+|派\d+|PAI2)(?:[、，/ ]+(?:[xX]\d+|派\d+|PAI2))*)",
+            text,
+            re.I,
+        ):
+            for token in re.findall(r"[xX]\d+|派\d+|PAI2", m.group(1), re.I):
+                _push_model(inline_models, token)
+        for m in re.finditer(r"(?:系统|OS|平台)[：:]\s*([^\n。；]{1,40})", text, re.I):
+            field_text = _normalize_summary_source_text(m.group(1))
+            if field_text and field_text not in system_fields:
+                system_fields.append(field_text)
+            for token in _split_enum_items(m.group(1)):
+                if re.fullmatch(r"(?:[xX]\d+|派\d+)", token):
+                    _push_model(system_models, token)
+
+        # 型号抽取口径（平台通用）：
+        # - 显式“型号:”通常最可靠，但可能只列出部分（例如遗漏派生机型），因此用“并集补齐”而非二选一覆盖。
+        # - 系统/平台字段与“支持/适配/范围”邻近提取用于补全，不改变显式枚举的排序优先级。
+        models: List[str] = []
+        for src in (box_models, system_models, inline_models):
+            for x in src or []:
+                if x and x not in models:
+                    models.append(x)
+        for token in ["定制版", "标准版", "专业版", "企业版"]:
+            if token in text and token not in versions:
+                versions.append(token)
+        for token in ["触摸屏", "电视端", "TV屏幕", "TV端", "手机端", "小程序"]:
+            if token in text and token not in terminals:
+                terminals.append(token)
+        clear_triggers = [x for x in ["盒子重启", "重启", "关台", "重开台"] if x in text]
+        clear_triggers = [x for i, x in enumerate(clear_triggers) if x not in clear_triggers[:i]]
+        keep_exception = "转台" if re.search(r"转台.{0,8}不清空|不清空.{0,8}转台", text) else ""
+        setting_switch = bool(re.search(r"设置.{0,10}开关|总开关|设置页.{0,10}开关", text))
+        control_switch = bool(re.search(r"播控栏.{0,10}开关", text))
+        auto_rule = bool(re.search(r"(快唱副歌|手机端点播).{0,16}(自动开启|自动打开|自动录音)|自动开启", text))
+        return {
+            "box_models": box_models[:6],
+            "models": models[:6],
+            "system_fields": system_fields[:4],
+            "system_models": system_models[:4],
+            "versions": versions[:6],
+            "terminals": terminals[:6],
+            "clear_triggers": clear_triggers[:6],
+            "keep_exception": keep_exception,
+            "setting_switch": setting_switch,
+            "control_switch": control_switch,
+            "auto_rule": auto_rule,
+        }
+
+    def _build_scope_fact_items(facts: Dict[str, Any]) -> List[str]:
+        items: List[str] = []
+        models = [str(x) for x in (facts.get("box_models") or facts.get("models") or []) if x]
+        versions = [str(x) for x in facts.get("versions", []) if x]
+        terminals = [str(x) for x in facts.get("terminals", []) if x]
+        if models:
+            items.append("型号范围：" + "、".join(models))
+        if versions:
+            items.append("版本范围：" + "、".join(versions))
+        if terminals:
+            items.append("终端范围：" + "、".join(terminals))
+        return items[:3]
+
+    def _dedupe_clear_triggers(items: List[str]) -> List[str]:
+        deduped = [str(x) for x in (items or []) if str(x or "").strip()]
+        seen: set = set()
+        out: List[str] = []
+        for raw in deduped:
+            text = str(raw).strip()
+            if not text:
+                continue
+            if text == "重启" and "盒子重启" in deduped:
+                continue
+            if text in seen:
+                continue
+            seen.add(text)
+            out.append(text)
+        return out[:6]
+
+    def _merge_scope_with_facts(scope_items: List[str], facts: Dict[str, Any], limit: int = 8) -> List[str]:
+        merged: List[str] = []
+        seen: set = set()
+        for item in (_build_scope_fact_items(facts) + list(scope_items or [])):
+            text = _clean_summary_item(item, 180)
+            if not text:
+                continue
+            norm = _normalize_summary_token(text)
+            if not norm or norm in seen:
+                continue
+            seen.add(norm)
+            merged.append(text)
+            if len(merged) >= limit:
+                break
+        return merged
+
+    def _build_scope_capability_items(items: List[str], limit: int = 5) -> List[str]:
+        out: List[str] = []
+        seen: set = set()
+        for raw in items:
+            text = _clean_summary_item(raw, 180)
+            if not text or irrelevant_pattern.search(text):
+                continue
+            if _looks_like_summary_noise(text):
+                continue
+            if re.search(r"(背景|目标|需求描述|功能说明|规则说明)", text):
+                continue
+            if _looks_like_scope_constraint(text):
+                continue
+            if re.search(r"(大于\s*10秒|不满\s*10秒|重启|关台|重开台|转台|优先级|裁决|谁为准|冲突|重新播放|重播)", text):
+                continue
+            if re.search(r"^(打开|关闭|开启|关闭时|打开时|若|如果|则|否则)\b", text):
+                continue
+            if re.search(r"(点播|自动开启|自动打开|根据用户|最终是否|保存作品|清空|不清空)", text):
+                continue
+            if not re.search(r"(录音|录制|开关|图标|icon|二维码|扫码|小程序|列表|获取|上传|状态|录制中|展示)", text, re.I):
+                continue
+            norm = _normalize_summary_token(text)
+            if norm and norm not in seen:
+                seen.add(norm)
+                out.append(text)
+            if len(out) >= limit:
+                break
+        return out
+
+    def _build_fixed_core_flow(
+        flow_items: List[str],
+        scope_items: List[str],
+        rule_items: List[str],
+        facts: Dict[str, Any],
+        raw_text: str,
+        limit: int = 3,
+    ) -> List[str]:
+        text = _normalize_summary_source_text(raw_text + "\n" + "\n".join((flow_items or [])[:8] + (scope_items or [])[:8] + (rule_items or [])[:8]))
+        out: List[str] = []
+        seen: set = set()
+
+        def _push(item: str) -> None:
+            s = _clean_summary_item(item, 220)
+            if not s:
+                return
+            norm = _normalize_summary_token(s)
+            if not norm or norm in seen:
+                return
+            seen.add(norm)
+            out.append(s)
+
+        auto_hit = bool(re.search(r"(手机端点播|快唱副歌).{0,24}(自动开启|自动打开|录音自动开启)|点播其他歌曲.{0,12}(关闭|录音功能关闭)", text))
+        if auto_hit:
+            _push("手机端点播快唱副歌歌曲时触发录音，点播其他歌曲时关闭录音。")
+        else:
+            trigger = next((x for x in flow_items if re.search(r"(点击|点播|扫码|进入|触发)", str(x))), "")
+            if trigger:
+                _push(trigger)
+
+        display_hit = bool(re.search(r"(录制中|TV右侧展示|右侧展示|展示录音状态|录音状态)", text))
+        if display_hit:
+            _push("系统执行录音并在 TV 端展示录制中状态。")
+        else:
+            execute = next((x for x in flow_items if re.search(r"(展示|开始|录制|执行|状态)", str(x))), "")
+            if execute:
+                _push(execute)
+
+        result_hit = bool(re.search(r"(上传|云端|手机端录音列表|已唱列表|二维码|小程序|获取|下载|列表)", text))
+        if result_hit:
+            _push("录音满足保存条件后上传云端，用户可通过列表或扫码进入小程序获取录音。")
+        else:
+            result = next((x for x in flow_items + rule_items if re.search(r"(保存|上传|获取|扫码|小程序|列表|下载)", str(x))), "")
+            if result:
+                _push(result)
+
+        if not out:
+            out = _build_flow_items(flow_items, scope_items, rule_items, limit=limit)
+        return out[:limit]
+
+    def _infer_summary_subject(product_label: str, capability_items: List[str], flow_items: List[str], raw_text: str) -> str:
+        text = _normalize_summary_source_text(raw_text)
+        for pat in (
+            r"([\u4e00-\u9fffA-Za-z0-9_-]{2,24}录音功能)",
+            r"([\u4e00-\u9fffA-Za-z0-9_-]{2,24}录音)",
+            r"([\u4e00-\u9fffA-Za-z0-9_-]{2,24}歌曲)",
+        ):
+            m = re.search(pat, text)
+            if m:
+                candidate = m.group(1).strip("，、；。 ")
+                if not re.search(r"(背景|目标|需求描述|规则|流程|展示|状态|点击|图标|开关)", candidate, re.I):
+                    return candidate
+        focus = _extract_purpose_focus(" ".join(capability_items[:4] + flow_items[:3]))
+        if focus:
+            subject = focus
+        else:
+            subject = product_label
+        if re.search(r"(背景|目标|需求描述|规则|流程)", subject):
+            subject = product_label
+        if re.search(r"(TV屏幕|电视端|触摸屏)", subject) and "录音" not in subject:
+            subject = product_label
+        if re.search(r"(展示规则|状态展示|功能tv|tv屏幕展示)", subject, re.I):
+            subject = product_label
+        if re.search(r"(背景|目标|需求描述|规则|流程|TV屏幕|电视端|触摸屏|展示规则|展示|状态|图标|开关)", str(subject), re.I):
+            subject = product_label or "该功能"
+        return subject
+
+    def _build_fixed_summary_purpose(
+        base_text: str,
+        product_label: str,
+        capability_items: List[str],
+        flow_items: List[str],
+        key_points: List[str],
+        raw_text: str,
+    ) -> str:
+        base = _clean_summary_item(base_text, 220)
+        merged = "\n".join(capability_items[:5] + flow_items[:3] + key_points[:3] + [raw_text[:600]])
+        record_hit = bool(re.search(r"(录音|录制)", merged))
+        upload_hit = bool(re.search(r"(上传|云端|同步|回写|落库)", merged))
+        fetch_hit = bool(re.search(r"(获取|扫码|小程序|列表|下载|取回)", merged))
+        if base and not _looks_like_scope_constraint(base):
+            if not re.search(r"(大于\s*10秒|不满\s*10秒|重启|关台|重开台|转台|型号范围|版本范围|终端范围|仅支持|背景|目标|需求描述|展示规则|TV屏幕)", base, re.I):
+                # 若原文已明确结果链路，则目的句也需带出上传/获取，不再只停留在能力描述。
+                if record_hit and upload_hit and fetch_hit and not re.search(r"(上传|获取|扫码|列表|小程序|下载)", base):
+                    base = ""
+                elif re.search(r"(录音|录制|上传|获取|扫码|列表|下载|状态|结果链路)", base):
+                    if not base.endswith("。"):
+                        base += "。"
+                    return base
+        subject = _infer_summary_subject(product_label, capability_items, flow_items, raw_text)
+        status_hit = bool(re.search(r"(录制中|状态|图标|展示)", merged))
+        if record_hit and upload_hit and fetch_hit:
+            return f"实现{subject}的录制、上传与用户获取闭环。"
+        if record_hit and upload_hit:
+            return f"明确{subject}的触发方式、录制规则与结果链路。"
+        if record_hit and status_hit:
+            return f"明确{subject}的触发方式、状态反馈与录制规则。"
+        if record_hit:
+            return f"明确{subject}的核心流程、录制规则与交互边界。"
+        return _build_goal_from_scope(capability_items, product_label)
+
+    def _build_fixed_fact_points(
+        rule_items: List[str],
+        flow_items: List[str],
+        scope_items: List[str],
+        facts: Dict[str, Any],
+        raw_text: str,
+        limit: int = 5,
+    ) -> List[str]:
+        out: List[str] = []
+        seen: set = set()
+
+        def _push(text: str) -> None:
+            s = _clean_summary_item(text, 220)
+            if not s:
+                return
+            norm = _normalize_summary_token(s)
+            if not norm or norm in seen:
+                return
+            seen.add(norm)
+            out.append(s)
+
+        combined = [x for x in (rule_items + flow_items + scope_items) if x]
+        source_text = _normalize_summary_source_text(raw_text + "\n" + "\n".join(combined[:12]))
+        if re.search(r"(大于\s*10秒|超过\s*10秒|10秒)", source_text):
+            _push("录音时长需以大于10秒为保存门槛，不满足条件时不保存。")
+        clear_triggers = _dedupe_clear_triggers(facts.get("clear_triggers", []))
+        keep_exception = str(facts.get("keep_exception") or "")
+        if clear_triggers and keep_exception:
+            trigger_text = "、".join(clear_triggers)
+            _push(f"{trigger_text}会清空未认领内容，{keep_exception}不清空。")
+        if re.search(r"(图标|icon|录制中|状态)", source_text, re.I) and re.search(r"(开关|设置|播控栏|录制)", source_text):
+            _push("图标展示、录制中状态与实际录制启停需保持一致，避免外显状态与真实执行结果不一致。")
+        for raw in rule_items:
+            text = _clean_summary_item(raw, 220)
+            if not text:
+                continue
+            if re.search(r"(型号|机型|版本|系统|终端|触摸屏|电视端|手机端|小程序)", text):
+                continue
+            if re.search(r"(优先级|裁决|谁为准|冲突|自动开启|手动|重新播放|重播)", text, re.I):
+                continue
+            if re.search(r"(大于\s*10秒|不满\s*10秒|重启|关台|重开台|转台|上传|获取|扫码|图标|icon|录制中|保存)", text, re.I):
+                _push(text)
+            if len(out) >= limit:
+                break
+        return out[:limit]
+
+    def _build_pending_decision_items(
+        rule_items: List[str],
+        flow_items: List[str],
+        scope_items: List[str],
+        facts: Dict[str, Any],
+        raw_text: str,
+        limit: int = 4,
+    ) -> List[str]:
+        out: List[str] = []
+        seen: set = set()
+
+        def _push(text: str) -> None:
+            s = _clean_summary_item(text, 220)
+            if not s:
+                return
+            norm = _normalize_summary_token(s)
+            if not norm or norm in seen:
+                return
+            seen.add(norm)
+            out.append(s)
+
+        combined = [x for x in (rule_items + flow_items + scope_items) if x]
+        source_text = _normalize_summary_source_text(raw_text + "\n" + "\n".join(combined[:12]))
+
+        conflict_hint = _build_conflict_hint(scope_items, combined)
+        if conflict_hint:
+            _push("需补齐开关优先级裁决表：设置总开关、播控栏开关与自动触发规则分别作用于什么场景，冲突时谁为准。")
+
+        if re.search(r"(重新播放该歌曲|重新播放|重播该歌曲)", source_text):
+            _push("“重新播放该歌曲”的定义需澄清：是自动重播、提供入口，还是录制完成后的回看动作；触发时机需明确。")
+
+        if re.search(r"(最终是否录制根据用户的开关决定|根据用户的开关决定|用户的开关决定)", source_text):
+            _push("“最终是否录制由用户开关决定”需明确对应的是哪一个开关，以及它与自动开启规则的覆盖关系。")
+
+        auto_manual_conflict_hit = (
+            bool(re.search(r"(自动开启|自动打开|自动录音|快唱副歌)", source_text))
+            and bool(re.search(r"(用户.*开关决定|手动|播控栏开关|设置.*开关|总开关)", source_text))
+        )
+        if auto_manual_conflict_hit:
+            _push("自动开启规则与用户开关控制同时存在，需明确优先级矩阵后才能作为既定口径执行。")
+        if re.search(r"(上传|云端|同步|进入.*列表|归入|小程序|扫码|获取|下载)", source_text):
+            _push("需明确结果链路的保存条件、上传时机，以及用户从列表或扫码进入小程序后看到的最终结果。")
+
+        for raw in rule_items:
+            text = _clean_summary_item(raw, 220)
+            if not text:
+                continue
+            if re.search(r"(优先级|裁决|谁为准|待确认|待裁决|待澄清|最终是否)", text, re.I):
+                _push(text)
+            if len(out) >= limit:
+                break
+        return out[:limit]
+
+    def _finalize_shared_summary_slots(
+        purpose_text: str,
+        scope_candidates: List[str],
+        flow_candidates: List[str],
+        rule_candidates: List[str],
+        facts: Dict[str, Any],
+        raw_text: str,
+        product_label: str,
+        llm_first: bool = False,
+    ) -> Dict[str, Any]:
+        scope_capabilities = _build_scope_capability_items(scope_candidates, limit=5)
+        flow_candidates = [
+            _clean_summary_item(x, 180)
+            for x in flow_candidates
+            if x and not _looks_like_summary_noise(x) and not re.search(r"(背景|目标|需求描述|功能说明|规则说明)", str(x))
+        ]
+        flow_candidates = [x for x in flow_candidates if x]
+        scope_fact_items = _build_scope_fact_items(facts)
+        scope_fact_for_merge = [x for x in scope_fact_items if x]
+        seen_scope_norm = {_normalize_summary_token(s) for s in scope_fact_for_merge}
+        llm_scope_deduped = [x for x in scope_capabilities if _normalize_summary_token(x) not in seen_scope_norm]
+        final_scope = scope_fact_for_merge + llm_scope_deduped
+        if len(final_scope) < 8:
+            extra = [x for x in _merge_scope_with_facts(scope_capabilities, facts, limit=8) if x not in final_scope]
+            final_scope += extra[: 8 - len(final_scope)]
+        final_scope = final_scope[:8]
+        flow_support_rules = [
+            _clean_summary_item(x, 180)
+            for x in rule_candidates
+            if x and not re.search(r"(重启|关台|重开台|转台|优先级|裁决|谁为准|型号|版本|终端|触摸屏|电视端|手机端|小程序)", str(x))
+        ]
+        flow_support_rules = [x for x in flow_support_rules if x]
+        if llm_first:
+            final_flow = _normalize_direct_summary_list(flow_candidates, limit=5)
+            if not final_flow:
+                final_flow = _build_fixed_core_flow(flow_candidates, scope_capabilities, flow_support_rules, facts, raw_text, limit=3)
+            llm_points = _normalize_direct_summary_list(rule_candidates, limit=6)
+            pending_points: List[str] = []
+            final_fact_points: List[str] = []
+            pending_markers = re.compile(r"(优先级|裁决|谁为准|待确认|待裁决|待澄清|需明确|需澄清|触发时机|覆盖关系)", re.I)
+            for text in llm_points:
+                if pending_markers.search(text):
+                    if text not in pending_points:
+                        pending_points.append(text)
+                else:
+                    if text not in final_fact_points:
+                        final_fact_points.append(text)
+            final_fact_points = final_fact_points[:5]
+            pending_points = pending_points[:4]
+            if not final_fact_points:
+                final_fact_points = _build_fixed_fact_points(rule_candidates, flow_candidates, final_scope, facts, raw_text, limit=5)
+            final_purpose = _clean_summary_item(purpose_text, 220)
+            if final_purpose and not final_purpose.endswith("。"):
+                final_purpose += "。"
+            if not final_purpose:
+                final_purpose = _build_fixed_summary_purpose(
+                    purpose_text,
+                    product_label,
+                    scope_capabilities,
+                    final_flow,
+                    final_fact_points + pending_points,
+                    raw_text,
+                )
+        else:
+            final_flow = _build_fixed_core_flow(flow_candidates, scope_capabilities, flow_support_rules, facts, raw_text, limit=3)
+            final_fact_points = _build_fixed_fact_points(rule_candidates, flow_candidates, final_scope, facts, raw_text, limit=5)
+            pending_points = _build_pending_decision_items(rule_candidates, flow_candidates, final_scope, facts, raw_text, limit=4)
+            final_purpose = _build_fixed_summary_purpose(
+                purpose_text,
+                product_label,
+                scope_capabilities,
+                final_flow,
+                final_fact_points + pending_points,
+                raw_text,
+            )
+        return {
+            "purpose": final_purpose,
+            "scope": final_scope[:8],
+            "scope_fact_items": scope_fact_items[:3],
+            "scope_capability_items": scope_capabilities[:5],
+            "core_flow": final_flow[:5],
+            "key_points": final_fact_points[:5],
+            "fact_points": final_fact_points[:5],
+            "pending_points": pending_points[:4],
+        }
+
+    def _normalize_direct_summary_list(items: Any, limit: int = 6) -> List[str]:
+        out: List[str] = []
+        seen: set = set()
+        for raw in _ensure_list(items):
+            text = _clean_summary_item(raw, 220)
+            if not text:
+                continue
+            if text not in seen:
+                seen.add(text)
+                out.append(text)
+            if len(out) >= limit:
+                break
+        return out
+
+    def _validate_direct_summary(candidate: Dict[str, Any], facts: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        if not isinstance(candidate, dict):
+            return False, ["LLM 未返回有效 JSON 结构"]
+        purpose = _clean_summary_item(candidate.get("purpose") or candidate.get("summary_paragraph") or "", 220)
+        scope_items = _normalize_direct_summary_list(candidate.get("scope"), limit=8)
+        flow_items = _normalize_direct_summary_list(candidate.get("core_flow"), limit=5)
+        point_items = _normalize_direct_summary_list(candidate.get("key_points"), limit=6)
+        combined = "\n".join([purpose] + scope_items + flow_items + point_items)
+        combined_norm = _normalize_summary_source_text(combined).lower()
+        failures: List[str] = []
+        for group_key, label in [("models", "型号"), ("versions", "版本"), ("terminals", "终端")]:
+            expected = [_normalize_summary_token(x) for x in facts.get(group_key, []) if x]
+            if expected:
+                missing = [x for x in expected if x and x not in combined_norm]
+                if missing:
+                    failures.append(f"{label}缺失：{', '.join(missing)}")
+        if len(facts.get("models") or []) >= 2:
+            narrow_hit = re.search(r"(仅支持|只支持|仅适配|只适配)[^。；\n]{0,30}((?:x\d+|派\d+)(?:、(?:x\d+|派\d+))*)", combined, re.I)
+            if narrow_hit:
+                mentioned = {_normalize_summary_token(x) for x in re.findall(r"[xX]\d+|派\d+", narrow_hit.group(2))}
+                expected = {_normalize_summary_token(x) for x in facts.get("models", [])}
+                if mentioned and mentioned != expected:
+                    failures.append("范围收缩：摘要出现更窄的型号范围")
+        clear_triggers = _dedupe_clear_triggers(facts.get("clear_triggers", []))
+        keep_exception = str(facts.get("keep_exception") or "")
+        if clear_triggers and keep_exception:
+            has_clear_pair = any(x in combined for x in clear_triggers) and "清空" in combined
+            has_keep_pair = keep_exception in combined and bool(re.search(r"(不清空|严禁清空|不得清空|保留)", combined))
+            if not (has_clear_pair and has_keep_pair):
+                failures.append("红线缺失：未同时覆盖清空条件与不清空例外")
+        if facts.get("setting_switch") and facts.get("control_switch") and facts.get("auto_rule"):
+            entity_ok = (
+                bool(re.search(r"(设置.{0,8}开关|总开关|设置页.{0,8}开关)", combined))
+                and bool(re.search(r"播控栏.{0,8}开关", combined))
+                and bool(re.search(r"(快唱副歌|自动开启|自动触发|手机端点播)", combined))
+            )
+            decision_ok = bool(re.search(r"(优先级|裁决表|裁决矩阵|优先级裁决|谁为准)", combined))
+            if not (entity_ok and decision_ok):
+                failures.append("冲突缺失：未点名双开关与自动规则，或未要求优先级裁决")
+        return len(failures) == 0, failures
+
+    def _build_direct_llm_summary(
+        product_label: str,
+        raw_text: str,
+        facts: Dict[str, Any],
+        fallback_summary: Dict[str, Any],
+    ) -> Tuple[Optional[Dict[str, Any]], List[str]]:
+        if os.path.basename(str(llm_config_path or "")) == "__llm_disabled__.json":
+            return None, ["LLM 已显式禁用"]
+        prompt = (
+            "你是产品负责人，正在输出一份可以直接同步到群里的《全员共识摘要》。\n"
+            "请严格输出一个 JSON 对象，不要输出任何解释或 markdown 代码块。\n"
+            "JSON 结构如下：\n"
+            "{\n"
+            '  "purpose": "一句话概括目标",\n'
+            '  "scope": ["范围1", "范围2"],\n'
+            '  "core_flow": ["步骤1", "步骤2", "步骤3"],\n'
+            '  "key_points": ["红线1", "红线2", "待裁决1"]\n'
+            "}\n\n"
+            "写作要求：\n"
+            "1. 直接写人话，不要解释你是怎么总结的。\n"
+            "2. 不要漏掉原文里的硬事实，尤其是型号、版本、端、清空/不清空规则。\n"
+            "3. 如果原文同时出现设置开关、播控栏开关和自动触发规则，必须明确写出“优先级待裁决/裁决表”。\n"
+            "4. 不要写负责人、时间、表头、目录、研发流程。\n"
+            "5. scope 写静态范围，core_flow 写动态行为，key_points 写红线与待裁决事项。\n\n"
+            f"产品名参考：{product_label}\n"
+            f"必须保留的型号：{', '.join(facts.get('models') or []) or '无'}\n"
+            f"必须保留的版本：{', '.join(facts.get('versions') or []) or '无'}\n"
+            f"必须保留的终端：{', '.join(facts.get('terminals') or []) or '无'}\n"
+            f"清空条件：{', '.join(_dedupe_clear_triggers(facts.get('clear_triggers') or [])) or '无'}\n"
+            f"不清空例外：{facts.get('keep_exception') or '无'}\n"
+            f"存在设置开关：{'是' if facts.get('setting_switch') else '否'}\n"
+            f"存在播控栏开关：{'是' if facts.get('control_switch') else '否'}\n"
+            f"存在自动规则：{'是' if facts.get('auto_rule') else '否'}\n\n"
+            "原文如下：\n"
+            f"{raw_text[:2200]}\n\n"
+            "如果原文信息不足，就如实保留“不明确/待裁决”，不要编造。"
+        )
+        try:
+            raw_output = call_llm(
+                [{"role": "user", "content": prompt}],
+                config_path=llm_config_path,
+                config_override=llm_config_override,
+                stream=False,
+                timeout=35,
+                max_tokens=600,
+            )
+        except Exception as e:
+            return None, [f"LLM 调用失败：{e}"]
+        obj = _extract_first_json_obj(raw_output)
+        if not isinstance(obj, dict) or not obj:
+            return None, ["LLM 未返回有效 JSON 结构"]
+        purpose = _clean_summary_item(obj.get("purpose") or obj.get("summary_paragraph") or "", 220)
+        scope_items = _normalize_direct_summary_list(obj.get("scope"), limit=8)
+        flow_items = _normalize_direct_summary_list(obj.get("core_flow"), limit=5)
+        point_items = _normalize_direct_summary_list(obj.get("key_points"), limit=6)
+        if not purpose:
+            return None, ["LLM 摘要缺少 purpose"]
+        final_slots = _finalize_shared_summary_slots(
+            purpose,
+            scope_items,
+            flow_items,
+            point_items,
+            facts,
+            raw_text,
+            product_label,
+            llm_first=True,
+        )
+        ok, failures = _validate_direct_summary(
+            {
+                "purpose": final_slots.get("purpose", purpose),
+                "scope": final_slots.get("scope", []),
+                "core_flow": final_slots.get("core_flow", []),
+                "key_points": final_slots.get("key_points", []),
+            },
+            facts,
+        )
+        if not ok:
+            return None, failures
+        return {
+            "title": f"【{product_label}】全员共识摘要",
+            "summary_paragraph": final_slots.get("purpose", purpose),
+            "purpose": final_slots.get("purpose", purpose),
+            "scope": final_slots.get("scope", []),
+            "scope_fact_items": final_slots.get("scope_fact_items", []),
+            "scope_capability_items": final_slots.get("scope_capability_items", []),
+            "core_flow": final_slots.get("core_flow", []),
+            "key_points": final_slots.get("key_points", []),
+            "fact_points": final_slots.get("fact_points", final_slots.get("key_points", [])),
+            "pending_points": final_slots.get("pending_points", []),
+            "dependencies": fallback_summary.get("dependencies", [])[:4],
+            "generation_mode": "llm_validated",
+            "validation_failures": [],
+        }, []
+
+    def _refine_purpose_with_llm(base_text: str, candidates: List[str], source_text: str) -> str:
+        cleaned_candidates = []
+        for c in candidates:
+            s = _normalize_purpose_sentence(c, scope_raw, product_name)
+            if s and s not in cleaned_candidates:
+                cleaned_candidates.append(s)
+        if not cleaned_candidates:
+            return base_text
+        prompt = (
+            "你是需求摘要助手。请只基于下面候选与原文词汇，输出一句自然、简洁、可读的“文档核心目的”。\n"
+            "要求：\n"
+            "1. 只能基于候选改写，不得引入候选与原文中都没有的新业务名词。\n"
+            "2. 禁止输出负责人、时间、目录标题、表格头、背景/目标/需求描述等结构化脏文本。\n"
+            "3. 禁止把型号、版本、系统、终端、适配范围写成主目标。\n"
+            "4. 保留当前文档里的业务词，不替换成别的词。\n"
+            "5. 只输出一句中文，不要解释。\n\n"
+            f"候选：\n- " + "\n- ".join(cleaned_candidates[:4]) + "\n\n"
+            f"原文词汇参考：\n{source_text[:600]}"
+        )
+        try:
+            refined = call_llm(
+                [{"role": "user", "content": prompt}],
+                config_path=llm_config_path,
+                config_override=llm_config_override,
+                stream=False,
+                timeout=10,
+                max_tokens=120,
+            )
+        except Exception:
+            return base_text
+        refined_text = _normalize_purpose_sentence(str(refined or ""), scope_raw, product_name)
+        if not refined_text:
+            return base_text
+        if _looks_like_summary_noise(refined_text):
+            return base_text
+        if _looks_like_scope_constraint(refined_text):
+            return base_text
+        if not _summary_term_bigram_guard(refined_text, source_text):
+            return base_text
+        return refined_text
+
+    raw_summary_text = _collect_summary_source_text()
+    product_name = (
+        _clean_summary_text(s1.get("product_name"), 200)
+        or _guess_product_name(raw_summary_text)
+        or "本PRD"
+    )
     background = _clean_summary_text(s1.get("background"), 1000)
     goal = _clean_summary_text(s1.get("goal"), 1000)
+    if _looks_like_summary_noise(background):
+        background = ""
+    if _looks_like_summary_noise(goal):
+        goal = ""
     modules = [x for x in _ensure_list(s1.get("modules")) if x and x != "【PRD未说明】"][:10]
     features = [x for x in _ensure_list(s1.get("features")) if x and x != "【PRD未说明】"][:10]
     
     # 强制将数组项拼接成人类可读的一句话
     def _humanize_list(arr, limit=8):
+        arr = _ensure_list(arr)
         valid = [str(x).strip() for x in arr if x and str(x).strip() and str(x).strip() != "【PRD未说明】"]
         if not valid:
             return []
@@ -3179,17 +4764,28 @@ def _build_shared_summary(stage1_output: Dict[str, Any], llm_config_path: str = 
     flows = _humanize_list(s1.get("flows"), 8)
     rules = _humanize_list(s1.get("business_rules"), 8)
     dependencies = [_brief_text(x, 200) for x in _ensure_list(s1.get("dependencies")) if _brief_text(x, 200)][:6]
+    fallback_candidates = _extract_fallback_summary_candidates(raw_summary_text)
     
     # scope 也要做连贯处理
     scope_raw = [x for x in (features or modules) if not irrelevant_pattern.search(str(x or ""))]
-    scope = []
-    if scope_raw:
-        scope = ["本期核心功能包括：" + "、".join([str(x) for x in scope_raw[:8]]) + "。"]
+    if not scope_raw:
+        scope_raw = [x for x in fallback_candidates.get("scope", []) if x]
+    if not flows:
+        flows = _humanize_list(fallback_candidates.get("flow") or [], 8)
+    if not rules:
+        rules = _humanize_list(fallback_candidates.get("rules") or [], 8)
+    scope = _build_scope_items(scope_raw)
     summary_parts: List[str] = []
-    if goal:
-        summary_parts.append(f"本文档的核心目标是：{goal}")
-    elif background:
-        summary_parts.append(f"本文档的业务背景为：{background}")
+    goal_for_purpose = "" if _looks_like_scope_constraint(goal) else goal
+    background_for_purpose = "" if _looks_like_scope_constraint(background) else background
+    if goal_for_purpose:
+        summary_parts.append(_normalize_purpose_sentence(goal_for_purpose, scope_raw, product_name))
+    elif background_for_purpose:
+        summary_parts.append(_normalize_purpose_sentence(background_for_purpose, scope_raw, product_name))
+    elif scope_raw:
+        summary_parts.append(_build_goal_from_scope(scope_raw, product_name))
+    elif goal:
+        summary_parts.append(_normalize_purpose_sentence(goal, scope_raw, product_name))
     else:
         summary_parts.append(f"规范 {product_name} 的核心功能与交互逻辑")
     
@@ -3202,133 +4798,49 @@ def _build_shared_summary(stage1_output: Dict[str, Any], llm_config_path: str = 
     if not paragraph:
         paragraph = "规范本需求在各类场景下的展示行为与核心逻辑。"
         
-    # --- 增加 LLM 润色节点 ---
-    try:
-        from utils.llm_client import call_llm
-        
-        # 1. 润色核心目标
-        prompt_goal = f"""
-你是一个严格的文档审校专家。请将下面的机器拼接词汇，提炼成极度通顺、干练的一句话（例如“电商下单 = 挑选商品 + 优惠券抵扣 + 在线支付 + 生成订单”），作为业务共识的核心流述。
-要求：
-1. 绝对禁止添加任何输入中没有的功能、实体或逻辑。
-2. 必须是一句高度概括的“大白话”，让所有人看到后脑子里出现的是同一个画面。
-3. 绝对禁止输出类似“适合产品研发测试运营快速拉齐”这种解释性废话或自我介绍。
-4. 必须输出连续的段落，禁止输出列表、Markdown标题、换行或任何序号。必须是纯文本。
+    paragraph = _normalize_purpose_sentence(paragraph, scope_raw, product_name)
+    if not paragraph or len(paragraph.strip()) < 5 or paragraph.strip() == "版":
+        paragraph = "规范本需求在各类场景下的展示行为与核心逻辑。"
+    flows = _normalize_summary_items(flows, limit=5, keep_constraints=False)
+    rules = _normalize_summary_items(rules, limit=5, keep_constraints=True)
+    facts = _extract_summary_facts(raw_summary_text)
+    scope = _merge_scope_with_facts(_build_scope_items(scope_raw), facts, limit=8)
+    purpose_candidates = [x for x in [goal_for_purpose, background_for_purpose, _build_goal_from_scope(scope_raw, product_name)] if x]
+    source_blob = "\n".join(purpose_candidates[:3] + scope[:3] + flows[:2] + rules[:2])
+    paragraph = _refine_purpose_with_llm(paragraph, purpose_candidates, source_blob)
+    if _looks_like_generic_purpose(paragraph):
+        paragraph = _build_specific_purpose_candidate(scope, flows, product_name)
+    final_slots = _finalize_shared_summary_slots(
+        paragraph,
+        scope_raw + fallback_candidates.get("scope", []),
+        flows,
+        rules,
+        facts,
+        raw_summary_text,
+        product_name,
+    )
 
-原始拼接文本：
-{paragraph}
-"""
-        refined_goal = call_llm(
-            [{"role": "user", "content": prompt_goal}],
-            config_path=llm_config_path,
-            config_override=llm_config_override,
-            stream=False,
-            timeout=10,
-            max_tokens=300,
-            temperature=0.0
-        )
-        if refined_goal and len(refined_goal.strip()) > 10:
-            paragraph = " ".join(refined_goal.replace("\r", " ").replace("\n", " ").replace("```", "").replace("**", "").split())
-            # 新增防护：如果模型死活输出乱码或残缺单字，立刻清空并使用定制口径
-            if len(paragraph.strip()) < 5 or paragraph.strip() == "版":
-                paragraph = "规范本需求在各类场景下的展示行为与核心逻辑"
-        else:
-            if not paragraph or len(paragraph.strip()) < 5 or paragraph.strip() == "版":
-                paragraph = "规范本需求在各类场景下的展示行为与核心逻辑"
-
-        # 2. 润色流程
-        if flows:
-            prompt_flow = f"""
-你是一个严格的文档审校专家。请将下面的机器提取的流程步骤，润色成一段极其通顺、连贯的业务主流程描述。
-要求：
-1. 绝对禁止添加任何输入中没有的步骤、逻辑或规则。
-2. 使用“当...时”、“系统会...”、“然后...”等连词，将其串联成自然的段落。
-3. 必须输出连续的段落，禁止输出列表、Markdown标题或换行。
-
-原始流程碎片：
-{'；'.join(flows)}
-"""
-            refined_flow = call_llm(
-                [{"role": "user", "content": prompt_flow}],
-                config_path=llm_config_path,
-                config_override=llm_config_override,
-                stream=False,
-                timeout=15,
-                max_tokens=800,
-                temperature=0.0
-            )
-            if refined_flow and len(refined_flow.strip()) > 10:
-                # 覆盖原来的离散数组，变成一个单项（长句子）
-                flows = [" ".join(refined_flow.replace("\r", " ").replace("\n", " ").replace("```", "").replace("**", "").split())]
-
-        # 3. 润色业务规则/红线
-        if rules:
-            prompt_rule = f"""
-你是一个严格的文档审校专家。请检查下面机器提取的业务规则（红线），将其润色成一段极其通顺、连贯的约束说明。
-【极度重要】：如果原始规则中存在“自相矛盾”或“冲突”的描述（例如“转台时清空，但转台不清空”），你必须在最终输出中将该处标红加粗，并加上“⚠️ 注记：此处规则 PRD 内自相矛盾，详情见后续 L3 技术审计报告 P0 致命伤”。
-【重要提示】：如果存在因为扫描件OCR识别错误导致的残缺字符（如“⾳⼀⼋⽀”），请将其清理并标注“⚠️ 注记：源 PRD 疑为扫描件 OCR 产物，字符有残缺，建议索要原始可编辑版”。
-
-要求：
-1. 绝对禁止添加任何输入中没有的规则或逻辑。
-2. 必须输出连续的段落，禁止输出列表、Markdown标题或换行。
-
-原始规则碎片：
-{'；'.join(rules)}
-"""
-            refined_rule = call_llm(
-                [{"role": "user", "content": prompt_rule}],
-                config_path=llm_config_path,
-                config_override=llm_config_override,
-                stream=False,
-                timeout=15,
-                max_tokens=800,
-                temperature=0.0
-            )
-            if refined_rule and len(refined_rule.strip()) > 10:
-                rules = [" ".join(refined_rule.replace("\r", " ").replace("\n", " ").replace("```", "").replace("**", "").split())]
-                rules = [x for x in rules if not irrelevant_pattern.search(x)]
-                
-        # 4. 识别并标注无关遗留功能
-        if scope:
-            prompt_scope = f"""
-你是一个严格的文档审校专家。请检查下面提取的覆盖功能点。
-【极度重要】：如果发现明显与当前核心业务无关的遗留功能点（如模板中带过来的历史示例功能、旧项目名、无关模块名等），必须直接将其【删除】，严禁在输出中保留它们！
-
-要求：
-1. 绝对禁止添加任何输入中没有的功能点。
-2. 剔除无关业务残留。
-3. 返回以“、”分隔的功能点字符串。
-
-原始覆盖功能：
-{'、'.join(scope)}
-"""
-            refined_scope = call_llm(
-                [{"role": "user", "content": prompt_scope}],
-                config_path=llm_config_path,
-                config_override=llm_config_override,
-                stream=False,
-                timeout=15,
-                max_tokens=800,
-                temperature=0.0
-            )
-            if refined_scope and len(refined_scope.strip()) > 10:
-                scope = [refined_scope.replace("\r", " ").replace("\n", " ").replace("```", "").replace("**", "").strip()]
-                scope = [x for x in scope if not irrelevant_pattern.search(x)]
-
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).debug(f"LLM 摘要润色失败，使用回退拼装版本: {e}")
-    # --------------------------
-
-    return {
+    fallback_summary = {
         "title": f"【{product_name}】全员共识摘要",
-        "summary_paragraph": paragraph,
-        "purpose": paragraph,
-        "scope": scope[:8],
-        "core_flow": flows[:5],
-        "key_points": rules[:5],
+        "summary_paragraph": final_slots.get("purpose", paragraph),
+        "purpose": final_slots.get("purpose", paragraph),
+        "scope": final_slots.get("scope", scope[:8]),
+        "scope_fact_items": final_slots.get("scope_fact_items", []),
+        "scope_capability_items": final_slots.get("scope_capability_items", []),
+        "core_flow": final_slots.get("core_flow", flows[:5]),
+        "key_points": final_slots.get("key_points", rules[:5]),
+        "fact_points": final_slots.get("fact_points", final_slots.get("key_points", rules[:5])),
+        "pending_points": final_slots.get("pending_points", []),
         "dependencies": dependencies[:4],
+        "generation_mode": "rule_fallback",
+        "validation_failures": [],
     }
+    direct_summary, failures = _build_direct_llm_summary(product_name, raw_summary_text, facts, fallback_summary)
+    if direct_summary:
+        return direct_summary
+    if failures:
+        fallback_summary["validation_failures"] = failures[:6]
+    return fallback_summary
 
 
 def _build_reader_guide(stage1_output: Dict[str, Any], stage3_json: Dict[str, Any]) -> Dict[str, Any]:
@@ -3407,11 +4919,16 @@ def _build_l1_issue_impact(item: Dict[str, Any]) -> str:
             "可执行产品规则在**入口/端/操作路径**上口径互斥，研发/测试/运营在联调期会各取一端，验收无法对齐；"
             "若含开停录/上传/外显/计费，现场易出现客诉与**合规/隐私**争议。"
         )
+    # 安全类（即便 topic 未细分到 qr_security）也必须给出“权限边界”影响，避免降级成接口口径模板。
+    if _build_l2_issue_kind(item) == "security":
+        return f"“{feature_obj}”的权限边界不清，容易引发越权访问/误操作与合规风险。"
     topic = _issue_topic(item)
     if topic == "qr_security":
         return f"“{feature_obj}”的权限边界不清，容易引发越权操作和合规风险。"
     if topic == "cloud_degrade":
         return f"“{feature}”在弱网、超时或重启场景下口径不一，开发实现和验收结果会不一致。"
+    if topic == "concurrency_control":
+        return f"“{feature}”在多人同时触发/重复点击时的互斥、排队与幂等口径不清，结果可能互相覆盖或重复生效，现场难复现难对账。"
     if topic == "rating_switch":
         return "配置变化与进行中任务的生效口径不清，现场容易出现状态冲突。"
     if topic == "transfer_cleanup":
@@ -3447,11 +4964,13 @@ def _l1_classify_for_fatal_lane(item: Dict[str, Any]) -> str:
         r"越权|未授权|鉴权|泄露|隐私|二维码|凭证|安全|权限", text
     ):
         return "C"
-    if kind == "conflict" or re.search(
-        r"资损|营收|计费|对账(?!性)|合规模|商业(?!化)|可受理客诉|互相打架|规则冲突|逻辑矛盾|互斥"
-        r"|合规风险|客诉(?!点)",
-        text,
-    ):
+    # A 车道只收敛“真正需要商业/口径裁决”的条目：
+    # - kind=conflict 直接进入 A
+    # - 或者出现明确的资损/计费/营收/对账/合规风险等商业约束信号
+    # 避免仅因“互斥/冲突”等泛词，把状态恢复/异常类误归到 A 导致致命伤错位。
+    if kind == "conflict":
+        return "A"
+    if re.search(r"资损|营收|计费|对账(?!性)|合规模|合规风险|商业(?!化)|客诉(?!点)", text):
         return "A"
     if kind in ("state", "exception", "dispatch", "concurrency", "generic") or topic in (
         "sync_latency",
@@ -3497,8 +5016,13 @@ def _build_l1_issue_action(item: Dict[str, Any]) -> str:
     text = _issue_blob(item)
     if topic == "qr_security":
         return f"补齐“{feature_obj}”谁可访问、何时失效、越权时如何拦截。"
+    # 安全类兜底（topic 未细分时）
+    if _build_l2_issue_kind(item) == "security":
+        return f"补齐“{feature_obj}”谁可访问/可操作、凭证有效期、越权与失效提示及审计留痕。"
     if topic == "cloud_degrade":
         return f"补齐“{feature}”在弱网、超时、重启后的状态保留、恢复与重试规则。"
+    if topic == "concurrency_control":
+        return f"补齐“{feature}”并发互斥/幂等键/排队策略与冲突提示，并落可观测字段。"
     if topic == "rating_switch":
         return "补齐配置变更对当前任务、下一次任务和页面提示的生效规则。"
     if topic == "transfer_cleanup":
@@ -3614,18 +5138,12 @@ def _build_l1_local_report(stage3_json: Dict[str, Any]) -> str:
     merged = (stage3_json or {}).get("merged_issues") or []
     merged = merged if isinstance(merged, list) else []
     core = (stage3_json or {}).get("core_risk_summary") or {}
+    prd_content = str((stage3_json or {}).get("prd_content") or "")
     score = s.get("quality_score", 0)
     try:
         score = float(score) if score is not None else 0.0
     except (TypeError, ValueError):
         score = 0.0
-    p0 = sum(1 for d in defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P0")
-    p1 = sum(1 for d in defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P1")
-    p2 = sum(1 for d in defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P2")
-    gate_title, gate_note = _l1_gate_traffic(p0, p1, score)
-    forecast = _l1_risk_forecast_qualitative(p0, p1, p2, score)
-    one_liner = str(core.get("one_liner") or "需结合 L3 全量问题与红线条款评估后再排期。")
-
     seen_titles = set()
     deduped_merged: List[Dict[str, Any]] = []
     for it in merged:
@@ -3636,8 +5154,126 @@ def _build_l1_local_report(stage3_json: Dict[str, Any]) -> str:
             continue
         seen_titles.add(title_text)
         deduped_merged.append(it)
+    
+    # L1 计数口径必须与 L3「问题矩阵/缺陷母表」锁死，避免“摘要13条 vs 矩阵20条”。
+    # 这里使用与 L3 详细矩阵一致的去重 defects 作为 Ground Truth。
+    deduped_defects = _dedupe_defects_for_l3_matrix(defects, limit=120)
+    p0 = sum(1 for d in deduped_defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P0")
+    p1 = sum(1 for d in deduped_defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P1")
+    p2 = sum(1 for d in deduped_defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P2")
+    total_gt = len(deduped_defects)
+    gate_title, gate_note = _l1_gate_traffic(p0, p1, score)
+    forecast = _l1_risk_forecast_qualitative(p0, p1, p2, score)
+    one_liner = str(core.get("one_liner") or "需结合 L3 全量问题与红线条款评估后再排期。")
 
-    fatal3 = _l1_build_fatal_three(deduped_merged, defects)
+    # 三个致命伤：按 A/B/C 三车道各取 1 条（优先 P0，否则 P1），避免复读机与错位。
+    # pool 优先使用合并问题；不足时用 defects 补位，保证每车道都有“硬核影响”。
+    pool: List[Dict[str, Any]] = []
+    for it in deduped_merged:
+        if isinstance(it, dict):
+            pool.append(it)
+    if len(pool) < 8:
+        for d in deduped_defects[:24]:
+            if isinstance(d, dict):
+                pool.append(d)
+    # 去重（按标题/描述主干），避免 A/B 取到同一类冲突模板
+    seen_fp: set = set()
+    dedup_pool: List[Dict[str, Any]] = []
+    for it in pool:
+        if not isinstance(it, dict):
+            continue
+        fp = (str(it.get("risk_level") or "").upper(), str(it.get("type") or "")[:28], str(it.get("module") or "")[:28], str(it.get("description") or "")[:60])
+        if fp in seen_fp:
+            continue
+        seen_fp.add(fp)
+        dedup_pool.append(it)
+
+    def _is_low_signal_template_issue(it: Dict[str, Any]) -> bool:
+        """
+        过滤“规则库模板洞察”类低信号条目，避免污染 L1 致命伤/决策参考：
+        - 典型：状态孤岛/状态死路/不可达/无入口/无出口 等，但缺少可追溯引用句。
+        说明：不改 L3 母表，仅影响 L1 选题。
+        """
+        if not isinstance(it, dict):
+            return True
+        t = str(it.get("type") or "")
+        blob = _issue_blob(it)
+        if t in ("状态孤岛", "状态死路"):
+            return not _l3_is_usable_quote(_issue_quote(it))
+        if re.search(r"(某状态没有(入口|出口)|状态不可达|无法结束)", blob):
+            return not _l3_is_usable_quote(_issue_quote(it))
+        return False
+
+    dedup_pool = [x for x in dedup_pool if isinstance(x, dict) and not _is_low_signal_template_issue(x)]
+
+    def _pick_lane(letter: str) -> Optional[Dict[str, Any]]:
+        cand = _l1_best_in_fatal_lane(dedup_pool, letter)
+        if cand:
+            return cand
+        # 兜底：按风险等级取
+        arr = [x for x in dedup_pool if isinstance(x, dict)]
+        arr.sort(key=lambda d: (_risk_rank_local(str(d.get("risk_level") or "")), -len(str(d.get("description") or "")) - len(_build_core_issue_title(d))))
+        return arr[0] if arr else None
+
+    # 三车道必须互斥：避免 A/B/C 抽到同一议题导致“复读机”
+    picked_titles: set = set()
+
+    def _pick_lane_unique(letter: str) -> Optional[Dict[str, Any]]:
+        cands = [
+            x
+            for x in dedup_pool
+            if isinstance(x, dict) and _l1_classify_for_fatal_lane(x) == letter
+        ]
+        cands.sort(
+            key=lambda d: (
+                _risk_rank_local(str(d.get("risk_level") or "")),
+                -len(str(d.get("description") or "")) - len(_build_core_issue_title(d)),
+            )
+        )
+        for it in cands:
+            t = _build_core_issue_title(it).strip()
+            if not t or t in picked_titles:
+                continue
+            picked_titles.add(t)
+            return it
+        return None
+
+    def _pick_any_unique() -> Optional[Dict[str, Any]]:
+        arr = [x for x in dedup_pool if isinstance(x, dict)]
+        arr.sort(
+            key=lambda d: (
+                _risk_rank_local(str(d.get("risk_level") or "")),
+                -len(str(d.get("description") or "")) - len(_build_core_issue_title(d)),
+            )
+        )
+        for it in arr:
+            t = _build_core_issue_title(it).strip()
+            if not t or t in picked_titles:
+                continue
+            picked_titles.add(t)
+            return it
+        return None
+
+    slot_a = _pick_lane_unique("A") or _pick_any_unique()
+    slot_b = _pick_lane_unique("B") or _pick_any_unique()
+    slot_c = _pick_lane_unique("C") or _pick_any_unique()
+
+    def _fmt_fatal(prefix: str, it: Optional[Dict[str, Any]]) -> str:
+        if not it:
+            return f"{prefix}（本轮未抽到可作为致命伤的条目，详见 L3 母表）"
+        t = _build_core_issue_title(it)
+        lv = str(it.get("risk_level") or "P2").upper()
+        impact = _build_l1_issue_impact(it)
+        action = _build_l1_issue_action(it)
+        # 让“致命伤”更像指令：影响 + 一句话动作
+        return f"{prefix} **{t}**（{lv}）：{impact[:200]}（动作：{action[:60]}）"
+
+    # 注意：这里的 A/B/C 文案仅是“阅读车道”，不强绑具体业务域；核心仍以 L3 母表为准。
+    fatal3 = [
+        _fmt_fatal("【A】业务/合规/资损裁决（互斥、冲突、口径）：", slot_a),
+        _fmt_fatal("【B】稳定性/体验（状态、异常、并发、联调）：", slot_b),
+        _fmt_fatal("【C】安全/权限/隐私边界（可访问、可操作、可追溯）：", slot_c),
+    ]
     lines: List[str] = []
     lines.append("# 第一部分：L1 管理摘要（面向决策层，本地生成）")
     lines.append("> 目的：约 30 秒内了解是否具备全量排期/开工条件；**执行与引用以 L3 为母表**。")
@@ -3645,8 +5281,15 @@ def _build_l1_local_report(stage3_json: Dict[str, Any]) -> str:
     lines.append("## 1. 审计结论")
     lines.append(f"- **当前建议**：{gate_title} — {gate_note}")
     lines.append(f"- **综合质量分**：{round(score, 1)}/10（与 Stage3 七维/缺陷综合一致，口径以本次扫描为准）")
-    lines.append(f"- **P0 / P1 / P2 计数**：{p0} / {p1} / {p2}；**一句话概览**：{one_liner}")
+    lines.append(f"- **P0 / P1 / P2 计数**：{p0} / {p1} / {p2}（合计 {total_gt}）；**一句话概览**：{one_liner}")
     lines.append(f"- **核心风险预判（定性）**：{forecast}")
+    # 公共版环境提示：默认给通用表述；命中 STB/机顶盒信号才给行业化加强版。
+    prd_text_norm = (prd_content or "").lower()
+    stb_hit = bool(re.search(r"(机顶盒|stb|断电|关台|重启|弱网)", prd_content or "", re.I))
+    if stb_hit:
+        lines.append("- **环境防御性提示**：当前 PRD 仍存在“隐含假设”（默认环境稳定、默认用户按理想路径操作）；在 STB 弱网/断电/中断频发的现网下，返工风险偏高。")
+    else:
+        lines.append("- **环境防御性提示**：当前 PRD 仍存在“隐含假设”（默认环境稳定、默认用户按理想路径操作）；在弱网/中断/依赖不可用等波动环境下，返工风险偏高。")
     lines.append("")
     lines.append("## 2. 三个致命伤（业务语言版，与 L3 同源合并项）")
     if len([x for x in fatal3 if isinstance(x, str) and x.strip()]) < 3:
@@ -3666,26 +5309,88 @@ def _build_l1_local_report(stage3_json: Dict[str, Any]) -> str:
         )
     lines.append("")
     lines.append("## 4. 决策参考（可转发 PO / PM）")
-    if deduped_merged:
-        lines.append("| 序 | 合并类核心问题 | 风险 | 可指向 L2/L3 |")
-        lines.append("| :-- | :-- | :-- | :-- |")
-        for i, it in enumerate(deduped_merged[:5], start=1):
-            tit = _build_core_issue_title(it)
-            lv = str(it.get("risk_level") or "P2").upper()
-            lines.append(f"| {i} | {tit.replace('|', ' ')} | {lv} | 详见 L2 澄清与 L3 行级缺陷 |")
+    if deduped_defects:
+        lines.append("| 决策ID | 风险议题 | 风险等级 | 指向 | 当前状态 |")
+        lines.append("| :-- | :-- | :-- | :-- | :-- |")
+        # 决策参考必须与 L3 Ground Truth（deduped_defects）同源，避免出现 “P0=2 但表里 3 个 P0” 的口径打架。
+        cand = sorted(
+            [d for d in deduped_defects if isinstance(d, dict) and not _is_low_signal_template_issue(d)],
+            key=lambda it: (
+                _risk_rank_local(str((it or {}).get("risk_level") or "")),
+                -len(str((it or {}).get("description") or "")) - len(_build_core_issue_title(it or {})),
+            ),
+        )
+        picked: List[Dict[str, Any]] = []
+        seen_t: set = set()
+        for it in cand:
+            tit0 = _build_core_issue_title(it or {}).replace("|", " ").strip()
+            if not tit0 or tit0 in seen_t:
+                continue
+            seen_t.add(tit0)
+            picked.append(it)
+            if len(picked) >= 3:
+                break
+        for i, it in enumerate(picked, start=1):
+            tit = _build_core_issue_title(it or {}).replace("|", " ").strip()
+            lv = str((it or {}).get("risk_level") or "P2").upper()
+            lines.append(f"| L2-D{i} | {tit} | {lv} | 见 L2-D{i} 与 L3 同名问题 | 待 PM 拍板并回写 PRD 锚点 |")
     else:
         lines.append("- 本轮无合并类核心问题，可直接以 L3 缺陷全表为决策依据。")
-    lines.append("")
+        lines.append("")
     return "\n".join(lines).strip()
 
 
 def _build_l2_issue_kind(item: Dict[str, Any]) -> str:
-    text = _issue_blob(item)
+    full_text = _issue_blob(item)
     name = str(item.get("name") or "")
     types_blob = " ".join(_ensure_list(item.get("types")))
-    topic = _issue_topic(item)
+    narrow_text = _clean_report_text(
+        " ".join(
+            [
+                name,
+                str(item.get("description") or ""),
+                str(item.get("reason") or ""),
+                str(item.get("suggestion") or ""),
+                str(item.get("module") or ""),
+                str(item.get("type") or ""),
+                types_blob,
+            ]
+        )
+    )
+    text = narrow_text or full_text
+    topic = _issue_topic(
+        {
+            "name": name,
+            "description": str(item.get("description") or ""),
+            "reason": str(item.get("reason") or ""),
+            "suggestion": str(item.get("suggestion") or ""),
+            "module": str(item.get("module") or ""),
+            "type": str(item.get("type") or ""),
+            "types": _ensure_list(item.get("types")),
+        }
+    )
     feature = _derive_feature_name(item)
-    head = f"{name}{text}{types_blob}"
+    head = f"{name} {text} {types_blob}".strip()
+    conflict_specific_early = bool(
+        re.search(
+            r"(开关|总开关|手动|自动|默认|最终是否|谁为准|优先级|生效顺序)",
+            head,
+        )
+        and re.search(
+            r"(冲突|矛盾|互斥|打架|不一致|谁为准|优先级未定义|最终是否.{0,12}(决定|控制))",
+            head,
+        )
+    )
+    security_specific_early = bool(
+        re.search(
+            r"(二维码|扫码|外链|短链|深链|小程序|取回|拉取|下载|凭证|授权|鉴权|越权|过期|失效|撤销|重放|谁可访问|谁可见|谁可拉取|权限)",
+            head,
+        )
+    )
+    if conflict_specific_early:
+        return "conflict"
+    if topic == "qr_security" or security_specific_early:
+        return "security"
     # 业务规则/入口互斥 必须优先于「端云/状态机」等泛化信号，避免与具体垂类强绑：用语义（矛盾/互斥+开关/自动/入口）
     if any(
         k in head
@@ -3731,11 +5436,19 @@ def _build_l2_issue_kind(item: Dict[str, Any]) -> str:
     )
     # 外显/受控资源入口（扫码/外链/取回/列表等）+ 主路径外缺失败：与纯「L0001 主路径无失败」区分，避免 L2 两条同题撞车
     comb_entry = f"{name} {sub_k} {text} {types_blob}"
-    if l2_exception_strong and re.search(
-        r"(二维码|扫码|外链|深度链接|深链|小程序|已唱|获取(?!的)|受控|凭证|分享(?!的)|下传|"
-        r"上云(?!的)|回传|同步(?!的).{0,4}(云|端|手|移动))",
-        comb_entry,
-    ):
+    external_access_hit = bool(
+        re.search(
+            r"(二维码|扫码|外链|短链|深度链接|深链|小程序|分享(?!的)|取回|拉取|下载|查看列表|录音列表|作品列表|访问入口|受控入口|凭证|授权入口)",
+            comb_entry,
+        )
+    )
+    security_specific_hit = bool(
+        re.search(
+            r"(二维码|扫码|外链|短链|深链|凭证|授权|鉴权|越权|过期|失效|撤销|重放|谁可访问|谁可见|谁可拉取|权限)",
+            comb_entry,
+        )
+    )
+    if l2_exception_strong and external_access_hit and security_specific_hit:
         return "security"
     exception_hit = any(
         k in (sub_k + text) for k in ("弱网", "断网", "超时", "失败", "降级", "兜底", "卡死", "转圈", "不可用", "重试", "重试后")
@@ -3802,7 +5515,7 @@ def _build_l2_issue_title(item: Dict[str, Any]) -> str:
     if kind == "exception":
         return f"异常分支与失败退路定义缺失（{lv}）"
     if kind == "security":
-        return f"外显/外链/扫码等受控入口的鉴权、失效与失败态未定义（{lv}）"
+        return f"扫码/取回等受控入口的鉴权与失效规则未定义（{lv}）"
     if kind == "concurrency":
         return f"多人或重复操作时结果怎么算（{lv}）"
     if kind == "conflict":
@@ -3824,7 +5537,7 @@ def _build_l2_issue_title(item: Dict[str, Any]) -> str:
 
 
 def _l2_risk_scope_prefix(item: Dict[str, Any]) -> str:
-    t = _build_core_issue_title(item).replace("|", " ").strip()
+    t = _build_l2_issue_title(item).replace("|", " ").strip()
     t = re.sub(r"\s+", " ", t)
     if len(t) > 88:
         t = t[:86] + "…"
@@ -3858,9 +5571,9 @@ def _build_l2_risk_analysis(item: Dict[str, Any], prefix_scope: bool = True) -> 
         return head + body
     if kind == "security" or topic == "qr_security":
         body = (
-            "若**受控外显/外链/扫码/列表或文件取回**在**谁可访问、是否越权、凭证是否仍有效、何时应失效**上写不清，**且**在**失败/超时/资源不存在**时"
-            "缺少**可提示、可重试、可审计/可对账**的落地要求，会同时出现**难复盘**与"
-            "「**用户以为能取/已取到，实际未授权或未落库**」的落差，现场与运营难解释责任。"
+            "若**受控入口（扫码/外链/列表取回/下载）**未定义**鉴权边界、凭证有效期、一次性/可重放、越权提示与审计留痕**，"
+            "则容易出现“**截图/转发即可取回**”等越权路径，引发**隐私客诉/合规风险**；"
+            "同时在资源不存在、过期或越权时若缺少统一错误码与提示，运营与现场难以对账与定责。"
         )
         return head + body
     if topic in ["cloud_degrade", "exception_flow", "state_recovery", "transfer_cleanup"]:
@@ -3927,14 +5640,38 @@ def _l2_pm_on_site(merged: Dict[str, Any], seed: Dict[str, Any], issue_kind: str
             "在「保存/上传/回写云端」等路径上，若失败、超时、弱网时**各端提示与落盘结果**未写清，"
             "用户会以为已保存成功，**回其他端或跨日对账**时才发现缺件，现场与客服都难解释。"
         )
+    if issue_kind == "security" and any(k in t for k in ("扫码", "二维码", "外链", "取回", "下载", "列表", "凭证", "token", "有效期", "过期", "越权", "鉴权", "权限")):
+        return (
+            "若“扫码/二维码/外链取回”缺少**身份校验与有效期**，现场会出现“**路人截图也能取走**”的越权路径；"
+            "一旦涉及录音/照片/订单等敏感内容，极易形成**隐私客诉与合规风险**，且难以追溯责任。"
+        )
     return _l3_scene(sd)
 
 
 def _clean_l2_problem_desc(desc: str, issue_kind: str) -> str:
+    def _clause_matches_kind(clause: str, kind: str) -> bool:
+        c = _clean_report_text(clause)
+        if not c:
+            return False
+        patterns = {
+            "conflict": r"(开关|总开关|优先级|互斥|冲突|矛盾|谁为准|最终是否|手动|自动|默认|生效顺序)",
+            "dispatch": r"(调度|抢占|打断|插播|中断恢复|谁先执行|恢复机制|恢复规则|回到主流程|回到原流程)",
+            "exception": r"(失败|超时|弱网|断网|重试|异常|错误|上传|保存|写库|落地|兜底|不可用)",
+            "state": r"(状态|终态|回退|重进|退出|切后台|再打开|落点|清屏|状态机|恢复|回到|重开|关台|重启)",
+            "security": r"(权限|鉴权|越权|访问边界|授权|凭证|取回|外链|深链|链接|重放|二维码.{0,12}(有效期|失效|过期|权限|授权|访问|重放|次数)|扫码.{0,12}(权限|授权|有效期|失效|过期|重放|访问)|谁可(访问|见|拉取)|一次有效)",
+            "concurrency": r"(并发|多个设备|同时|重复操作|重复提交|幂等|排队|限流|覆盖|归属|混淆|会话ID|所属会话|请求竞争)",
+            "generic": r".+",
+        }
+        return bool(re.search(patterns.get(kind, r".+"), c))
+
     s = _clean_report_text(desc, keep_newlines=True)
     if not s:
         return "【PRD未说明】"
     s = re.sub(r"\s*例如：.*$", "", s, flags=re.DOTALL)
+    parts = [p.strip() for p in re.split(r"[；。\n]+", s) if p and p.strip()]
+    matched_parts = [p for p in parts if _clause_matches_kind(p, issue_kind)]
+    if matched_parts:
+        s = "；".join(matched_parts[:3])
     if issue_kind == "dispatch":
         parts = re.split(r"[；。\n]+", s)
         kept = []
@@ -3953,7 +5690,74 @@ def _clean_l2_problem_desc(desc: str, issue_kind: str) -> str:
         kept = [p.strip() for p in parts if p.strip() and not re.search(r"失败.*允许重试|允许重试.*失败", p)]
         if kept:
             s = "；".join(kept)
+        if re.search(r"(某状态没有入口|状态不可达|没有入口)", s):
+            s = "PRD 未明确中途退出、异常中断或再次进入后的状态落点，导致状态是否可达、是否可恢复不清楚"
+        if re.search(r"(会话ID|所属会话|字段|归属|录音列表|数据接口口径)", s) and not re.search(
+            r"(退出|重进|状态|回退|切后台|落点|清屏|终态)", s
+        ):
+            s = "PRD 未明确中途退出、异常中断或再次进入后的状态落点，导致状态是否可达、是否可恢复不清楚"
+    if issue_kind == "conflict":
+        parts = re.split(r"[；。\n]+", s)
+        kept = [p.strip() for p in parts if p.strip() and _clause_matches_kind(p, "conflict")]
+        if kept:
+            s = "；".join(kept[:2])
+        combo = _clean_report_text(desc)
+        if re.search(r"(自动(开启|执行|触发|生效)|系统自动|默认开启|默认执行)", combo) and re.search(
+            r"(最终是否|根据用户|由用户).{0,12}(开关|设置|手动).{0,8}(决定|控制)",
+            combo,
+        ):
+            s = "PRD 同时存在“系统自动执行”和“由用户开关决定”的规则，但未明确两者冲突时以谁为准"
+    if issue_kind == "exception" and re.search(r"(上传失败|保存失败|只描述成功路径|只写成功路径|缺少失败处理)", s):
+        s = "PRD 只写了成功路径，未明确失败、超时、弱网或重试时系统怎么处理"
+    if issue_kind == "security":
+        parts = re.split(r"[；。\n]+", s)
+        kept = [p.strip() for p in parts if p.strip() and _clause_matches_kind(p, "security")]
+        if kept:
+            s = "；".join(kept[:3])
+        raw_combo = _clean_report_text(desc)
+        if re.search(
+            r"(自动(开启|执行|触发|生效)|系统自动|默认开启|默认执行)",
+            raw_combo,
+        ) and re.search(
+            r"(最终是否|根据用户|由用户).{0,12}(开关|设置|手动).{0,8}(决定|控制)",
+            raw_combo,
+        ):
+            s = "PRD 同时存在“系统自动执行”和“由用户开关决定”的规则，但未明确两者冲突时以谁为准"
+        if re.search(r"(二维码|扫码|取回|凭证|授权|权限|外链|深链)", raw_combo) and not kept:
+            s = "PRD 未明确扫码/取回资源的访问边界、有效期与防重放规则"
     return s.strip("；。 ，,\n") or "【PRD未说明】"
+
+
+def _l2_issue_fit_penalty(item: Dict[str, Any]) -> int:
+    if not isinstance(item, dict):
+        return 9
+    kind = _build_l2_issue_kind(item)
+    desc = _clean_report_text(str(item.get("description") or ""), keep_newlines=True)
+    if not desc:
+        return 6
+    clauses = [p.strip() for p in re.split(r"[；。\n]+", desc) if p and p.strip()]
+    if not clauses:
+        return 5
+    cleaned = _clean_l2_problem_desc(desc, kind)
+    penalty = 0
+    if cleaned == "【PRD未说明】":
+        penalty += 4
+    if kind == "state" and re.search(r"(会话ID|所属会话|字段|归属|录音列表|数据接口口径)", desc) and not re.search(
+        r"(退出|重进|状态|回退|切后台|落点|清屏|终态)", desc
+    ):
+        penalty += 3
+    if kind == "conflict" and not re.search(r"(开关|优先级|互斥|冲突|矛盾|手动|自动|总开关|最终是否)", desc):
+        penalty += 3
+    if kind == "security" and re.search(r"(开关|优先级|互斥|冲突|矛盾|手动|自动|总开关|最终是否)", desc) and not re.search(
+        r"(二维码|扫码|取回|凭证|授权|鉴权|越权|过期|失效|重放|权限|访问边界)",
+        desc,
+    ):
+        penalty += 4
+    if kind == "exception" and not re.search(r"(失败|超时|弱网|断网|重试|上传|保存|异常)", desc):
+        penalty += 3
+    if len(clauses) >= 2 and "；" not in cleaned:
+        penalty += 1
+    return penalty
 
 
 def _l2_collect_prd_quotes(issue: Dict[str, Any], prd_content: str, limit: int = 3) -> List[str]:
@@ -3976,6 +5780,63 @@ def _l2_collect_prd_quotes(issue: Dict[str, Any], prd_content: str, limit: int =
         if hits < 1 or score < 2:
             continue
         scored.append((score, s))
+    scored.sort(key=lambda x: (-x[0], -len(x[1])))
+    out: List[str] = []
+    for _, s in scored:
+        if s not in out:
+            out.append(s)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _l2_collect_section_quotes(issue: Dict[str, Any], prd_content: str, limit: int = 2) -> List[str]:
+    """
+    L2 兜底锚点：当常规 quote 未命中时，优先在“相关章节附近”抽可追溯原文短句。
+    仅用于降低“全部未定位”的情况，不参与认知大纲/门禁逻辑。
+    """
+    text = _clean_report_text(prd_content, keep_newlines=True)
+    if not text:
+        return []
+    kind = _build_l2_issue_kind(issue or {})
+    section_pattern_map = {
+        "exception": r"(失败|异常|超时|弱网|重试|降级|容错)",
+        "state": r"(状态|退出|重进|恢复|切后台|中断|生命周期)",
+        "conflict": r"(优先级|裁决|冲突|互斥|总开关|播控栏|自动规则)",
+        "dispatch": r"(调度|打断|串行|并行|恢复策略)",
+        "concurrency": r"(并发|幂等|重复点击|重复请求|去重)",
+        "security": r"(权限|鉴权|越权|有效期|失效|重放|访问边界)",
+    }
+    section_pat = section_pattern_map.get(kind, r"(规则|口径|接口|状态)")
+    keywords = _l3_issue_keywords(issue or {}, [issue] if isinstance(issue, dict) else [])
+    if not keywords:
+        keywords = []
+
+    windows: List[str] = []
+    for m in re.finditer(section_pat, text, re.I):
+        st = max(0, m.start() - 48)
+        ed = min(len(text), m.start() + 240)
+        win = text[st:ed]
+        if win and win not in windows:
+            windows.append(win)
+        if len(windows) >= 24:
+            break
+    if not windows:
+        return []
+
+    scored: List[Tuple[int, str]] = []
+    for win in windows:
+        for piece in re.split(r"[\r\n]+|(?<=[。！？；])", win):
+            s = _clean_report_text(piece)
+            if not _l3_is_usable_quote(s):
+                continue
+            hits = sum(1 for kw in keywords if kw and kw in s)
+            if hits < 1 and not re.search(section_pat, s, re.I):
+                continue
+            score = _l3_quote_score(s, keywords) + (2 if re.search(section_pat, s, re.I) else 0)
+            if score < 2:
+                continue
+            scored.append((score, s))
     scored.sort(key=lambda x: (-x[0], -len(x[1])))
     out: List[str] = []
     for _, s in scored:
@@ -4020,55 +5881,74 @@ def _build_l2_issue_quote(
     prd_content: str = "",
     defects: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
+    def _humanize_l2_quote(text: str, limit: int = 200) -> str:
+        s = _clean_report_text(text)
+        if not s:
+            return ""
+        s = re.sub(r"^L\d+(?:-L?\d+)?[:：]\s*", "", s, flags=re.I)
+        s = re.sub(r"^L\d{3,}(?:-L?\d{3,})?\s*", "", s, flags=re.I)
+        s = re.sub(r"（L3/结构体已挂锚点.*$", "", s)
+        s = re.sub(r"\(L3/结构体已挂锚点.*$", "", s)
+        s = s.strip()
+        if re.fullmatch(r"L\d{4}(?:-L\d{4})?", s, re.I):
+            return ""
+        if re.fullmatch(r"(business_|flows?|features?|states?)[:：].*", s, re.I):
+            return ""
+        return s[:limit]
+
     if isinstance(defects, list) and defects:
         try:
             for d in _l3_match_merged_issue_defects(item, defects)[:4]:
                 if not isinstance(d, dict):
                     continue
+                # Prefer extracted evidence_quotes (sentence-level) if available.
+                # This aligns L2 with L3 QUOTE strictness: if Stage3 already extracted usable sentences,
+                # L2 should not degrade to "未定位原文".
+                eqs = d.get("evidence_quotes") if isinstance(d.get("evidence_quotes"), list) else []
+                for eq in eqs[:4]:
+                    q_text = _humanize_l2_quote(str(eq))
+                    if q_text and _l2_quote_fits_issue(item, q_text) and _l2_quote_in_current_doc(
+                        q_text, stage1_snapshot=stage1_snapshot, prd_content=prd_content
+                    ):
+                        return q_text
                 q = _issue_quote(d)
                 if not (q and str(q).strip()) or q == "【未定位到可直接引用的 PRD 原文】":
                     anch = str(d.get("anchor") or "").strip()
                     if anch:
                         q = _anchor_quote(anch) or q
-                if q and str(q).strip() and _l2_quote_fits_issue(item, str(q)) and _l2_quote_in_current_doc(
-                    str(q), stage1_snapshot=stage1_snapshot, prd_content=prd_content
+                q_text = _humanize_l2_quote(str(q))
+                if q_text and _l2_quote_fits_issue(item, q_text) and _l2_quote_in_current_doc(
+                    q_text, stage1_snapshot=stage1_snapshot, prd_content=prd_content
                 ):
-                    return str(q).strip()[:200]
+                    return q_text
         except Exception:
             pass
     for anchor in _issue_anchors(item):
-        quote = _anchor_quote(anchor)
+        quote = _humanize_l2_quote(_anchor_quote(anchor))
         if _l2_quote_fits_issue(item, quote) and _l2_quote_in_current_doc(quote, stage1_snapshot=stage1_snapshot, prd_content=prd_content):
             return quote[:80]
     stage1_quotes = _l3_collect_stage1_quotes(item, [item] if isinstance(item, dict) else [], stage1_snapshot or {}, limit=1)
     if stage1_quotes:
         for quote in stage1_quotes:
-            if _l2_quote_fits_issue(item, quote) and _l2_quote_in_current_doc(quote, stage1_snapshot=stage1_snapshot, prd_content=prd_content):
-                return quote[:80]
+            q_text = _humanize_l2_quote(quote)
+            if q_text and _l2_quote_fits_issue(item, q_text) and _l2_quote_in_current_doc(q_text, stage1_snapshot=stage1_snapshot, prd_content=prd_content):
+                return q_text[:80]
     prd_quotes = _l2_collect_prd_quotes(item, prd_content, limit=1)
     if prd_quotes:
         for quote in prd_quotes:
-            if _l2_quote_fits_issue(item, quote) and _l2_quote_in_current_doc(quote, stage1_snapshot=stage1_snapshot, prd_content=prd_content):
-                return quote[:80]
-    if isinstance(defects, list) and defects:
-        try:
-            for d in _l3_match_merged_issue_defects(item, defects)[:2]:
-                if not isinstance(d, dict):
-                    continue
-                a = str(d.get("anchor") or "").strip()
-                if a and 4 <= len(a) <= 180 and re.match(
-                    r"^(business_|flows?|features?|states?|R\d+|D\d+|L\d+|.+\[(\d+)\]|[\w.]+/[\w.]+)",
-                    a,
-                    re.I,
-                ):
-                    return (
-                        f"**{a}**（L3/结构体已挂锚点；**审计批注**：句面若**仅成功径**，**失败/超时/重进**的真空由本条 `问题描述` 与 L3 行表补齐后方可验收。）"[
-                            :220
-                        ]
-                    )
-        except Exception:
-            pass
-    return "【原文锚点不足，以下问题基于规则归纳】"
+            q_text = _humanize_l2_quote(quote)
+            if q_text and _l2_quote_fits_issue(item, q_text) and _l2_quote_in_current_doc(q_text, stage1_snapshot=stage1_snapshot, prd_content=prd_content):
+                return q_text[:80]
+    # 章节兜底：给 L2 一个“弱锚点”引用，避免所有议题都退化为纯规则归纳。
+    section_quotes = _l2_collect_section_quotes(item, prd_content, limit=1)
+    if section_quotes:
+        for quote in section_quotes:
+            q_text = _humanize_l2_quote(quote, limit=140)
+            if q_text and _l2_quote_fits_issue(item, q_text) and _l2_quote_in_current_doc(
+                q_text, stage1_snapshot=stage1_snapshot, prd_content=prd_content
+            ):
+                return "【弱锚点】" + q_text[:100]
+    return "【未定位到可直接引用的 PRD 原文，本条为规则归纳结论】"
 
 
 def _l2_has_traceable_quote(
@@ -4079,7 +5959,7 @@ def _l2_has_traceable_quote(
 ) -> bool:
     return _build_l2_issue_quote(
         item, stage1_snapshot=stage1_snapshot, prd_content=prd_content, defects=defects
-    ) != "【原文锚点不足，以下问题基于规则归纳】"
+    ) != "【未定位到可直接引用的 PRD 原文，本条为规则归纳结论】"
 
 
 def _l2_kind_summary_phrase(kind: str) -> str:
@@ -4118,6 +5998,57 @@ def _l2_kind_redline_item(kind: str) -> str:
     return mapping.get(kind, "**成功标准**：必须明确核心流程什么情况算成功、什么情况算失败，并给出可验证指标。")
 
 
+def _l2_role_focus_items(top_kinds: List[str]) -> Dict[str, List[str]]:
+    kinds = _l2_expand_kinds(top_kinds, limit=3)
+    user_map = {
+        "conflict": "会遇到同一动作在不同入口表现不一致，用户会疑惑到底有没有真正生效。",
+        "exception": "会遇到失败、超时、弱网时没有明确提示，不知道要不要重试或是否已经成功。",
+        "state": "会遇到退出、重进、切后台后页面状态和真实结果对不上，现场容易争议。",
+        "security": "会担心谁能看、谁能取回、资源什么时候失效，避免出现越权或误取。",
+        "dispatch": "会感知到多个流程同时发生时结果前后不一致，像是系统随机选了一种处理方式。",
+        "concurrency": "会遇到重复点击或多人同时操作时结果打架，前后看到的内容不一致。",
+    }
+    pm_map = {
+        "conflict": "需要拍板互斥规则下谁优先、谁有否决权，以及冲突时的产品提示口径。",
+        "exception": "需要补齐失败、超时、弱网时的页面提示、重试策略和成功/失败判定。",
+        "state": "需要补齐退出、中断、重进后的状态落点、页面展示与终态定义。",
+        "security": "需要拍板访问边界、资源有效期、失效方式以及越权时如何拦截。",
+        "dispatch": "需要明确多个流程同时触发时的执行顺序、打断关系和恢复策略。",
+        "concurrency": "需要明确重复操作、多人同时触发时以哪次结果为准，以及是否排队或幂等。",
+    }
+    dev_map = {
+        "conflict": "实现前必须拿到唯一裁决规则，否则前后端会各自按不同假设落地。",
+        "exception": "实现时需要明确错误态、超时阈值、重试策略和可观测字段，避免只做成功路径。",
+        "state": "需要补状态机和终态落点，否则退出/重进后的恢复逻辑无法稳定实现。",
+        "security": "需要明确鉴权、有效期、资源生命周期和越权拦截，否则接口与前端都难闭环。",
+        "dispatch": "需要明确多流程调度与打断恢复机制，否则联调时很难保持一致行为。",
+        "concurrency": "需要提前设计幂等、互斥、排队或覆盖规则，避免并发下结果不稳定。",
+    }
+    qa_map = {
+        "conflict": "要重点卡不同入口是否裁决一致，不能出现一端说开、一端说关的情况。",
+        "exception": "要重点卡失败、弱网、超时、重试和恢复后的真实结果是否可验收。",
+        "state": "要重点卡退出、切后台、重进、异常中断后的页面展示和终态是否一致。",
+        "security": "要重点卡谁能访问、何时失效、是否可重放，以及无权限时的提示是否清晰。",
+        "dispatch": "要重点卡多个流程同时发生时是否始终按同一顺序执行、被打断后是否可恢复。",
+        "concurrency": "要重点卡重复点击、多人同时操作、结果覆盖和端云一致性。",
+    }
+
+    def pick(role_map: Dict[str, str]) -> List[str]:
+        out: List[str] = []
+        for kind in kinds:
+            text = role_map.get(kind)
+            if text and text not in out:
+                out.append(text)
+        return out[:2] or ["本轮暂未提取到足够明确的角色关注点，建议结合 L3 继续细化。"]
+
+    return {
+        "user": pick(user_map),
+        "pm": pick(pm_map),
+        "dev": pick(dev_map),
+        "qa": pick(qa_map),
+    }
+
+
 def _l2_pick_focus_issues(
     issues: List[Dict[str, Any]],
     stage1_snapshot: Optional[Dict[str, Any]] = None,
@@ -4125,20 +6056,21 @@ def _l2_pick_focus_issues(
     limit: int = 3,
     defects: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    ranked: List[Tuple[int, int, int, Dict[str, Any]]] = []
+    ranked: List[Tuple[int, int, int, int, Dict[str, Any]]] = []
     for it in issues:
         if not isinstance(it, dict):
             continue
         risk_rank = _risk_rank_local(str(it.get("risk_level") or ""))
+        fit_penalty = _l2_issue_fit_penalty(it)
         traceable_rank = (
             0
             if _l2_has_traceable_quote(it, stage1_snapshot=stage1_snapshot, prd_content=prd_content, defects=defects)
             else 1
         )
         detail_rank = -len(str(it.get("description") or ""))
-        ranked.append((risk_rank, traceable_rank, detail_rank, it))
-    ranked.sort(key=lambda x: (x[0], x[1], x[2]))
-    by_order = [t[3] for t in ranked]
+        ranked.append((risk_rank, fit_penalty, traceable_rank, detail_rank, it))
+    ranked.sort(key=lambda x: (x[0], x[1], x[2], x[3]))
+    by_order = [t[4] for t in ranked]
     n = len(by_order)
     if n == 0 or limit <= 0:
         return []
@@ -4210,10 +6142,13 @@ def _build_l2_local_report(stage1_output: Dict[str, Any], stage3_json: Dict[str,
         if isinstance(it, dict)
         and _l2_has_traceable_quote(it, stage1_snapshot=stage1_snapshot, prd_content=prd_content, defects=defects)
     ]
-    summary_source = deduped_merged
-    p0 = sum(1 for d in summary_source if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P0")
-    p1 = sum(1 for d in summary_source if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P1")
-    p2 = sum(1 for d in summary_source if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P2")
+    # L2 头部“问题分布”统计口径：必须与 L3 缺陷母表同源（去重 defects），避免与 L1/L3 计数打架。
+    # 决策表仍用 merged_issues 做“议题收敛”，但统计只认 Ground Truth。
+    deduped_defects = _dedupe_defects_for_l3_matrix(defects, limit=120)
+    p0 = sum(1 for d in deduped_defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P0")
+    p1 = sum(1 for d in deduped_defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P1")
+    p2 = sum(1 for d in deduped_defects if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P2")
+    stb_hit = bool(re.search(r"(机顶盒|stb|弱网|断电|关台|重启)", prd_content or "", re.I))
     if score >= 7 and p0 == 0:
         feel = "更像是「可开发方案」，但仍有若干口径与边界需要补齐。"
     elif score >= 5:
@@ -4232,9 +6167,25 @@ def _build_l2_local_report(stage1_output: Dict[str, Any], stage3_json: Dict[str,
             if sc is not None and sc <= 6.0:
                 focus.append(key)
     focus_text = "、".join(focus) if focus else "综合维度"
-    top3 = _l2_pick_focus_issues(
-        deduped_merged, stage1_snapshot=stage1_snapshot, prd_content=prd_content, limit=3, defects=defects
+    # 议题抽取：先多取一些，再按“kind+标题”去重，避免出现 D2/D4 这种重复议题占位。
+    top_raw = _l2_pick_focus_issues(
+        deduped_merged, stage1_snapshot=stage1_snapshot, prd_content=prd_content, limit=8, defects=defects
     )
+    top3: List[Dict[str, Any]] = []
+    seen_focus: set = set()
+    for it in top_raw:
+        if not isinstance(it, dict):
+            continue
+        kind0 = _build_l2_issue_kind(it)
+        # 去重必须按“最终展示标题”而非 core_title，否则会出现决策表 D1/D4 重复但去重未命中的情况
+        tit0 = _build_l2_issue_title(it).strip()
+        key = (kind0, tit0)
+        if key in seen_focus:
+            continue
+        seen_focus.add(key)
+        top3.append(it)
+        if len(top3) >= 4:
+            break
     top_kinds = []
     for it in top3:
         if not isinstance(it, dict):
@@ -4242,190 +6193,274 @@ def _build_l2_local_report(stage1_output: Dict[str, Any], stage3_json: Dict[str,
         kind = _build_l2_issue_kind(it)
         if kind not in top_kinds:
             top_kinds.append(kind)
-    l2_top3_kind_list = [_build_l2_issue_kind(x) for x in top3 if isinstance(x, dict)]
-    lines = []
-    lines.append("# 第二部分：L2 产品分析（面向 PM/PO，本地生成）")
-    lines.append("> 目的：明确缺陷，以「可选项 + 验收（AC）」帮助 PO 拍板；**原文依据在 PRD/锚点列，执行拆任务见 L3**。")
-    lines.append("")
-    lines.append("## 一、总体感受（产品视角）")
-    lines.append(f"- 总体：{feel}")
-    lines.append(f"- 质量评分：{round(score, 1)}/10；核心问题分布（按全部合并后问题统计）：P0 {p0} / P1 {p1} / P2 {p2}")
-    lines.append(f"- 主要问题集中：{focus_text}")
-    if traceable_merged:
-        lines.append("- L2 优先展示能回溯到 PRD 原文的问题；若原文锚点不足，会明确标注为规则归纳结论。")
-    else:
-        lines.append("- 本次 L2 未定位到足够强的原文锚点，以下问题以规则归纳为主，建议后续补充更细的原文描述。")
-    lines.append("")
-    lines.append("## 二、核心需求澄清清单（直接发给 PM）")
-    lines.append("> 以下仅展示优先级最高、最影响开工判断的 3 项核心问题。")
-    lines.append("")
-    if not top3:
-        lines.append("> 暂未提取到可用问题项，本次 L2 不输出问题清单。建议先检查 Stage3 输出或补充更细的原文锚点后重新生成。")
-        lines.append("")
-    for idx, it in enumerate(top3, start=1):
-        if not isinstance(it, dict):
-            continue
-        name = str(it.get("name") or f"问题{idx}")
-        lv = str(it.get("risk_level") or "P2").upper()
-        issue_kind = _build_l2_issue_kind(it)
-        desc = str(it.get("description") or "【PRD未说明】")
-        types_arr = _ensure_list(it.get("types"))
-        primary_type = types_arr[0] if types_arr else ""
-        desc = _clean_l2_problem_desc(desc, issue_kind)
-        
-        # 将描述中的分号替换为换行列表，使其更易读
-        if "；" in desc:
-            desc_parts = [p.strip() for p in desc.split("；") if p.strip()]
-            desc_formatted = "\n  * " + "\n  * ".join(desc_parts)
-        else:
-            desc_formatted = desc
-            
-        # 进一步处理内部带有数字列表（如 1. 2. 3.）的换行
-        # 匹配形如 "1. xxx" 但不在开头的情况，并在前面加上换行和缩进
-        desc_formatted = re.sub(r"(?<!\n)(?<!^)(\d+\.\s)", r"\n    * \1", desc_formatted)
+    def _cell(text: Any, limit: int = 120) -> str:
+        s0 = _clean_report_text(str(text or "")).replace("|", " ").strip()
+        s0 = re.sub(r"\s+", " ", s0)
+        if not s0:
+            return "—"
+        return (s0[: limit - 3] + "...") if len(s0) > limit else s0
 
-        sug = str(it.get("suggestion") or "补齐规则与验收标准")
-        meeting_title = _build_l2_issue_title(it)
+    def _display_risk(issue: Dict[str, Any], kind: str) -> str:
+        """
+        公共版：默认使用 Stage3 risk_level。
+        行业信号命中时允许“展示级别”上调（不改 Stage3 母表），用于让决策表更贴近真实阻塞。
+        """
+        base_lv = str((issue or {}).get("risk_level") or "P2").upper()
+        if not stb_hit:
+            return base_lv
+        # STB/弱网信号命中：异常退路通常是硬阻塞，安全取回通常是高风险
+        if kind == "exception" and base_lv in ("P1", "P2"):
+            return "P0"
+        if kind == "security" and base_lv in ("P2",):
+            return "P1"
+        return base_lv
+
+    def _quote_meta(issue: Dict[str, Any]) -> Tuple[str, str, str]:
         quote = _build_l2_issue_quote(
-            it, stage1_snapshot=stage1_snapshot, prd_content=prd_content, defects=defects
+            issue, stage1_snapshot=stage1_snapshot, prd_content=prd_content, defects=defects
         )
-        risk_analysis = _build_l2_risk_analysis(it)
-        try:
-            sd = _l3_pick_seed_issue(it, defects) if isinstance(it, dict) and defects else it
-            if not isinstance(sd, dict):
-                sd = it
-            on_site = _l2_pm_on_site(it, sd, issue_kind) if isinstance(sd, dict) else "【见问题描述与风险分析】"
-        except Exception:
-            on_site = "【见问题描述与风险分析】"
-        lines.append(f"### {idx}. {meeting_title}")
-        lines.append(f"* **现场翻车（用户视角）**：{on_site}")
-        lines.append(f"* **问题描述**：{desc_formatted}")
-        lines.append(f"* **PRD原文依据**：{quote}")
-        lines.append(f"* **风险分析**：{risk_analysis}")
-        dup_kind_in_top3 = l2_top3_kind_list.count(issue_kind) > 1
+        evidence_level = "quote"
+        gap = "—"
+        if not quote or quote.startswith("【未定位") or quote.startswith("【PRD未说明"):
+            evidence_level = "derived"
+            gap = "补原文锚点或裁决表"
+        elif quote.startswith("【弱锚点】"):
+            evidence_level = "quote_soft"
+            gap = "—"
+        elif "规则归纳结论" in quote:
+            evidence_level = "derived"
+            gap = "补原文锚点"
+        return _cell(quote, 140), evidence_level, gap
 
-        # 针对特定类型的细化建议，移除“转台清空”等旧有业务名词的硬编码
-        if issue_kind == "dispatch":
-            lines.append(f"* **需澄清（多个流程同时发生时怎么处理）**：")
-            if dup_kind_in_top3:
-                lines.append(
-                    f"  * **对题范围**：**仅**讨论本条「{meeting_title}」在 `问题描述` 中的**多流程/打断/恢复**；"
-                    f"**失败/上云/弱网/存盘**若与「调度/抢占」**不是同一件业务**，请**拆项**在「异常/退路」类澄清，勿混在一条里。"
-                )
-            lines.append(f"  * **谁优先**：明确多个流程、任务或模式同时触发时，最终谁先执行，谁可以打断谁。")
-            lines.append(f"  * **被打断后怎么办**：明确被打断的流程是继续、重来、跳过，还是回到原来的主流程。")
-            lines.append(f"* **验收标准 (AC)**：多个流程同时发生时，系统必须始终给出同一种处理结果；PRD 需要明确先后顺序和被打断后的处理方式。")
-        elif issue_kind == "exception":
-            lines.append(f"* **需澄清（失败了怎么办）**：")
-            if dup_kind_in_top3:
-                lines.append(
-                    f"  * **对题范围**：**仅**讨论本条「{meeting_title}」的**错误路径、提示与可重试**；**不要**把「**谁优先打断谁**」当成本条（那是**调度/并发**或**互斥规则**）。"
-                )
-            lines.append(f"  * **多久算超时**：明确等待多久还没成功，就算失败或超时。")
-            lines.append(f"  * **失败后用户看到什么**：明确失败提示、是否能重试、是回上一页还是停留当前页。")
-            lines.append(f"* **验收标准 (AC)**：失败或超时时，页面需要在明确时间内给出提示；PRD 需要写清楚失败后的处理动作和用户下一步。")
-        elif issue_kind == "concurrency":
-            lines.append(f"* **需澄清（多人或多次同时操作时怎么处理）**：")
-            if dup_kind_in_top3:
-                lines.append(
-                    f"  * **对题范围**：**仅**讨论本条「{meeting_title}」的**连点/多请求/覆盖**；**互斥/入口打架**在「**互斥业务规则**」与「**多流程调度**」中另列，勿在一条里**混写**两种性质。"
-                )
-            lines.append(f"  * **谁说了算**：如果同一个动作被连续点击，或多人同时发起操作，最终是按第一次、最后一次，还是排队处理，PRD 里要写清楚。")
-            lines.append(f"  * **会不会重复生效**：要明确哪些操作只能成功一次，避免用户多点几次后出现重复执行、结果互相覆盖，或者页面和后台结果对不上。")
-            lines.append(f"* **验收标准 (AC)**：同一操作连续触发时只能生效一次；多人同时操作时系统结果必须稳定一致；PRD 必须明确冲突时谁优先、失败后页面怎么提示。")
-        elif issue_kind == "state":
-            lines.append(f"* **需澄清（中途退出或切换后系统回到哪里）**：")
-            if dup_kind_in_top3:
-                lines.append(
-                    f"  * **对题范围**：**仅**讨论本条「{meeting_title}」的**退出/重进/清屏/终态**；与**失败/上传/上云**类澄清**分开写**，避免**成功路径外显**和**断线退路**在 PRD 里**混成同一句**。"
-                )
-            lines.append(f"  * **退出后回到哪里**：明确用户退出、中断、异常结束后，系统应该停在哪个状态。")
-            lines.append(f"  * **重新进入时看到什么**：明确再次进入时是继续之前的流程、回到初始页，还是展示失败结果。")
-            lines.append(f"* **验收标准 (AC)**：退出、中断、重进后系统状态必须可预期；PRD 需要明确每种情况下页面展示和最终落点。")
-        elif issue_kind == "conflict":
-            lines.append(f"* **需澄清（互斥规则如何裁决与提示）**：")
-            if dup_kind_in_top3:
-                lines.append(
-                    f"  * **对题范围**：**仅**讨论本条「{meeting_title}」的**两规则/两入口**谁先生效、如何提示；**不**用本条替代「**失败/超时/存盘/上云**」题（那属于**失败退路**；**多流程打断**在**调度**或**并发**条）。"
-                )
-            lines.append(
-                f"  * **优先级与否决权**：当手动/全局状态与某条业务「自动执行」规则冲突时，以谁为准；「手动关」等是否对自动规则拥有否决权。"
-            )
-            lines.append(
-                f"  * **提示口径与阻断**：在无法同时满足时，是阻断主流程、弹窗二次确认、还是改引导语（如「需先开启/关闭 X 才能继续」）。"
-            )
-            lines.append(
-                f"  * **可见一致**：涉及**上云/外显/启停/计费/敏感外显**等，需写清各端/各入口的**同一句产品结论**，避免一入口一套说法。"
-            )
-            lines.append(
-                f"* **验收标准 (AC)**：在明确「冲突条件」下，**所有相关入口**裁决一致、用户可解释；对**敏感能力**（如**启停、上云/外显**）不得**静默**与用户预期相反。"
-            )
-        elif issue_kind == "security":
-            lines.append(
-                f"* **需澄清（外显/外链/扫码/取回：谁能用、失效应提示什么）**："
-            )
-            lines.append(
-                f"  * **谁可外显/取回**：在账号/设备/会话/组织/房间等隔离维度，谁可见入口、谁可拉取或展示、访客与会员是否分链。"
-            )
-            lines.append(
-                f"  * **码/链/资源生命周期**：二维码/短链/深链/文件的**有效时长、重放、续期、撤销、一次有效**，以及**云侧/本地资源不存在、生成失败、丢失**时分别的提示与退路。"
-            )
-            if dup_kind_in_top3:
-                lines.append(
-                    f"  * **对题范围**：**仅**收敛本条在「**有外显/外链/扫码/取回入口**」的专项；**主路径/存盘/上云/通用**失败与重试的通用题仍在「**异常分支与失败退路**」中闭环，**勿**在评审中混成同一句，避免**看似两条实则一句**的假象。"
-                )
-            lines.append(
-                f"  * **可观测/审计/对账**：未授权、已过期、被重放、越权、弱网/超时/失败时，**分别**在 PRD 中写清**错误态、可重试条件**与**日志/埋点/客服可用字段**。"
-            )
-            lines.append(
-                f"* **验收标准 (AC)**：在「未授权/无资源/已过期/越权/弱网/超时」下，**不得**出现**无任何提示**却使用户**误以为已外显/已取回/已保存成功**的情况；**提示与可重试**在 PRD 中可联调、可拍板、可写用例验收。"
-            )
-        elif "矛盾" in name or "冲突" in name or "歧义" in name:
-            lines.append(f"* **需澄清（请选择方案）**：")
-            lines.append(f"  * **方案 A（严格阻断）**：执行严格的条件检查，不满足时直接阻断当前流程并给出错误提示，保证数据与状态绝对一致。")
-            lines.append(f"  * **方案 B（兼容降级）**：跳过或静默处理冲突点，优先保证用户的核心主流程继续，不强行中断。")
-            lines.append(f"  * **要求**：请在 24 小时内选定一种模式并更新 PRD。")
-            lines.append(f"* **验收标准 (AC)**：明确触发冲突时的 UI 提示与兜底行为（如“阻断时弹窗提示 2s”）。")
-        elif "异常" in name or "降级" in name or "防御" in name or "超时" in name or "断开" in name:
-            lines.append(f"* **需澄清（防御性设计要求）**：")
-            lines.append(f"  * **兜底方案**：请定义当接口超时或依赖服务不可用时的降级策略（如本地暂存后自动重试）。")
-            lines.append(f"  * **异常提示**：明确前端错误文案和交互（重试按钮或自动消失）。")
-            lines.append(f"* **验收标准 (AC)**：断网/超时场景下，异常提示必须在 2s 内出现；恢复后成功率 ≥99.5%。")
-        elif "权限" in name or "越权" in name or "鉴权" in name or "泄露" in name:
-            lines.append(f"* **需澄清（安全与权限红线）**：")
-            lines.append(f"  * **访问鉴权**：明确跨设备/跨账号/越权访问时的拦截策略。")
-            lines.append(f"  * **时效管理**：明确敏感凭证/会话/链接的有效期（如 2 小时失效或单次有效）。")
-            lines.append(f"* **验收标准 (AC)**：越权访问 100% 拦截；过期链接点击直接跳转失效页。")
-        elif "状态" in name or "开关" in name or "竞争" in name or "并发" in name:
-            lines.append(f"* **需澄清（状态机与生效时机）**：")
-            lines.append(f"  * **生效边界**：明确全局状态或配置改变时，对“已在进行中”任务的干预与打断策略。")
-            lines.append(f"  * **数据一致**：明确前端展示状态与服务端实际状态的对账与同步机制。")
-            lines.append(f"* **验收标准 (AC)**：高频并发或中途切状态不引发进程 Crash；端云状态最终一致性达 100%。")
-        else:
-            lines.append(f"* **需澄清**：{sug}")
-            lines.append(f"* **验收标准 (AC)**：请明确“什么样才算成功/通过”的具体量化指标（如时长、成功率）。")
-        
-        lines.append("")
-    
-    lines.append("---")
+    def _decision_when(kind: str) -> str:
+        mapping = {
+            "conflict": "当同一动作同时受多个入口或规则控制时",
+            "dispatch": "当多个流程或任务同时触发、互相打断时",
+            "exception": "当主路径失败、超时、弱网或依赖不可用时",
+            "concurrency": "当同一能力被重复点击或多人同时触发时",
+            "state": "当用户退出、重进、切后台或异常中断时",
+            "security": "当用户通过扫码、外链、列表或文件取回资源时",
+        }
+        return mapping.get(kind, "当关键规则、范围或成功标准未写清时")
+
+    def _decision_options(kind: str) -> Tuple[str, str, str, str]:
+        mapping = {
+            "conflict": (
+                "手动开关优先，自动规则仅在未手动干预时生效",
+                "自动规则优先，命中场景时强制覆盖当前开关",
+                "按场景分域：总开关控全局，局部开关仅控当前会话",
+                "A",
+            ),
+            "dispatch": (
+                "当前主流程优先，被打断项排队恢复",
+                "新触发流程抢占，旧流程中止",
+                "按流程类型分层：同类串行，异类可并行",
+                "A",
+            ),
+            "exception": (
+                "失败即阻断并提示，允许用户显式重试",
+                "本地暂存并后台重试，前台展示处理中",
+                "静默降级继续主流程，结果异步补偿",
+                "A",
+            ),
+            "concurrency": (
+                "首次请求生效，后续重复请求忽略",
+                "最后一次请求生效，前序请求撤销",
+                "全部进入队列串行执行",
+                "C",
+            ),
+            "state": (
+                "中断后回初始态并清理临时状态",
+                "中断后保留上下文，重进自动续做",
+                "中断后进入恢复确认页，由用户选择继续或放弃",
+                "C",
+            ),
+            "security": (
+                "仅资源拥有者可访问，码/链短时且一次有效",
+                "登录态同会话可访问，超时后失效",
+                "可公开访问，但仅暴露脱敏信息与受限动作",
+                "A",
+            ),
+        }
+        return mapping.get(kind, ("严格阻断", "兼容降级", "人工确认", "A"))
+
+    def _qa_when(kind: str) -> str:
+        mapping = {
+            "conflict": "冲突条件命中时",
+            "dispatch": "多流程同时发生或互相打断时",
+            "exception": "依赖失败、超时、弱网或重试时",
+            "concurrency": "重复点击或多人并发时",
+            "state": "退出、重进、切后台或中断恢复时",
+            "security": "未授权、已过期、无资源或越权访问时",
+        }
+        return mapping.get(kind, "关键规则被触发时")
+
+    def _qa_then(kind: str) -> str:
+        mapping = {
+            "conflict": "所有入口裁决一致，提示口径与最终结果一致，并能看到 effective_rule。",
+            "dispatch": "执行顺序、打断结果与恢复动作唯一且可复现。",
+            "exception": "在明确时限内给出错误态或处理中提示，可重试路径唯一。",
+            "concurrency": "结果只按既定顺序生效一次，不出现重复执行或相互覆盖。",
+            "state": "重进后的状态落点唯一，页面外显与真实状态一致。",
+            "security": "未授权/过期/无资源时明确拦截并提示，不能越权成功。",
+        }
+        return mapping.get(kind, "成功、失败与提示口径可量化、可复现。")
+
+    def _qa_observable(kind: str) -> str:
+        mapping = {
+            "conflict": "effective_rule、decision_source、user_hint",
+            "dispatch": "active_flow、preempt_source、recovery_action",
+            "exception": "error_code、retry_count、timeout_ms",
+            "concurrency": "request_id、idempotency_key、effective_request",
+            "state": "state_before、state_after、resume_policy",
+            "security": "auth_result、token_status、expire_at",
+        }
+        return mapping.get(kind, "result_status、error_code")
+
+    def _contract_fields(kind: str) -> str:
+        mapping = {
+            "conflict": "priority_matrix、effective_switch、decision_source、user_hint",
+            "dispatch": "flow_type、preempt_policy、resume_action、target_state",
+            "exception": "status_enum、error_code、timeout_ms、retry_policy",
+            "concurrency": "request_id、idempotency_key、queue_policy、result_version",
+            "state": "state_enum、resume_policy、terminal_state、rollback_action",
+            "security": "owner_id、token_status、expire_at、resource_scope、error_code",
+        }
+        return mapping.get(kind, "status_enum、success_flag、error_code")
+
+    def _contract_state_req(kind: str) -> str:
+        mapping = {
+            "conflict": "需定义唯一裁决函数，避免多端各算各的。",
+            "dispatch": "需定义打断、恢复、放弃三种状态机转移。",
+            "exception": "需定义失败终态、重试次数与补偿幂等。",
+            "concurrency": "需定义并发互斥、覆盖或排队规则。",
+            "state": "需定义退出、重进、切后台后的唯一落点。",
+            "security": "需定义鉴权状态、失效状态与重放拦截。",
+        }
+        return mapping.get(kind, "需定义终态与状态转移口径。")
+
+    def _contract_retry_req(kind: str) -> str:
+        mapping = {
+            "conflict": "冲突时给出显式提示；不要静默改写结果。",
+            "dispatch": "被打断后是立即恢复、延迟恢复还是放弃，需写清。",
+            "exception": "需定义超时阈值、重试次数与降级策略。",
+            "concurrency": "重复请求返回策略需稳定，超时后不得重复生效。",
+            "state": "恢复失败后的回退与兜底提示需明确。",
+            "security": "失效、越权、资源不存在时需有统一错误码与提示。",
+        }
+        return mapping.get(kind, "需定义超时、失败和降级策略。")
+
+    def _contract_lifecycle_req(kind: str) -> str:
+        mapping = {
+            "conflict": "需明确规则变更后何时生效、是否影响进行中任务。",
+            "dispatch": "需明确被打断任务的保留、恢复与清理时机。",
+            "exception": "需明确失败后本地缓存、补偿上传与清理规则。",
+            "concurrency": "需明确重复结果是否覆盖、保留或去重。",
+            "state": "需明确退出前中间态保存、重进后保留与清空规则。",
+            "security": "需明确资源生成、访问、失效、撤销与审计保留期。",
+        }
+        return mapping.get(kind, "需明确保存、保留、清理与对账规则。")
+
+    def _module_label(issue: Dict[str, Any]) -> str:
+        modules = [str(x) for x in _issue_modules(issue) if str(x or "").strip()]
+        if modules:
+            return " / ".join(modules[:2])
+        return _cell(issue.get("module") or "跨模块", 40)
+
+    def _overall_status() -> Tuple[str, str]:
+        if p0 > 0:
+            return "FAIL", "存在 P0 级阻塞项，未补齐前不建议进入开发。"
+        if top3:
+            blocked_count = 0
+            for issue in top3:
+                quote, _, gap = _quote_meta(issue)
+                if gap != "—" or str(issue.get("risk_level") or "").upper() == "P1":
+                    blocked_count += 1
+            if blocked_count > 0 or score < 7.0:
+                return "BLOCKED", "存在待拍板或待补证据项，建议先完成评审裁决再开工。"
+        return "PASS", "当前未发现会直接阻断开工的核心决策项，可按既定口径推进。"
+
+    status, status_reason = _overall_status()
+    lines = []
+    lines.append("# 第二部分：L2 产品决策文件（面向 PM/QA/Dev，本地生成）")
+    lines.append("> 目的：把问题收敛成可拍板、可拆任务、可验收的结构化产物；执行缺陷与逐条锚点仍以 L3 为准。")
     lines.append("")
-    lines.append("### 💡 建议同步方式与开工红线清单")
-    lines.append("你可以直接对 PM 摊牌：")
-    summary_phrases = [_l2_kind_summary_phrase(k) for k in top_kinds[:3]] or ["关键规则仍有缺口"]
-    lines.append(f"> “这份 PRD 目前的成熟度只有 {round(score, 1)} 分。核心问题在于：**{'、'.join(summary_phrases)}**。")
-    lines.append(f"> 我需要你针对 L2 报告里的待确认清单，在一周内补齐：")
-    action_items = [_l2_kind_action_item(k) for k in _l2_expand_kinds(top_kinds, limit=3)]
-    lines.append(f"> 1. {action_items[0]}")
-    lines.append(f"> 2. {action_items[1]}")
-    lines.append(f"> 3. {action_items[2]}”")
-    lines.append("")
-    lines.append("**《项目启动准入/拨备清单》（达不到不准开工）：**")
+    lines.append("## 一、总体结论")
+    lines.append(f"- 开工判定：**{status}**")
+    lines.append(f"- 质量评分：**{round(score, 1)}/10**；问题分布：**P0 {p0} / P1 {p1} / P2 {p2}**")
+    lines.append(f"- 主要短板：**{focus_text}**；当前判断：{feel}")
+    lines.append(f"- 判定原因：{status_reason}")
     redline_items = [_l2_kind_redline_item(k) for k in _l2_expand_kinds(top_kinds, limit=3)]
-    lines.append(f"1. {redline_items[0]}")
-    lines.append(f"2. {redline_items[1]}")
-    lines.append(f"3. {redline_items[2]}")
+    lines.append("- 开工红线 1：" + redline_items[0])
+    lines.append("- 开工红线 2：" + redline_items[1])
+    lines.append("- 开工红线 3：" + redline_items[2])
     lines.append("")
     
+    lines.append("## 二、决策表（Decision Table，Owner=PM）")
+    lines.append("")
+    lines.append("| decision_id | 冲突/口径点 | 触发条件（When） | 选项A | 选项B | 选项C | 推荐选项 | 用户影响 | 实现影响 | 需要补的证据/原文锚点 | Owner | 状态 |")
+    lines.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
+    if not top3:
+        lines.append("| D0 | 本轮未抽到需拍板的核心问题 | — | — | — | — | — | — | — | 建议先检查 Stage3 输出或补充锚点 | PM | OPEN |")
+    for idx, issue in enumerate(top3, start=1):
+        kind = _build_l2_issue_kind(issue)
+        # L2 表格展示口径：risk_level 必须与 Stage3 母表一致，避免与“问题分布”统计打架。
+        title = _build_l2_issue_title(issue)
+        option_a, option_b, option_c, recommended = _decision_options(kind)
+        quote, _, gap = _quote_meta(issue)
+        decision_status = (
+            "BLOCKED"
+            if gap != "—" or str(issue.get("risk_level") or "").upper() == "P0"
+            else "OPEN"
+        )
+        risk_text = _cell(_build_l2_risk_analysis(issue, prefix_scope=False), 90)
+        try:
+            sd = _l3_pick_seed_issue(issue, defects) if defects else issue
+            if not isinstance(sd, dict):
+                sd = issue
+            user_scene = _cell(_l2_pm_on_site(issue, sd, kind), 80)
+        except Exception:
+            user_scene = "用户在关键路径上会看到结果不一致或不知道下一步怎么做。"
+        evidence_cell = quote if gap == "—" else f"{quote}；{gap}"
+        lines.append(
+            f"| D{idx} | {_cell(title, 48)} | {_cell(_decision_when(kind), 36)} | {_cell(option_a, 48)} | {_cell(option_b, 48)} | {_cell(option_c, 48)} | {recommended} | {_cell(user_scene, 48)} | {risk_text} | {_cell(evidence_cell, 64)} | PM | {decision_status} |"
+        )
+    lines.append("")
+
+    lines.append("## 三、验收表（AC Table，Owner=QA）")
+    lines.append("")
+    lines.append("| ac_id | 场景名 | Given | When | Then | 优先级 | 最小观测字段 | 依赖/前置条件 | Owner | 证据等级 |")
+    lines.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
+    if not top3:
+        lines.append("| AC0 | 本轮无可生成 AC 的核心问题 | — | — | — | P2 | result_status | 补充 Stage3 问题 | QA | derived |")
+    for idx, issue in enumerate(top3, start=1):
+        kind = _build_l2_issue_kind(issue)
+        # 与决策表保持一致：AC 标题与优先级均以 Stage3 risk_level 为准
+        title = _build_l2_issue_title(issue)
+        quote, evidence_level, _ = _quote_meta(issue)
+        priority = str(issue.get("risk_level") or "P2").upper()
+        given = "已满足主流程前置条件，且相关配置、入口或依赖可触发该场景。"
+        when = _qa_when(kind)
+        then = _qa_then(kind)
+        depends = quote if evidence_level == "quote" else "需先补原文锚点或明确 PM 裁决结论。"
+        lines.append(
+            f"| AC{idx} | {_cell(title, 42)} | {_cell(given, 50)} | {_cell(when, 34)} | {_cell(then, 64)} | {priority} | {_cell(_qa_observable(kind), 42)} | {_cell(depends, 52)} | QA | {evidence_level} |"
+        )
+    lines.append("")
+    
+    lines.append("## 四、实现契约表（Contract Table，Owner=Dev）")
+    lines.append("")
+    lines.append("| contract_id | 模块/子系统 | 必须定义的字段/枚举/错误码 | 状态机/幂等/并发裁决要求 | 重试/超时/降级策略 | 数据生命周期（保存/上传/清空/保留） | Owner | 证据缺口 |")
+    lines.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
+    if not top3:
+        lines.append("| C0 | 跨模块 | status_enum、error_code | 需补状态机 | 需补降级策略 | 需补生命周期 | Dev | 补 L3 或原文锚点 |")
+    for idx, issue in enumerate(top3, start=1):
+        kind = _build_l2_issue_kind(issue)
+        quote, _, gap = _quote_meta(issue)
+        lines.append(
+            f"| C{idx} | {_cell(_module_label(issue), 28)} | {_cell(_contract_fields(kind), 48)} | {_cell(_contract_state_req(kind), 48)} | {_cell(_contract_retry_req(kind), 48)} | {_cell(_contract_lifecycle_req(kind), 48)} | Dev | {_cell(gap if gap != '—' else quote, 58)} |"
+        )
+    lines.append("")
     return "\n".join(lines).strip()
 
 
@@ -4545,6 +6580,7 @@ def _render_stage4_markdown(stage3_json: Dict[str, Any]) -> str:
     coverage = (stage3_json or {}).get("coverage") or {}
     if not isinstance(defects_data, list):
         defects_data = []
+    defects_data = _dedupe_defects_for_l3_matrix(defects_data, limit=120)
     score = summary.get("quality_score", 0)
     try:
         score = float(score) if score is not None else 0
@@ -4633,7 +6669,16 @@ def _render_stage4_markdown(stage3_json: Dict[str, Any]) -> str:
         quotes = _l3_collect_issue_quotes(issue, related_defects, stage1_snapshot=stage1_snapshot, limit=3)
         if not quotes:
             quotes = _fallback_issue_quotes(issue, seed, limit=2)
-        level = str(issue.get("risk_level") or seed.get("risk_level") or "P2").upper()
+        # 口径锁死：展示等级以 Ground Truth（缺陷母表）为准，避免 merged_issues 的风险等级导致
+        # “风险计数 P0=1，但矩阵出现多个 P0” 的自相矛盾。
+        if related_defects:
+            best = sorted(
+                [d for d in related_defects if isinstance(d, dict)],
+                key=lambda x: _risk_rank_local(str(x.get("risk_level") or "P2")),
+            )[0]
+            level = str(best.get("risk_level") or "P2").upper()
+        else:
+            level = str(seed.get("risk_level") or issue.get("risk_level") or "P2").upper()
         problem = _l3_clean_problem_text(seed.get("description") or issue.get("description"))
         module_label = _l3_issue_module_label(seed).replace("|", " ")
         fix_items = _l3_fix_items(seed)
@@ -4662,13 +6707,16 @@ def _render_stage4_markdown(stage3_json: Dict[str, Any]) -> str:
     issue_cards = _l3_dedupe_issue_cards(issue_cards)
     issue_cards_matrix = _l3_cluster_p1_by_identical_title(issue_cards)
     summary_cards = issue_cards_matrix if issue_cards_matrix else issue_cards
+    risk_clusters = _l3_build_risk_clusters(summary_cards, limit=6)
     if issue_cards:
         main_problem, one_liner_override, top3_override = _l3_summary_from_cards(summary_cards, defects_data)
     else:
         main_problem = str(summary.get("main_problem", "【PRD未说明】"))
         one_liner_override = str(core_summary.get("one_liner", "【PRD未说明】"))
         top3_override = _ensure_list(core_summary.get("top3"))
-    p0_issue_count = sum(1 for c in issue_cards if str(c.get("level") or "").upper() == "P0")
+    p0_issue_count = sum(1 for d in defects_data if str(d.get("risk_level") or "").upper() == "P0")
+    p1_issue_count = sum(1 for d in defects_data if str(d.get("risk_level") or "").upper() == "P1")
+    p2_issue_count = sum(1 for d in defects_data if str(d.get("risk_level") or "").upper() == "P2")
     if p0_issue_count or issue_cards:
         report_title = re.sub(r"P0级\d+项", f"P0级{p0_issue_count}项", str(report_title))
     lines = [f"# {report_title}", ""]
@@ -4682,6 +6730,7 @@ def _render_stage4_markdown(stage3_json: Dict[str, Any]) -> str:
     lines.extend(["## 一、总体结论", ""])
     lines.append(f"- 审计结论：{main_problem}")
     lines.append(f"- 综合质量评分：{score}/10（基于七维评分）")
+    lines.append(f"- 风险计数（Ground Truth）：P0 {p0_issue_count} / P1 {p1_issue_count} / P2 {p2_issue_count}（合计 {len(defects_data)}）")
     complexity = summary.get("complexity") or {}
     if isinstance(complexity, dict) and complexity:
         c_score = complexity.get("score")
@@ -4758,7 +6807,22 @@ def _render_stage4_markdown(stage3_json: Dict[str, Any]) -> str:
             covered = "是" if (item or {}).get("covered") else "否"
             lines.append(f"| 边界 | {name or '【PRD未说明】'} | {covered} |")
         lines.append("")
-    lines.extend(["", "## 二、核心问题矩阵（合并版）", ""])
+    lines.extend(["", "## 二、风险簇矩阵（模块归并）", ""])
+    if risk_clusters:
+        lines.append("| 风险簇 | 最高风险 | 归并缺陷数 | 代表问题 | 必补动作（可直接回写 PRD） |")
+        lines.append("| :--- | :--- | :--- | :--- | :--- |")
+        for c in risk_clusters:
+            topic = str(c.get("topic") or "generic")
+            module = str(c.get("module") or "跨模块")
+            cluster_name = f"{module} · {topic}"
+            title = " / ".join([str(x) for x in (c.get("titles") or [])[:2]]) or "关键规则缺口"
+            seed = c.get("seed") if isinstance(c.get("seed"), dict) else {}
+            action = _l3_if_then_action(seed)
+            lines.append(
+                f"| {cluster_name} | {str(c.get('level') or 'P2').upper()} | {int(c.get('count') or 0)} | {title.replace('|', ' ')} | {action.replace('|', ' ')} |"
+            )
+        lines.append("")
+    lines.extend(["", "## 三、核心问题矩阵（合并版）", ""])
     if issue_cards_matrix:
         lines.append("| 风险等级 | 核心问题 | PRD原文依据 | 问题描述 | 现场翻车（业务视角） | 风险分析 | 审计建议 |")
         lines.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
@@ -4773,17 +6837,19 @@ def _render_stage4_markdown(stage3_json: Dict[str, Any]) -> str:
                 missing_topic = re.sub(r"\s+", " ", missing_topic)[:32]
                 evidence = f"【PRD未说明：{missing_topic}（建议补写）】"
             suggestion_text = "；".join(card["fix_items"][:2]) if card["fix_items"] else _build_core_issue_rewrite(card["seed"])
+            actionable = _l3_if_then_action(card["seed"] if isinstance(card.get("seed"), dict) else {})
+            suggestion_text = (suggestion_text + "；" + actionable) if actionable else suggestion_text
             lines.append(
                 f"| {card['level']} | **{card['title']}** | {evidence} | {card['problem']} | {card['scene']} | {card['risk_reason']} | {suggestion_text.replace('|', ' ')} |"
             )
         lines.append("")
     if defects_data:
-        lines.extend(["", "## 三、详细漏洞矩阵（研发/测试，逐条去重）", ""])
+        lines.extend(["", "## 四、详细漏洞矩阵（研发/测试，逐条去重）", ""])
         lines.append("> 与「二、核心问题矩阵（合并类）」互补；本表**一行一条缺陷**（经锚点+描述前若干字去重），便于**设计/用例/任务**对齐。必补可来自 `suggestion` 或系统归纳。")
         lines.append("")
         lines.append("| 风险等级 | 问题分类 | 涉及锚点 | 缺陷描述 | 必补动作 |")
         lines.append("| :--- | :--- | :--- | :--- | :--- |")
-        for d in _dedupe_defects_for_l3_matrix(defects_data, limit=60):
+        for d in defects_data[:60]:
             lv_ = str(d.get("risk_level") or "P2").upper()
             typ_ = str(d.get("type") or "【未分类】").replace("|", " ")
             rid_ = str(d.get("id") or "").strip()
@@ -4795,7 +6861,9 @@ def _render_stage4_markdown(stage3_json: Dict[str, Any]) -> str:
             if not sug_ and isinstance(d, dict):
                 fi_ = _l3_fix_items(d)
                 sug_ = "；".join([str(x) for x in fi_[:2]]) if fi_ else _build_core_issue_rewrite(d)
-            lines.append(f"| {lv_} | {typ_} | {anch_} | {desc_} | {str(sug_ or '【见 L2/L3 建议列】')[:300]} |")
+            if_then = _l3_if_then_action(d)
+            final_action = f"{sug_}；{if_then}" if if_then else sug_
+            lines.append(f"| {lv_} | {typ_} | {anch_} | {desc_} | {str(final_action or '【见 L2/L3 建议列】')[:300]} |")
         lines.append("")
     lines.extend(["", "### 详细漏洞清单（评委展示版）", ""])
     stats = (stage3_json or {}).get("scan_stats") or {}
@@ -4866,7 +6934,7 @@ def _render_stage4_markdown(stage3_json: Dict[str, Any]) -> str:
     else:
         lines.append("- 未发现漏洞")
         lines.append("")
-    lines.extend(["", "## 四、待确认清单", ""])
+    lines.extend(["", "## 五、待确认清单", ""])
     lines.append("| 优先级 | 待确认项 | 紧急程度 | 涉及模块 | 具体问题 | 影响 |")
     lines.append("| :--- | :--- | :--- | :--- | :--- | :--- |")
     pending_markers = ["待确认", "【待确认】", "【PRD未说明】", "未说明", "未定义", "不明确", "模糊", "歧义", "缺失", "未覆盖", "未给出", "未提供"]
@@ -5189,106 +7257,165 @@ def run_prd_audit_stream(
             
         return "\n".join(lines).strip()
 
-    report_shift_left = _build_shift_left_local_report(stage3_output)
-
-    # 优化点 2：将下游分析引擎“异步并行化”
-    import concurrent.futures
-    
-    def _run_test_matrix():
-        try:
-            from .test_matrix_generator import TestMatrixGenerator, evaluate_test_matrix
-            tm = TestMatrixGenerator(stage1_output, stage2_output).generate()
-            tq = evaluate_test_matrix(tm, stage1_output)
-            return {"test_matrix": tm, "stage4_quality": tq}
-        except Exception as e:
-            logger.warning("Stage4 test matrix failed: %s", e)
-            return {"test_matrix": {}, "stage4_quality": {}}
-
-    def _run_diagrams():
-        try:
-            from .diagram_generator import DiagramGenerator, evaluate_diagrams
-            d = DiagramGenerator(stage1_output).generate_all()
-            dq = evaluate_diagrams(d, stage1_output)
-            return {"diagrams": d, "stage5_quality": dq}
-        except Exception as e:
-            logger.warning("Stage5 diagrams failed: %s", e)
-            return {"diagrams": {}, "stage5_quality": {}}
-
-    def _run_kg():
-        try:
-            from .kg_inference import infer_kg
-            return {"kg": infer_kg(defects_for_flag if isinstance(defects_for_flag, list) else [], max_root_causes=2, max_chains=3)}
-        except Exception as e:
-            logger.warning("Stage2.5 kg inference failed: %s", e)
-            return {"kg": {}}
-
-    def _run_outline_engine():
-        try:
-            return {"outline_engine": run_outline_engine(content, stage1_output if isinstance(stage1_output, dict) else {}, stage2_output if isinstance(stage2_output, dict) else {})}
-        except Exception as e:
-            logger.warning("Stage2.2 outline engine failed: %s", e)
-            return {"outline_engine": {}}
-
-    def _run_outline_llm():
-        if local_mode:
-            return {"outline_llm": {}}
-        try:
-            from .outline_llm import run_outline_llm
-            return {"outline_llm": run_outline_llm(content, stage1_output if isinstance(stage1_output, dict) else {}, llm_config_path=llm_config_path, timeout=timeout)}
-        except Exception as e:
-            logger.warning("Stage2.2.1 outline llm failed: %s", e)
-            return {"outline_llm": {}}
-
-    def _run_shift_left():
-        if local_mode:
-            return {"shift_left": {}}
-        try:
-            # Shift Left：仅基于前 3 条核心必补洞察（L3门面），而非全量 defects，保持视角的独特性和高度浓缩
-            from .pipeline import _merge_core_issues
-            merged = _merge_core_issues(defects if isinstance(defects, list) else [])
-            return {"shift_left": run_stage2_shift_left_analysis(stage1_output if isinstance(stage1_output, dict) else {}, merged[:3], llm_config_path=llm_config_path, timeout=timeout, llm_config_override=llm_config_override)}
-        except Exception as e:
-            logger.warning("Stage2.7 shift left analysis failed: %s", e)
-            return {"shift_left": {}}
-
-    def _run_test_case_gen():
-        if local_mode:
-            return {"test_cases": []}
-        try:
-            return {"test_cases": run_test_case_generation(stage1_output if isinstance(stage1_output, dict) else {}, defects if isinstance(defects, list) else [], llm_config_path=llm_config_path, timeout=max(timeout, 150), llm_config_override=llm_config_override)}
-        except Exception as e:
-            logger.warning("Stage4 test cases failed: %s", e)
-            return {"test_cases": []}
-
-    yield _json.dumps(
-        {"type": "status", "text": "下游引擎并发执行中（测试矩阵/系统图/知识图谱/认知大纲/测试左移资产/测试用例生成）…\n"},
-        ensure_ascii=False,
-    ) + "\n"
-    
-    with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
-        f_tm = executor.submit(_run_test_matrix)
-        f_diag = executor.submit(_run_diagrams)
-        f_kg = executor.submit(_run_kg)
-        f_oe = executor.submit(_run_outline_engine)
-        f_ollm = executor.submit(_run_outline_llm)
-        f_sl = executor.submit(_run_shift_left)
-        f_tc = executor.submit(_run_test_case_gen)
-        
-        test_matrix_res = f_tm.result()
-        test_matrix = test_matrix_res.get("test_matrix", {})
-        stage4_quality = test_matrix_res.get("stage4_quality", {})
-        
-        diag_res = f_diag.result()
-        diagrams = diag_res.get("diagrams", {})
-        stage5_quality = diag_res.get("stage5_quality", {})
-        
-        kg = f_kg.result().get("kg", {})
-        outline_engine = f_oe.result().get("outline_engine", {})
-        outline_llm = f_ollm.result().get("outline_llm", {})
-        shift_left = f_sl.result().get("shift_left", {})
-        test_cases = f_tc.result().get("test_cases", [])
-
+    report_shift_left = ""
+    test_matrix = {}
+    stage4_quality = {}
+    diagrams = {}
+    stage5_quality = {}
+    kg = {}
+    outline_engine = {}
+    outline_llm = {}
+    shift_left = {}
+    test_cases = []
     platform_impact = {}
+    dependency_analysis = {}
+    prd_quality = {}
+    test_points = {}
+    validation_outline = {}
+    risk_prediction = {}
+    understanding_cards = {}
+    architecture_scan = {}
+    release_gate = {}
+
+    # Defaults to keep later stages safe even when skipping downstream assets
+    test_matrix, stage4_quality = {}, {}
+    diagrams, stage5_quality = {}, {}
+    kg = {}
+    outline_engine, outline_llm = {}, {}
+    shift_left = {}
+    test_cases = []
+
+    if PRD_ANALYSIS_ONLY_MODE:
+        # 纯 PRD 分析模式也需要“发布门禁”结论（它属于治理/决策输出，不属于测试资产）。
+        # 此处用 Stage3 的质量分做一个最小可用的质量信号，避免前端面板显示评分0/P0=0的假象。
+        try:
+            q10 = 0.0
+            if isinstance(stage3_output, dict):
+                s = stage3_output.get("summary") if isinstance(stage3_output.get("summary"), dict) else {}
+                try:
+                    q10 = float(s.get("quality_score") or 0.0)
+                except (TypeError, ValueError):
+                    q10 = 0.0
+            prd_quality_min = {"overall_score": max(0.0, min(100.0, q10 * 10.0))}
+            release_gate = run_release_gate(
+                stage2_output=stage2_output if isinstance(stage2_output, dict) else {},
+                platform_impact=platform_impact if isinstance(platform_impact, dict) else {},
+                prd_quality=prd_quality_min,
+            )
+        except Exception as e:
+            logger.warning("analysis-only release gate failed: %s", e)
+        yield _json.dumps(
+            {"type": "status", "text": "纯PRD分析模式：已跳过测试与扩展资产生成。\n"},
+            ensure_ascii=False,
+        ) + "\n"
+    else:
+        report_shift_left = _build_shift_left_local_report(stage3_output)
+
+        # 优化点 2：将下游分析引擎“异步并行化”
+        import concurrent.futures
+    
+        def _run_test_matrix():
+            try:
+                from .test_matrix_generator import TestMatrixGenerator, evaluate_test_matrix
+                tm = TestMatrixGenerator(stage1_output, stage2_output).generate()
+                tq = evaluate_test_matrix(tm, stage1_output)
+                return {"test_matrix": tm, "stage4_quality": tq}
+            except Exception as e:
+                logger.warning("Stage4 test matrix failed: %s", e)
+                return {"test_matrix": {}, "stage4_quality": {}}
+
+        def _run_diagrams():
+            try:
+                from .diagram_generator import DiagramGenerator, evaluate_diagrams
+                d = DiagramGenerator(stage1_output).generate_all()
+                dq = evaluate_diagrams(d, stage1_output)
+                return {"diagrams": d, "stage5_quality": dq}
+            except Exception as e:
+                logger.warning("Stage5 diagrams failed: %s", e)
+                return {"diagrams": {}, "stage5_quality": {}}
+
+        def _run_kg():
+            try:
+                from .kg_inference import infer_kg
+                return {"kg": infer_kg(defects_for_flag if isinstance(defects_for_flag, list) else [], max_root_causes=2, max_chains=3)}
+            except Exception as e:
+                logger.warning("Stage2.5 kg inference failed: %s", e)
+                return {"kg": {}}
+
+        def _run_outline_engine():
+            try:
+                return {"outline_engine": run_outline_engine(content, stage1_output if isinstance(stage1_output, dict) else {}, stage2_output if isinstance(stage2_output, dict) else {})}
+            except Exception as e:
+                logger.warning("Stage2.2 outline engine failed: %s", e)
+                return {"outline_engine": {}}
+
+        def _run_outline_llm():
+            if local_mode:
+                return {"outline_llm": {}}
+            try:
+                from .outline_llm import run_outline_llm
+                return {"outline_llm": run_outline_llm(content, stage1_output if isinstance(stage1_output, dict) else {}, llm_config_path=llm_config_path, timeout=timeout)}
+            except Exception as e:
+                logger.warning("Stage2.2.1 outline llm failed: %s", e)
+                return {"outline_llm": {}}
+
+        def _run_shift_left():
+            if local_mode:
+                return {"shift_left": {}}
+            try:
+                # Shift Left：仅基于前 3 条核心必补洞察（L3门面），而非全量 defects，保持视角的独特性和高度浓缩
+                from .pipeline import _merge_core_issues
+                merged = _merge_core_issues(defects if isinstance(defects, list) else [])
+                return {"shift_left": run_stage2_shift_left_analysis(stage1_output if isinstance(stage1_output, dict) else {}, merged[:3], llm_config_path=llm_config_path, timeout=timeout, llm_config_override=llm_config_override)}
+            except Exception as e:
+                logger.warning("Stage2.7 shift left analysis failed: %s", e)
+                return {"shift_left": {}}
+
+        def _run_test_case_gen():
+            if local_mode:
+                return {"test_cases": []}
+            try:
+                return {
+                    "test_cases": run_test_case_generation(
+                        stage1_output if isinstance(stage1_output, dict) else {},
+                        defects if isinstance(defects, list) else [],
+                        llm_config_path=llm_config_path,
+                        timeout=max(timeout, 150),
+                        llm_config_override=llm_config_override,
+                    )
+                }
+            except Exception as e:
+                logger.warning("Stage4 test cases failed: %s", e)
+                return {"test_cases": []}
+
+        yield _json.dumps(
+            {"type": "status", "text": "下游引擎并发执行中（测试矩阵/系统图/知识图谱/认知大纲/测试左移资产/测试用例生成）…\n"},
+            ensure_ascii=False,
+        ) + "\n"
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
+            f_tm = executor.submit(_run_test_matrix)
+            f_diag = executor.submit(_run_diagrams)
+            f_kg = executor.submit(_run_kg)
+            f_oe = executor.submit(_run_outline_engine)
+            f_ollm = executor.submit(_run_outline_llm)
+            f_sl = executor.submit(_run_shift_left)
+            f_tc = executor.submit(_run_test_case_gen)
+
+            test_matrix_res = f_tm.result()
+            test_matrix = test_matrix_res.get("test_matrix", {})
+            stage4_quality = test_matrix_res.get("stage4_quality", {})
+
+            diag_res = f_diag.result()
+            diagrams = diag_res.get("diagrams", {})
+            stage5_quality = diag_res.get("stage5_quality", {})
+
+            kg = f_kg.result().get("kg", {})
+            outline_engine = f_oe.result().get("outline_engine", {})
+            outline_llm = f_ollm.result().get("outline_llm", {})
+            shift_left = f_sl.result().get("shift_left", {})
+            test_cases = f_tc.result().get("test_cases", [])
+
     try:
         yield _json.dumps(
             {"type": "status", "text": "Stage2.3：平台影响分析中…\n"},
@@ -5303,7 +7430,6 @@ def run_prd_audit_stream(
     except Exception as e:
         logger.warning("Stage2.3 platform impact failed: %s", e)
 
-    dependency_analysis = {}
     try:
         yield _json.dumps(
             {"type": "status", "text": "Stage2.4：需求依赖分析中…\n"},
@@ -5318,7 +7444,6 @@ def run_prd_audit_stream(
     except Exception as e:
         logger.warning("Stage2.4 dependency analysis failed: %s", e)
 
-    prd_quality = {}
     try:
         yield _json.dumps(
             {"type": "status", "text": "Stage2.6：PRD质量评分中…\n"},
@@ -5334,8 +7459,6 @@ def run_prd_audit_stream(
     except Exception as e:
         logger.warning("Stage2.6 quality engine failed: %s", e)
 
-    test_points = {}
-    validation_outline = {}
     try:
         yield _json.dumps(
             {"type": "status", "text": "Stage4.5：测试点与验证大纲生成中…\n"},
@@ -5355,7 +7478,6 @@ def run_prd_audit_stream(
     except Exception as e:
         logger.warning("Stage4.5 test points engine failed: %s", e)
 
-    risk_prediction = {}
     try:
         yield _json.dumps(
             {"type": "status", "text": "Stage4.6：风险预测中…\n"},
@@ -5371,7 +7493,6 @@ def run_prd_audit_stream(
     except Exception as e:
         logger.warning("Stage4.6 risk prediction failed: %s", e)
 
-    understanding_cards = {}
     try:
         yield _json.dumps(
             {"type": "status", "text": "Stage4.7：理解卡片生成中…\n"},
@@ -5384,8 +7505,6 @@ def run_prd_audit_stream(
     except Exception as e:
         logger.warning("Stage4.7 understanding cards failed: %s", e)
 
-    # Stage 4.9: 架构透视分析
-    architecture_scan = {}
     try:
         yield _json.dumps(
             {"type": "status", "text": "Stage4.9：架构透视分析中（功能模块/状态机/风险热力图）…\n"},
@@ -5398,7 +7517,6 @@ def run_prd_audit_stream(
     except Exception as e:
         logger.warning("Stage4.9 architecture scan failed: %s", e)
 
-    release_gate = {}
     try:
         yield _json.dumps(
             {"type": "status", "text": "Stage4.8：发布门禁决策中…\n"},
@@ -5412,7 +7530,12 @@ def run_prd_audit_stream(
     except Exception as e:
         logger.warning("Stage4.8 release gate failed: %s", e)
 
-    shared_summary = _build_shared_summary(stage1_output if isinstance(stage1_output, dict) else {}, llm_config_path=llm_config_path, llm_config_override=llm_config_override)
+    shared_summary = _build_shared_summary(
+        stage1_output if isinstance(stage1_output, dict) else {},
+        llm_config_path=llm_config_path,
+        llm_config_override=llm_config_override,
+        prd_text=content,
+    )
     reader_guide = _build_reader_guide(stage1_output if isinstance(stage1_output, dict) else {}, stage3_output if isinstance(stage3_output, dict) else {})
 
     s3_for_bundle = stage3_output if isinstance(stage3_output, dict) else {}
@@ -5422,6 +7545,59 @@ def run_prd_audit_stream(
     if not bundle_scan_meta and isinstance(stage2_output, dict):
         sm = stage2_output.get("scan_meta")
         bundle_scan_meta = sm if isinstance(sm, dict) else {}
+
+    # -------- 门禁（GATE）最小判定：只盯硬事实 + P0 --------
+    # 说明：
+    # - shared_summary.generation_mode == llm_validated 表示 “LLM 直写摘要” 且通过最小事实校验
+    # - validation_failures 仅用于告诉 PM/测试 “差在哪里”，不做二次改写
+    try:
+        p0_defects_count = sum(
+            1 for d in (bundle_defects or []) if isinstance(d, dict) and str(d.get("risk_level") or "").upper() == "P0"
+        )
+    except Exception:
+        p0_defects_count = 0
+    summary_mode = str((shared_summary or {}).get("generation_mode") or "").strip()
+    summary_failures = (shared_summary or {}).get("validation_failures") if isinstance(shared_summary, dict) else []
+    summary_failures = summary_failures if isinstance(summary_failures, list) else []
+    gate_failures: List[str] = []
+    if p0_defects_count > 0:
+        gate_failures.append(f"存在 P0 风险缺陷：{p0_defects_count} 项")
+    if summary_mode != "llm_validated":
+        gate_failures.append("全员共识摘要未通过最小事实校验（未使用 llm_validated 直写版本）")
+    for f in summary_failures[:6]:
+        fs = str(f or "").strip()
+        if fs:
+            gate_failures.append("摘要校验失败：" + fs)
+    # required_evidence：把失败项转成“补文档清单”的粗粒度提示
+    required_evidence: List[str] = []
+    for f in gate_failures:
+        if "型号缺失" in f or "范围收缩" in f:
+            required_evidence.append("补齐《目标与范围》：明确盒子型号/版本/端，并确保枚举不被缩窄。")
+        if "红线缺失" in f:
+            required_evidence.append("补齐《数据生命周期/清空规则》：清空触发条件 + 不清空例外（如转台不清空）。")
+        if "冲突缺失" in f or "优先级" in f:
+            required_evidence.append("补齐《开关优先级裁决表》：设置总开关/播控栏开关/自动规则的抢占顺序。")
+        if "P0 风险缺陷" in f:
+            required_evidence.append("逐条关闭 P0：为每条 P0 给出可验收 AC + 最小观测字段 + 锚点证据。")
+    # 去重
+    dedup_required: List[str] = []
+    seen_req = set()
+    for x in required_evidence:
+        xs = str(x or "").strip()
+        if not xs or xs in seen_req:
+            continue
+        seen_req.add(xs)
+        dedup_required.append(xs)
+    gate_result = {
+        "mode": "GATE",
+        "pass": len(gate_failures) == 0,
+        "failures": gate_failures[:12],
+        "required_evidence": dedup_required[:12],
+        "signals": {
+            "p0_defects_count": p0_defects_count,
+            "summary_generation_mode": summary_mode,
+        },
+    }
 
     # 最后一次性把三层报告 + 测试矩阵 + 系统图打包返回（前端未改前仅用 L1/L2/L3）
     guardrail = {}
@@ -5461,6 +7637,7 @@ def run_prd_audit_stream(
         "test_cases": test_cases,
         "shared_summary": shared_summary,
         "reader_guide": reader_guide,
+        "gate_result": gate_result,
         "parse_meta": {
             "blocks": stage1_output.get("blocks") if isinstance(stage1_output, dict) else [],
             "parse_quality": stage1_output.get("parse_quality") if isinstance(stage1_output, dict) else {},
@@ -5591,11 +7768,20 @@ def run_prd_audit_sync(
         logger.warning("guardrail evaluate failed: %s", e)
     try:
         from .audit_learning import save_audit_snapshot, append_incident_sample
-        shared_summary = _build_shared_summary(stage1_output if isinstance(stage1_output, dict) else {}, llm_config_path=llm_config_path, llm_config_override=llm_config_override)
+        shared_summary = _build_shared_summary(
+            stage1_output if isinstance(stage1_output, dict) else {},
+            llm_config_path=llm_config_path,
+            llm_config_override=llm_config_override,
+            prd_text=prd_text,
+        )
         reader_guide = _build_reader_guide(
             stage1_output if isinstance(stage1_output, dict) else {},
             stage3_output if isinstance(stage3_output, dict) else {},
         )
+        # 供 sync API 直接复用，避免 views 层重复调用（省 token，且保证同一轮结果一致）
+        if isinstance(stage3_output, dict):
+            stage3_output["shared_summary"] = shared_summary if isinstance(shared_summary, dict) else {}
+            stage3_output["reader_guide"] = reader_guide if isinstance(reader_guide, dict) else {}
         snapshot_id = save_audit_snapshot(
             prd_text=prd_text,
             stage1_output=stage1_output if isinstance(stage1_output, dict) else {},

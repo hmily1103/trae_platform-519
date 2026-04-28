@@ -1,0 +1,808 @@
+{% extends "prd_audit_base.html" %}
+
+{% block module_content %}
+<style>
+  .rm-layout { display: grid; grid-template-columns: 320px 1fr 360px; gap: 16px; }
+  .rm-panel { background: #fff; border: 1px solid rgba(15,23,42,.10); border-radius: 14px; box-shadow: 0 4px 18px rgba(2,6,23,.04); }
+  .rm-panel-header { padding: 12px 14px; border-bottom: 1px solid rgba(15,23,42,.08); display:flex; align-items:center; justify-content:space-between; gap: 10px;}
+  .rm-panel-body { padding: 12px 14px; }
+  .rm-agenda-item { border: 1px solid rgba(15,23,42,.10); border-radius: 12px; padding: 10px 12px; cursor: pointer; transition: .15s; }
+  .rm-agenda-item:hover { border-color: rgba(59,130,246,.45); box-shadow: 0 0 0 3px rgba(59,130,246,.10); }
+  .rm-agenda-item.active { border-color: rgba(59,130,246,.7); box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .rm-chip { display:inline-flex; align-items:center; gap:6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid rgba(15,23,42,.12); background: rgba(15,23,42,.03); }
+  .rm-chat { height: 62vh; overflow:auto; padding-right: 2px; }
+  .rm-msg { display:flex; gap:10px; margin-bottom: 10px; }
+  .rm-msg .avatar { width: 28px; height: 28px; border-radius: 8px; display:flex; align-items:center; justify-content:center; font-size: 12px; color:#0f172a; background: rgba(59,130,246,.10); border:1px solid rgba(59,130,246,.25); flex: 0 0 auto;}
+  .rm-msg .bubble { flex:1; background: rgba(2,6,23,.03); border:1px solid rgba(15,23,42,.10); border-radius: 12px; padding: 10px 12px; }
+  .rm-msg .meta { font-size: 12px; color: rgba(15,23,42,.65); margin-bottom: 6px; display:flex; align-items:center; justify-content:space-between; gap: 8px;}
+  .rm-msg.me .avatar { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.25); }
+  .rm-msg.me .bubble { background: rgba(34,197,94,.06); border-color: rgba(34,197,94,.20); }
+  .rm-chat-input { display:flex; gap:10px; }
+  .rm-json { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: rgba(2,6,23,.03); border: 1px solid rgba(15,23,42,.10); border-radius: 12px; padding: 10px 12px; }
+  .rm-kv { display:grid; grid-template-columns: 120px 1fr; gap: 8px; font-size: 14px; }
+  .rm-kv .k { color: rgba(15,23,42,.65); }
+  .rm-kv .v { color: rgba(15,23,42,.92); }
+  .rm-alert { border-radius: 12px; border: 1px solid rgba(15,23,42,.10); padding: 10px 12px; }
+  .rm-alert.success { background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.20); }
+  .rm-alert.warn { background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.25); }
+  .rm-alert.error { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.22); }
+  .rm-card { border: 1px solid rgba(15,23,42,.10); border-radius: 12px; padding: 10px 12px; background: #fff; }
+  .rm-card-title { font-weight: 600; margin-bottom: 6px; }
+  .rm-list { margin: 0; padding-left: 18px; }
+  .rm-list li { margin-bottom: 6px; }
+  .rm-pill { display:inline-flex; align-items:center; padding: 2px 10px; border-radius: 999px; font-size: 12px; border: 1px solid rgba(15,23,42,.12); background: rgba(15,23,42,.03); color: rgba(15,23,42,.85); }
+  @media (max-width: 1200px) {
+    .rm-layout { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+  <div>
+    <div class="h4 mb-1"><i class="fas fa-users text-primary me-2"></i>虚拟评审会（多角色，带对话框）</div>
+    <div class="text-muted small">独立于静态审计：仅消费最近快照的结构化结果（P0议题）生成议程、对话与裁决表。</div>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary" id="btnLoadSnapshots"><i class="fas fa-history me-1"></i>选择快照</button>
+    <div class="dropdown">
+      <button class="btn btn-outline-primary dropdown-toggle" type="button" id="btnMode" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fas fa-sliders me-1"></i><span id="modeText">从快照开会</span>
+      </button>
+      <ul class="dropdown-menu" aria-labelledby="btnMode">
+        <li><a class="dropdown-item rm-mode-item" href="#" data-mode="snapshot"><i class="fas fa-camera me-2"></i>从快照开会</a></li>
+        <li><a class="dropdown-item rm-mode-item" href="#" data-mode="brainstorm"><i class="fas fa-lightbulb me-2"></i>无文档讨论（推断草案）</a></li>
+      </ul>
+    </div>
+    <button class="btn btn-primary" id="btnStartMeeting"><i class="fas fa-play me-1"></i>开始会议</button>
+  </div>
+</div>
+
+<div class="rm-panel mb-3" id="modePanel" style="display:none;">
+  <div class="rm-panel-header">
+    <div class="fw-semibold">启动参数</div>
+    <span class="rm-chip" id="chipModeHint">—</span>
+  </div>
+  <div class="rm-panel-body">
+    <div id="modeSnapshotHelp" class="text-muted small" style="display:none;">
+      使用静态审计快照作为输入。不选择则默认最新快照。
+    </div>
+    <div id="modeBrainstormForm" style="display:none;">
+      <label class="form-label small text-muted mb-1">一句话需求 / 议题（无文档）</label>
+      <textarea class="form-control" id="brainstormIdea" rows="3" placeholder="例如：自动录音开关链路在弱网/超时下的降级与验收口径"></textarea>
+      <div class="small text-muted mt-2">说明：该模式会把证据标为 inference，并可能标 BLOCKED 直到补齐原文锚点。</div>
+    </div>
+  </div>
+</div>
+
+<div class="rm-layout">
+  <div class="rm-panel">
+    <div class="rm-panel-header">
+      <div class="fw-semibold">议程（Agenda）</div>
+      <span class="rm-chip" id="chipSession">未开始</span>
+    </div>
+    <div class="rm-panel-body">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="small text-muted">默认自动选 P0（topic 去重）。点击切换当前议题。</div>
+        <button class="btn btn-sm btn-outline-secondary" id="btnToggleSnapshotList" type="button">
+          <i class="fas fa-history me-1"></i>快照列表
+        </button>
+      </div>
+      <div class="small text-muted mb-2" id="meetingStatusText">尚未开始会议。</div>
+      <div id="inlineSnapshotPanel" class="mb-3" style="display:none;">
+        <div class="rm-json" style="max-height: 240px; overflow:auto;">
+          <div class="small text-muted mb-2">点击任意快照即可选中（不依赖弹窗）。</div>
+          <div class="d-grid gap-2" id="inlineSnapList">
+            <div class="text-muted small">尚未加载快照。</div>
+          </div>
+        </div>
+      </div>
+      <div class="d-grid gap-2" id="agendaList">
+        <div class="text-muted small">尚未生成议程。</div>
+      </div>
+      <hr class="my-3">
+      <div class="rm-kv">
+        <div class="k">快照</div><div class="v"><span id="txtSnapshot">未选择</span></div>
+        <div class="k">来源</div><div class="v">静态审计 Stage3（重建 merged_issues）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rm-panel">
+    <div class="rm-panel-header">
+      <div class="fw-semibold">裁决区（结构化）</div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-primary" id="btnCopyDecision"><i class="fas fa-copy me-1"></i>复制裁决表</button>
+        <button class="btn btn-sm btn-outline-success" id="btnCopyPatch"><i class="fas fa-file-arrow-down me-1"></i>复制PRD补丁</button>
+      </div>
+    </div>
+    <div class="rm-panel-body">
+      <div class="mb-3" id="workbenchStatus">未选择议题。</div>
+
+      <div class="rm-card mb-3">
+        <div class="rm-card-title">必补证据清单（让 BLOCKED 变 DECIDED）</div>
+        <div class="small text-muted mb-2">把下面条目直接补进 PRD（附录也行），再用“从快照开会”重新收口。</div>
+        <div id="workbenchEvidence" class="small">未生成</div>
+      </div>
+
+      <div class="rm-card mb-3">
+        <div class="rm-card-title">麻烦场景（Scenario Generator）</div>
+        <div class="small text-muted mb-2">QA 第一轮就用这些追问阈值/终态/观测字段/优先级裁决。</div>
+        <div id="workbenchScenarios" class="small">未生成</div>
+      </div>
+
+      <div class="rm-card mb-3">
+        <div class="rm-card-title">草案验收口径（AC）与最小观测字段</div>
+        <div id="workbenchAC" class="small">未生成</div>
+      </div>
+
+      <div class="rm-card mb-3">
+        <div class="rm-card-title">PRD Patch（可粘贴附录）</div>
+        <div class="rm-json" id="patchText">未生成</div>
+      </div>
+
+      <details class="rm-card">
+        <summary class="rm-card-title" style="cursor:pointer;">展开查看原始 JSON（调试用）</summary>
+        <div class="mt-2">
+          <div class="fw-semibold mb-1">当前议题 JSON</div>
+          <div class="rm-json" id="currentIssueJson">未选择</div>
+        </div>
+        <div class="mt-3">
+          <div class="fw-semibold mb-1">Decision Log JSON（本议题）</div>
+          <div class="rm-json" id="currentDecisionJson">未生成</div>
+        </div>
+        <div class="mt-3">
+          <div class="fw-semibold mb-1">Scenario JSON（本议题）</div>
+          <div class="rm-json" id="currentScenariosJson">未生成</div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="rm-panel">
+    <div class="rm-panel-header">
+      <div class="fw-semibold">对话（会议过程）</div>
+      <span class="rm-chip" id="chipRound">Round：—</span>
+    </div>
+    <div class="rm-panel-body">
+      <div class="rm-chat" id="chatList"></div>
+      <div class="rm-chat-input mt-2">
+        <input class="form-control" id="chatInput" placeholder="补充测试关注点/追问（会被记录在会议纪要中）">
+        <button class="btn btn-primary" id="btnSend"><i class="fas fa-paper-plane"></i></button>
+      </div>
+      <div class="small text-muted mt-2">提示：这是“过程展示”，最终以裁决表为准。</div>
+    </div>
+  </div>
+</div>
+
+<!-- Snapshot picker modal -->
+<div class="modal fade" id="snapModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-history me-2"></i>选择审计快照</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-muted small mb-2">从学习快照中选择一条作为本次评审会输入（默认使用最新快照）。</div>
+        <div id="snapList" class="d-grid gap-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const baseUrl = '/prd_audit';
+  let meetingId = null;
+  let snapshotId = null;
+  let startMode = 'snapshot';
+  let agenda = [];
+  let decisionLog = [];
+  let patchText = '';
+  let messages = [];
+  let activeIssueId = null;
+  let jsBootOk = false;
+
+  function getPreferredSnapshotId() {
+    try {
+      const qp = new URLSearchParams(window.location.search || '');
+      const fromQuery = (qp.get('snapshot_id') || '').trim();
+      if (fromQuery) return fromQuery;
+    } catch (e) {}
+    try {
+      const fromStorage = (localStorage.getItem('lastPrdAuditSnapshotId') || '').trim();
+      if (fromStorage) return fromStorage;
+    } catch (e) {}
+    return '';
+  }
+
+  function escapeHtml(s) {
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    };
+    return String(s || '').replace(/[&<>"']/g, (c) => map[c] || c);
+  }
+
+  function setChip(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function setMeetingStatus(text, level) {
+    const el = document.getElementById('meetingStatusText');
+    if (!el) return;
+    el.className = 'small mb-2';
+    if (level === 'error') {
+      el.classList.add('text-danger');
+    } else if (level === 'success') {
+      el.classList.add('text-success');
+    } else {
+      el.classList.add('text-muted');
+    }
+    el.textContent = text || '尚未开始会议。';
+  }
+
+  function setButtonBusy(btn, busy, busyText, idleHtml) {
+    if (!btn) return;
+    btn.disabled = !!busy;
+    if (busy) {
+      btn.dataset.idleHtml = idleHtml || btn.innerHTML;
+      btn.innerHTML = busyText || '处理中...';
+      return;
+    }
+    btn.innerHTML = btn.dataset.idleHtml || idleHtml || btn.innerHTML;
+  }
+
+  function renderAgenda() {
+    const list = document.getElementById('agendaList');
+    if (!agenda || agenda.length === 0) {
+      list.innerHTML = '<div class="text-muted small">尚未生成议程。</div>';
+      return;
+    }
+    let html = '';
+    agenda.forEach((it) => {
+      const active = (it.issue_id === activeIssueId) ? 'active' : '';
+      const lvl = it.risk_level || 'P2';
+      const tp = it.topic || 'generic';
+      html += `
+        <div class="rm-agenda-item ${active}" data-id="${escapeHtml(it.issue_id)}">
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="fw-semibold text-truncate" title="${escapeHtml(it.one_liner)}">${escapeHtml(it.one_liner || it.issue_id)}</div>
+            <span class="rm-chip">${escapeHtml(lvl)} · ${escapeHtml(tp)}</span>
+          </div>
+          <div class="small text-muted mt-1">证据：${escapeHtml((it.evidence && it.evidence[0] && ((it.evidence[0].type || '') + ' ' + (it.evidence[0].ref || '') + ' ' + (it.evidence[0].text || '')).trim()) || '—')}</div>
+        </div>
+      `;
+    });
+    list.innerHTML = html;
+    list.querySelectorAll('.rm-agenda-item').forEach((el) => {
+      el.addEventListener('click', () => setActiveIssue(el.getAttribute('data-id')));
+    });
+  }
+
+  function setActiveIssue(issueId) {
+    activeIssueId = issueId;
+    renderAgenda();
+    const issue = (agenda || []).find(x => x.issue_id === issueId) || null;
+    const dl = (decisionLog || []).find(x => x.issue_id === issueId) || null;
+    document.getElementById('currentIssueJson').textContent = issue ? JSON.stringify(issue, null, 2) : '未选择';
+    const sc = issue && Array.isArray(issue.scenarios) ? issue.scenarios : [];
+    document.getElementById('currentScenariosJson').textContent = sc.length ? JSON.stringify(sc, null, 2) : '未生成';
+    document.getElementById('currentDecisionJson').textContent = dl ? JSON.stringify(dl, null, 2) : '未生成';
+    renderWorkbench(issue, dl);
+  }
+
+  function _uniq(arr) {
+    const out = [];
+    const seen = new Set();
+    (arr || []).forEach((x) => {
+      const s = String(x || '').trim();
+      if (!s) return;
+      const k = s.toLowerCase();
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(s);
+    });
+    return out;
+  }
+
+  function renderWorkbench(issue, dl) {
+    const statusEl = document.getElementById('workbenchStatus');
+    const evEl = document.getElementById('workbenchEvidence');
+    const scEl = document.getElementById('workbenchScenarios');
+    const acEl = document.getElementById('workbenchAC');
+    if (!statusEl || !evEl || !scEl || !acEl) return;
+
+    if (!issue) {
+      statusEl.innerHTML = '<div class="rm-alert warn">未选择议题。</div>';
+      evEl.innerHTML = '未生成';
+      scEl.innerHTML = '未生成';
+      acEl.innerHTML = '未生成';
+      return;
+    }
+
+    const title = escapeHtml(issue.one_liner || issue.issue_id || '议题');
+    const tp = escapeHtml(issue.topic || 'generic');
+    const lvl = escapeHtml(issue.risk_level || 'P2');
+    const mode = String(issue.meeting_mode || 'snapshot');
+
+    const dlStatus = dl ? String(dl.status || '').toLowerCase() : '';
+    const blockedBy = dl && Array.isArray(dl.blocked_by) ? dl.blocked_by : [];
+    const evidenceClass = dl ? String(dl.evidence_class || '') : '';
+    const statusText = dlStatus ? dlStatus.toUpperCase() : (mode === 'brainstorm' ? 'BLOCKED' : '—');
+    const statusCls = (statusText === 'DECIDED') ? 'success' : (statusText === 'BLOCKED' ? 'warn' : 'warn');
+    const hint = (mode === 'brainstorm') ? '无文档沙盘：结论默认 BLOCKED，需补证据后再冻结口径。' : '快照模式：以门禁与裁决表为准。';
+
+    let html = '';
+    html += '<div class="rm-alert ' + statusCls + '">';
+    html += '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">';
+    html += '<div class="fw-semibold">状态：<span class="rm-pill">' + escapeHtml(statusText) + '</span> <span class="rm-pill">' + lvl + ' · ' + tp + '</span></div>';
+    html += '<div class="small text-muted">' + escapeHtml(hint) + '</div>';
+    html += '</div>';
+    html += '<div class="mt-2 small"><span class="text-muted">议题：</span>' + title + '</div>';
+    if (evidenceClass) {
+      html += '<div class="mt-1 small text-muted">证据等级：' + escapeHtml(evidenceClass) + '</div>';
+    }
+    if (blockedBy && blockedBy.length) {
+      html += '<div class="mt-2 small"><div class="fw-semibold mb-1">阻塞原因</div><ul class="rm-list mb-0">';
+      blockedBy.slice(0, 6).forEach((x) => { html += '<li>' + escapeHtml(String(x || '')) + '</li>'; });
+      html += '</ul></div>';
+    }
+    html += '</div>';
+    statusEl.innerHTML = html;
+
+    // Required evidence: from scenarios.required_evidence + blocked_by
+    const scenarios = (issue && Array.isArray(issue.scenarios)) ? issue.scenarios : [];
+    let req = [];
+    scenarios.forEach((s) => {
+      const re = (s && Array.isArray(s.required_evidence)) ? s.required_evidence : [];
+      req = req.concat(re);
+    });
+    req = req.concat(blockedBy || []);
+    req = _uniq(req);
+    if (req.length) {
+      let ehtml = '<ul class="rm-list mb-0">';
+      req.slice(0, 10).forEach((x) => { ehtml += '<li>' + escapeHtml(String(x || '')) + '</li>'; });
+      ehtml += '</ul>';
+      evEl.innerHTML = ehtml;
+    } else {
+      evEl.innerHTML = '<div class="text-muted">暂无必补证据清单。</div>';
+    }
+
+    // Scenarios (readable cards)
+    if (scenarios.length) {
+      let shtml = '';
+      scenarios.slice(0, 6).forEach((s, idx) => {
+        const risk = escapeHtml(String((s && s.risk_level) || 'P1'));
+        const given = escapeHtml(String((s && s.given) || ''));
+        const when = escapeHtml(String((s && s.when) || ''));
+        const then = escapeHtml(String((s && s.then) || ''));
+        const tags = (s && Array.isArray(s.tags)) ? s.tags : [];
+        shtml += '<div class="rm-card mb-2" style="background: rgba(2,6,23,.02);">';
+        shtml += '<div class="d-flex align-items-center justify-content-between gap-2 mb-1">';
+        shtml += '<div class="fw-semibold">场景' + (idx + 1) + '</div>';
+        shtml += '<span class="rm-pill">' + risk + '</span>';
+        shtml += '</div>';
+        shtml += '<div class="small"><div><span class="text-muted">Given：</span>' + given + '</div>';
+        shtml += '<div class="mt-1"><span class="text-muted">When：</span>' + when + '</div>';
+        shtml += '<div class="mt-1"><span class="text-muted">Then：</span>' + then + '</div></div>';
+        if (tags.length) {
+          shtml += '<div class="mt-2 d-flex flex-wrap gap-2">';
+          tags.slice(0, 6).forEach((t) => { shtml += '<span class="rm-pill">' + escapeHtml(String(t || '')) + '</span>'; });
+          shtml += '</div>';
+        }
+        shtml += '</div>';
+      });
+      scEl.innerHTML = shtml;
+    } else {
+      scEl.innerHTML = '<div class="text-muted">未生成场景（可重试或检查后端是否返回 scenarios 字段）。</div>';
+    }
+
+    // AC + observability
+    const acFinal = dl && Array.isArray(dl.ac_final) ? dl.ac_final : [];
+    const obs = dl && typeof dl.observability_min === 'object' ? dl.observability_min : null;
+    const logs = obs && Array.isArray(obs.logs) ? obs.logs : [];
+    let ahtml = '';
+    if (acFinal.length) {
+      ahtml += '<div class="fw-semibold mb-1">AC（节选）</div><ul class="rm-list">';
+      acFinal.slice(0, 6).forEach((x) => { ahtml += '<li>' + escapeHtml(String(x || '')) + '</li>'; });
+      ahtml += '</ul>';
+    } else {
+      ahtml += '<div class="text-muted">暂无 AC（本议题未收敛或仍 BLOCKED）。</div>';
+    }
+    if (logs.length) {
+      ahtml += '<div class="fw-semibold mt-2 mb-1">最小观测字段</div><div class="d-flex flex-wrap gap-2">';
+      logs.slice(0, 24).forEach((x) => { ahtml += '<span class="rm-pill">' + escapeHtml(String(x || '')) + '</span>'; });
+      ahtml += '</div>';
+    }
+    acEl.innerHTML = ahtml;
+  }
+
+  function renderChat() {
+    const list = document.getElementById('chatList');
+    if (!messages || messages.length === 0) {
+      list.innerHTML = '<div class="text-muted small">尚无对话。点击“开始会议”生成会议过程。</div>';
+      return;
+    }
+    function normText(t) {
+      return String(t || '').replace(/\s+/g, ' ').trim();
+    }
+    function extractTopicLine(t) {
+      const s = String(t || '');
+      const m = s.match(/议题：([^\n]+)/);
+      return m ? String(m[1] || '').trim() : '';
+    }
+    function renderMsg(m, extraMetaHtml) {
+      const isMe = m.role === 'user';
+      const cls = isMe ? 'rm-msg me' : 'rm-msg';
+      const av = isMe ? '我' : (m.speaker || 'SYS').slice(0, 2);
+      const speaker = m.speaker || (isMe ? '你' : '系统');
+      const metaRight = escapeHtml(m.ts || '');
+      const metaLeft = escapeHtml(speaker);
+      const extra = extraMetaHtml ? `<span class="rm-pill">${extraMetaHtml}</span>` : '';
+      return `
+        <div class="${cls}">
+          <div class="avatar">${escapeHtml(av)}</div>
+          <div class="bubble">
+            <div class="meta"><span>${metaLeft}</span><span class="d-flex gap-2 align-items-center">${extra}<span>${metaRight}</span></span></div>
+            <div>${escapeHtml(m.text || '')}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    let html = '';
+    let roundNo = 0;
+    let lastSpeaker = '';
+    let lastTopic = '';
+
+    // Fold consecutive duplicates to avoid "no process" feeling when backend repeats the same trio.
+    const folded = [];
+    let prevKey = '';
+    let prevMsg = null;
+    let prevCount = 0;
+    messages.forEach((m) => {
+      const key = (String(m.role || '') + '|' + String(m.speaker || '') + '|' + normText(m.text));
+      if (key === prevKey) {
+        prevCount += 1;
+        return;
+      }
+      if (prevMsg) folded.push({ msg: prevMsg, repeat: prevCount });
+      prevMsg = m;
+      prevKey = key;
+      prevCount = 1;
+    });
+    if (prevMsg) folded.push({ msg: prevMsg, repeat: prevCount });
+
+    folded.forEach(({ msg: m, repeat }) => {
+      const speaker = String(m.speaker || '');
+      const topic = extractTopicLine(m.text || '');
+
+      // Heuristic: start a new "round" when we hit QA after PM/system, or topic changes.
+      const isQa = speaker.includes('QA');
+      const isPm = speaker.includes('PM');
+      const isSys = speaker === '系统';
+      const topicChanged = topic && topic !== lastTopic;
+      const startNewRound = (isQa && (lastSpeaker.includes('PM') || lastSpeaker === '系统' || lastSpeaker === '')) || topicChanged;
+
+      if (isSys) {
+        html += `<div class="small text-muted mb-2">${escapeHtml(m.text || '')}</div>`;
+      } else if (startNewRound) {
+        roundNo += 1;
+        if (roundNo > 1) html += `<hr class="my-3">`;
+        const title = topic ? escapeHtml(topic) : '—';
+        html += `<div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="fw-semibold">Round ${roundNo}</div>
+          <div class="small text-muted text-truncate" style="max-width: 65%;">${title}</div>
+        </div>`;
+        const extra = repeat > 1 ? escapeHtml('重复×' + repeat) : '';
+        html += renderMsg(m, extra);
+      } else {
+        const extra = repeat > 1 ? escapeHtml('重复×' + repeat) : '';
+        html += renderMsg(m, extra);
+      }
+
+      lastSpeaker = speaker || lastSpeaker;
+      if (topic) lastTopic = topic;
+    });
+
+    list.innerHTML = html;
+    list.scrollTop = list.scrollHeight;
+  }
+
+  async function apiJson(path, payload, options) {
+    const opts = options || {};
+    const controller = new AbortController();
+    const timeoutMs = Number(opts.timeoutMs || 45000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const resp = await fetch(baseUrl + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    return await resp.json();
+  }
+
+  function applyMeetingData(data) {
+    meetingId = data.data.meeting_id;
+    agenda = data.data.agenda_cards || [];
+    decisionLog = data.data.decision_log || [];
+    patchText = data.data.prd_patch || '';
+    messages = data.data.messages || [];
+    document.getElementById('patchText').textContent = patchText || '未生成';
+    const snap = data.data.snapshot_id || '';
+    const mm = (data.data.meeting_mode || 'snapshot');
+    document.getElementById('txtSnapshot').textContent = mm === 'brainstorm' ? ('无文档 · ' + (snap || '—')) : (snap || '—');
+    setChip('chipSession', '会议：' + meetingId);
+    setChip('chipRound', 'Round：已生成' + ((data.data.use_llm) ? '（LLM）' : '（本地）'));
+    if (agenda.length > 0) {
+      setActiveIssue(agenda[0].issue_id);
+    } else {
+      activeIssueId = null;
+      renderAgenda();
+      document.getElementById('currentIssueJson').textContent = '未选择';
+      document.getElementById('currentScenariosJson').textContent = '未生成';
+      document.getElementById('currentDecisionJson').textContent = '未生成';
+      renderWorkbench(null, null);
+    }
+    renderChat();
+    const llmMode = data.data.use_llm ? 'LLM 会议' : '本地模板会议';
+    const modeHint = (data.data.meeting_mode === 'brainstorm') ? '（无文档沙盘，裁决默认 BLOCKED）' : '';
+    const extra = data.data.llm_error ? ('；已自动降级：' + data.data.llm_error) : '';
+    setMeetingStatus('会议已启动：' + llmMode + modeHint + extra, 'success');
+  }
+
+  async function startMeeting() {
+    const btn = document.getElementById('btnStartMeeting');
+    setButtonBusy(btn, true, '<i class="fas fa-spinner fa-spin me-1"></i>启动中...', '<i class="fas fa-play me-1"></i>开始会议');
+    setMeetingStatus('正在启动会议，优先尝试 LLM 版本...', 'default');
+    try {
+      let data = null;
+      const payloadBase = { use_llm: true, mode: startMode };
+      if (startMode === 'snapshot') payloadBase.snapshot_id = snapshotId || '';
+      if (startMode === 'brainstorm') payloadBase.idea = (document.getElementById('brainstormIdea').value || '').trim();
+      if (startMode === 'brainstorm' && !payloadBase.idea) {
+        throw new Error('无文档讨论模式需要先填写“一句话需求/议题”');
+      }
+      try {
+        data = await apiJson('/api/review_meeting/start', payloadBase, { timeoutMs: 45000 });
+      } catch (err) {
+        setMeetingStatus('LLM 会议启动较慢或失败，正在切换到本地模板会议...', 'default');
+        const payload2 = Object.assign({}, payloadBase, { use_llm: false });
+        data = await apiJson('/api/review_meeting/start', payload2, { timeoutMs: 20000 });
+      }
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || '启动失败');
+      }
+      applyMeetingData(data);
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      setMeetingStatus('启动失败：' + msg, 'error');
+      alert('启动失败：' + msg);
+    } finally {
+      setButtonBusy(btn, false, '', '<i class="fas fa-play me-1"></i>开始会议');
+    }
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const text = (input.value || '').trim();
+    if (!text) return;
+    if (!meetingId) {
+      alert('请先开始会议');
+      return;
+    }
+    input.value = '';
+    const btn = document.getElementById('btnSend');
+    setButtonBusy(btn, true, '<i class="fas fa-spinner fa-spin"></i>', '<i class="fas fa-paper-plane"></i>');
+    try {
+      const data = await apiJson('/api/review_meeting/send', { meeting_id: meetingId, text }, { timeoutMs: 20000 });
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || '发送失败');
+      }
+      messages = data.data.messages || messages;
+      decisionLog = data.data.decision_log || decisionLog;
+      patchText = data.data.prd_patch || patchText;
+      document.getElementById('patchText').textContent = patchText || '未生成';
+      setActiveIssue(activeIssueId || (agenda[0] && agenda[0].issue_id));
+      renderChat();
+      setMeetingStatus('补充内容已加入会议纪要与补丁。', 'success');
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      setMeetingStatus('发送失败：' + msg, 'error');
+      alert('发送失败：' + msg);
+    } finally {
+      setButtonBusy(btn, false, '', '<i class="fas fa-paper-plane"></i>');
+    }
+  }
+
+  async function loadSnapshots() {
+    const resp = await fetch(baseUrl + '/api/history/snapshots');
+    const data = await resp.json();
+    const list = document.getElementById('snapList');
+    const snaps = (data && data.data && data.data.snapshots) ? data.data.snapshots : [];
+    if (!snaps.length) {
+      list.innerHTML = '<div class="text-muted small">暂无快照</div>';
+      return;
+    }
+    let html = '';
+    snaps.slice(0, 50).forEach((s) => {
+      const sid = s.snapshot_id || '';
+      const preview = s.preview || {};
+      const title = preview.product_name || sid;
+      html += `
+        <button type="button" class="btn btn-outline-primary text-start" data-id="${escapeHtml(sid)}">
+          <div class="fw-semibold">${escapeHtml(title)}</div>
+          <div class="small text-muted">${escapeHtml(sid)} · ${escapeHtml(s.created_at_str || '')}</div>
+        </button>
+      `;
+    });
+    list.innerHTML = html;
+    // click handler is handled by event delegation on #snapList
+  }
+
+  function showSnapModal() {
+    const el = document.getElementById('snapModal');
+    if (!el) return;
+    if (window.bootstrap && bootstrap.Modal) {
+      new bootstrap.Modal(el).show();
+      return;
+    }
+    // Bootstrap CDN 可能不可用：手动显示 modal（简易兜底）
+    el.classList.add('show');
+    el.style.display = 'block';
+    el.removeAttribute('aria-hidden');
+    document.body.classList.add('modal-open');
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop fade show';
+    backdrop.id = 'snapModalBackdrop';
+    backdrop.addEventListener('click', hideSnapModal);
+    document.body.appendChild(backdrop);
+  }
+
+  function hideSnapModal() {
+    const el = document.getElementById('snapModal');
+    if (!el) return;
+    if (window.bootstrap && bootstrap.Modal) {
+      const inst = bootstrap.Modal.getInstance(el);
+      if (inst) inst.hide();
+      return;
+    }
+    el.classList.remove('show');
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    const bd = document.getElementById('snapModalBackdrop');
+    if (bd) bd.remove();
+  }
+
+  function copyText(text) {
+    const t = String(text || '');
+    navigator.clipboard.writeText(t).then(() => {
+      // ok
+    }).catch(() => {
+      alert('复制失败，请手动复制');
+    });
+  }
+
+  document.getElementById('btnStartMeeting').addEventListener('click', startMeeting);
+  document.getElementById('btnSend').addEventListener('click', sendMessage);
+  document.getElementById('chatInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendMessage();
+  });
+  document.getElementById('btnCopyDecision').addEventListener('click', () => copyText(JSON.stringify(decisionLog || [], null, 2)));
+  document.getElementById('btnCopyPatch').addEventListener('click', () => copyText(patchText || ''));
+  document.getElementById('btnLoadSnapshots').addEventListener('click', async () => {
+    try {
+      await loadSnapshots();
+      showSnapModal();
+    } catch (e) {
+      alert('加载快照失败：' + (e && e.message ? e.message : String(e)));
+    }
+  });
+
+  // Inline snapshot list: does not rely on modal/bootstrap
+  async function loadSnapshotsInline() {
+    const resp = await fetch(baseUrl + '/api/history/snapshots');
+    const data = await resp.json();
+    const list = document.getElementById('inlineSnapList');
+    const snaps = (data && data.data && data.data.snapshots) ? data.data.snapshots : [];
+    if (!snaps.length) {
+      list.innerHTML = '<div class="text-muted small">暂无快照</div>';
+      return;
+    }
+    let html = '';
+    snaps.slice(0, 80).forEach((s) => {
+      const sid = s.snapshot_id || '';
+      const preview = s.preview || {};
+      const title = preview.product_name || sid;
+      html += `
+        <button type="button" class="btn btn-outline-primary text-start" data-id="${escapeHtml(sid)}">
+          <div class="fw-semibold">${escapeHtml(title)}</div>
+          <div class="small text-muted">${escapeHtml(sid)} · ${escapeHtml(s.created_at_str || '')}</div>
+        </button>
+      `;
+    });
+    list.innerHTML = html;
+  }
+
+  document.getElementById('btnToggleSnapshotList').addEventListener('click', async () => {
+    const panel = document.getElementById('inlineSnapshotPanel');
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+      await loadSnapshotsInline();
+    }
+  });
+
+  document.getElementById('inlineSnapList').addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('button[data-id]') : null;
+    if (!btn) return;
+    snapshotId = btn.getAttribute('data-id');
+    document.getElementById('txtSnapshot').textContent = snapshotId;
+    setChip('chipSession', '未开始（已选快照）');
+    // 收起列表，避免占空间
+    document.getElementById('inlineSnapshotPanel').style.display = 'none';
+  });
+
+  // fallback close buttons for manual modal
+  document.querySelectorAll('#snapModal [data-bs-dismiss=\"modal\"]').forEach((btn) => {
+    btn.addEventListener('click', hideSnapModal);
+  });
+
+  // Event delegation: ensure snapshot click always works (even if inner elements swallow click)
+  document.getElementById('snapList').addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('button[data-id]') : null;
+    if (!btn) return;
+    snapshotId = btn.getAttribute('data-id');
+    document.getElementById('txtSnapshot').textContent = snapshotId;
+    hideSnapModal();
+  });
+
+  // initial
+  snapshotId = getPreferredSnapshotId();
+  if (snapshotId) {
+    document.getElementById('txtSnapshot').textContent = snapshotId;
+    setChip('chipSession', '未开始（已关联当前快照）');
+    setMeetingStatus('已关联当前审计快照，可直接开始会议。', 'default');
+  }
+  jsBootOk = true;
+  if (!snapshotId) {
+    setChip('chipSession', '未开始（JS已加载）');
+    setMeetingStatus('未关联当前快照，也可直接开始会议，系统会默认使用最新快照。', 'default');
+  }
+  // mode UI
+  function setMode(mode) {
+    startMode = mode || 'snapshot';
+    const panel = document.getElementById('modePanel');
+    if (panel) panel.style.display = 'block';
+    const snapHelp = document.getElementById('modeSnapshotHelp');
+    const brainForm = document.getElementById('modeBrainstormForm');
+    if (snapHelp) snapHelp.style.display = (startMode === 'snapshot') ? 'block' : 'none';
+    if (brainForm) brainForm.style.display = (startMode === 'brainstorm') ? 'block' : 'none';
+    const mt = document.getElementById('modeText');
+    if (mt) mt.textContent = (startMode === 'brainstorm') ? '无文档讨论' : '从快照开会';
+    setChip('chipModeHint', (startMode === 'brainstorm') ? '推断草案（可能BLOCKED）' : '使用快照');
+  }
+  document.querySelectorAll('.rm-mode-item').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      setMode(a.getAttribute('data-mode'));
+    });
+  });
+  setMode('snapshot');
+  renderAgenda();
+  renderChat();
+</script>
+{% endblock %}
+

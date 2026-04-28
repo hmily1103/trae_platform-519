@@ -282,16 +282,14 @@
                 <div class="card-body p-0">
                     <div class="d-flex flex-wrap justify-content-between align-items-center px-3 pt-3 pb-1 gap-2">
                         <div class="d-flex align-items-center gap-2">
-                            <div class="btn-group btn-group-sm" role="group" aria-label="报告层级">
-                                <button type="button" class="btn btn-level btn-level-unified btn-level-active active" data-level="OUTLINE" id="btnLevelOutline">认知大纲</button>
-                                <button type="button" class="btn btn-level btn-level-unified" data-level="L3" id="btnLevelL3">技术审计 (L3)</button>
-                                <button type="button" class="btn btn-level btn-level-unified" data-level="L2" id="btnLevelL2">产品分析 (L2)</button>
-                                <button type="button" class="btn btn-level btn-level-unified" data-level="L1" id="btnLevelL1">管理摘要 (L1)</button>
-                                <button type="button" class="btn btn-level btn-level-unified" data-level="VALIDATION" id="btnLevelValidation"><i class="fas fa-vial me-1"></i>验证大纲</button>
-                                <button type="button" class="btn btn-level btn-level-unified" data-level="TEST_CASES" id="btnLevelTestCases"><i class="fas fa-clipboard-list me-1"></i>测试用例生成</button>
-                                <button type="button" class="btn btn-level btn-level-unified" data-level="IMPACT" id="btnLevelImpact"><i class="fas fa-bolt me-1"></i>变更影响分析</button>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="审计视图">
+                                <button type="button" class="btn btn-level btn-level-unified btn-level-active active" data-level="OUTLINE" id="btnLevelOutline">审计总览</button>
+                                <button type="button" class="btn btn-level btn-level-unified" data-level="L2" id="btnLevelL2">角色分析</button>
+                                <button type="button" class="btn btn-level btn-level-unified" data-level="L3" id="btnLevelL3">问题矩阵</button>
+                                <button type="button" class="btn btn-level btn-level-unified" data-level="L1" id="btnLevelL1">执行建议</button>
+                                <button type="button" class="btn btn-level btn-level-unified" data-level="VALIDATION" id="btnLevelValidation">技术详情</button>
                             </div>
-                            <span id="currentLevelHint" class="text-muted small">当前展示: 认知大纲 / 视图分析</span>
+                            <span id="currentLevelHint" class="text-muted small">当前展示: 审计总览</span>
                             <div id="copyLevelButtonsWrap" class="ms-2" style="display:none !important;">
                                 <button type="button" class="btn btn-sm btn-outline-primary me-1" data-copy-level="OUTLINE" id="btnCopyLevelOutline" title="复制认知大纲（OUTLINE）给PM"><i class="fas fa-copy me-1"></i>OUTLINE</button>
                                 <button type="button" class="btn btn-sm btn-outline-primary me-1" data-copy-level="L1" id="btnCopyLevelL1" title="复制管理摘要（L1）给PM">L1</button>
@@ -302,8 +300,8 @@
                     </div>
                     <div id="outputContent" class="gen-result p-3" style="display:block;">
                         <div id="levelContextBar" class="level-context-bar">
-                            <span id="levelContextBadge" class="level-context-badge bg-info text-dark">认知大纲 / 视图分析</span>
-                            <span id="levelContextDesc" class="level-context-desc">当前处于"认知与视图大纲"模式，用于多角色快速拉齐产品全貌。</span>
+                            <span id="levelContextBadge" class="level-context-badge bg-info text-dark">审计总览</span>
+                            <span id="levelContextDesc" class="level-context-desc">当前展示结论摘要与认知大纲，适合先快速看懂这份需求。</span>
                         </div>
                         <div id="decisionPanelMain" class="decision-panel" style="display:none;"></div>
                         <div id="fourPillarsAuditWrap" class="feature-map-main-wrap" style="display:block;">
@@ -313,7 +311,8 @@
                         </div>
                         <div id="sharedSummaryMainWrap" class="feature-map-main-wrap" style="display:block;">
                             <div class="feature-map-main-title"><i class="fas fa-users-viewfinder me-2"></i>全员共识摘要（本地生成）</div>
-                            <div class="small text-muted mb-2">适合产品、研发、测试、运营快速拉齐"这份 PRD 到底做什么、覆盖什么、主流程怎么走"。</div>
+                            <div class="small text-muted mb-2">用于快速查看这份 PRD 的目标、范围、主流程与关键口径。</div>
+                            <div id="sharedSummaryGateBar" class="mb-2" style="display:none;"></div>
                             <div id="sharedSummaryMainContent" class="small"></div>
                         </div>
                         <div id="readerGuideMainWrap" class="feature-map-main-wrap">
@@ -493,14 +492,23 @@
                         </div>
 
                         <!-- 2. 分类过滤器 -->
-                        <div id="categoryFilters" class="category-filters d-flex justify-content-between align-items-center" style="display:none;">
-                            <div class="d-flex gap-2">
-                                <button class="filter-chip active" data-category="all">全部漏洞 <span class="badge" id="countAll">0</span></button>
-                                <button class="filter-chip" data-category="状态机">状态机 <span class="badge" id="countState">0</span></button>
-                                <button class="filter-chip" data-category="流程">流程/并发 <span class="badge" id="countFlow">0</span></button>
-                                <button class="filter-chip" data-category="权限">权限/安全 <span class="badge" id="countAuth">0</span></button>
-                                <button class="filter-chip" data-category="其他">其他 <span class="badge" id="countOther">0</span></button>
-                                <button class="filter-chip" data-category="可测试性">可测试性 <span class="badge" id="countTest">0</span></button>
+                        <div id="categoryFilters" class="category-filters d-flex justify-content-between align-items-start" style="display:none;">
+                            <div class="d-flex flex-column gap-2">
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="filter-chip active" data-filter-group="category" data-category="all">全部漏洞 <span class="badge" id="countAll">0</span></button>
+                                    <button class="filter-chip" data-filter-group="category" data-category="状态机">状态机 <span class="badge" id="countState">0</span></button>
+                                    <button class="filter-chip" data-filter-group="category" data-category="流程">流程/并发 <span class="badge" id="countFlow">0</span></button>
+                                    <button class="filter-chip" data-filter-group="category" data-category="权限">权限/安全 <span class="badge" id="countAuth">0</span></button>
+                                    <button class="filter-chip" data-filter-group="category" data-category="其他">其他 <span class="badge" id="countOther">0</span></button>
+                                    <button class="filter-chip" data-filter-group="category" data-category="可测试性">可测试性 <span class="badge" id="countTest">0</span></button>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="filter-chip active" data-filter-group="missing" data-missing-subtype="all">缺失类型：全部 <span class="badge" id="countMissAll">0</span></button>
+                                    <button class="filter-chip" data-filter-group="missing" data-missing-subtype="失败路径缺失">失败路径 <span class="badge" id="countMissFailure">0</span></button>
+                                    <button class="filter-chip" data-filter-group="missing" data-missing-subtype="边界限制缺失">边界限制 <span class="badge" id="countMissBoundary">0</span></button>
+                                    <button class="filter-chip" data-filter-group="missing" data-missing-subtype="权限边界缺失">权限边界 <span class="badge" id="countMissAuth">0</span></button>
+                                    <button class="filter-chip" data-filter-group="missing" data-missing-subtype="验收口径缺失">验收口径 <span class="badge" id="countMissAccept">0</span></button>
+                                </div>
                             </div>
                             <div class="d-flex gap-2 align-items-center">
                                 <input type="text" class="form-control form-control-sm" id="reviewActorInput" placeholder="评审操作者（可选）" style="max-width: 220px; display:none;">
@@ -1222,6 +1230,7 @@
     var riskPrediction = null;
     var understandingCards = null;
     var releaseGate = null;
+    var gateResult = null;
     var sharedSummary = null;
     var readerGuide = null;
     var activeLinkedTestPointId = '';
@@ -1253,6 +1262,7 @@
     var fourPillarsAuditWrapEl = document.getElementById('fourPillarsAuditWrap');
     var fourPillarsAuditContentEl = document.getElementById('fourPillarsAuditContent');
     var sharedSummaryMainWrapEl = document.getElementById('sharedSummaryMainWrap');
+    var sharedSummaryGateBarEl = document.getElementById('sharedSummaryGateBar');
     var sharedSummaryMainContentEl = document.getElementById('sharedSummaryMainContent');
     var contentOutlineMainMetaEl = document.getElementById('contentOutlineMainMeta');
     var contentOutlineMainContentEl = document.getElementById('contentOutlineMainContent');
@@ -1825,7 +1835,10 @@
         });
     }
 
-    function loadSnapshotDetail(snapshotId) {
+    function loadSnapshotDetail(snapshotId, options) {
+        options = options || {};
+        var restoreReports = options.restoreReports !== false;
+        var autoRestoreInputOnly = !!options.autoRestoreInputOnly;
         var modal = bootstrap.Modal.getInstance(document.getElementById('historySnapshotsModal'));
         if (modal) modal.hide();
         
@@ -1844,6 +1857,19 @@
                 // 恢复输入框
                 if (inputEl && payload.prd_text) {
                     inputEl.value = payload.prd_text;
+                }
+
+                if (!restoreReports) {
+                    btnGenerate.disabled = false;
+                    currentSnapshotId = snapshotId || '';
+                    var restoredMsg = '已恢复上一次 PRD 输入';
+                    if (preview.product_name) restoredMsg += '：' + String(preview.product_name);
+                    if (autoRestoreInputOnly) {
+                        restoredMsg += '，请点击“开始分析”获取最新版审计结果';
+                    }
+                    statusText.textContent = restoredMsg;
+                    showNonBlockingToast(restoredMsg, 'success');
+                    return;
                 }
                 
                 // 恢复报告
@@ -1876,6 +1902,7 @@
                     riskPrediction = extras.risk_prediction || null;
                     understandingCards = extras.understanding_cards || null;
                     releaseGate = extras.release_gate || null;
+                    gateResult = extras.gate_result || null;
                     sharedSummary = extras.shared_summary || null;
                     readerGuide = extras.reader_guide || null;
                     
@@ -3021,11 +3048,15 @@
             sharedSummaryMainContentEl.innerHTML = '';
             return;
         }
-        var purpose = String(sharedSummary.purpose || '').trim();
+        var purpose = String(sharedSummary.purpose || sharedSummary.summary_paragraph || '').trim();
         var scope = Array.isArray(sharedSummary.scope) ? sharedSummary.scope : [];
+        var scopeFactItems = Array.isArray(sharedSummary.scope_fact_items) ? sharedSummary.scope_fact_items : scope.slice(0, 3);
+        var scopeCapabilityItems = Array.isArray(sharedSummary.scope_capability_items) ? sharedSummary.scope_capability_items : scope.slice(scopeFactItems.length);
         var flow = Array.isArray(sharedSummary.core_flow) ? sharedSummary.core_flow : [];
         var points = Array.isArray(sharedSummary.key_points) ? sharedSummary.key_points : [];
-        if (!purpose && !scope.length && !flow.length && !points.length) {
+        var factPoints = Array.isArray(sharedSummary.fact_points) ? sharedSummary.fact_points : points;
+        var pendingPoints = Array.isArray(sharedSummary.pending_points) ? sharedSummary.pending_points : [];
+        if (!purpose && !scope.length && !flow.length && !factPoints.length && !pendingPoints.length) {
             sharedSummaryMainWrapEl.style.display = 'none';
             sharedSummaryMainContentEl.innerHTML = '';
             return;
@@ -3035,6 +3066,53 @@
         var wrapTitleEl = sharedSummaryMainWrapEl.querySelector('.feature-map-main-title');
         if (wrapTitleEl) {
             wrapTitleEl.innerHTML = '<i class="fas fa-users-viewfinder me-2"></i>' + escapeHtml(titleStr);
+        }
+
+        // 门禁（GATE）展示：只展示 pass/fail + 必补证据清单，不做二次改写
+        if (sharedSummaryGateBarEl) {
+            if (gateResult && typeof gateResult === 'object') {
+                var pass = !!gateResult.pass;
+                var failures = Array.isArray(gateResult.failures) ? gateResult.failures : [];
+                var reqs = Array.isArray(gateResult.required_evidence) ? gateResult.required_evidence : [];
+                var mode = String(gateResult.mode || 'GATE');
+                var genMode = String(sharedSummary.generation_mode || '');
+                var badgeCls = pass ? 'alert alert-success py-2' : 'alert alert-warning py-2';
+                var badgeText = pass ? 'PASS' : 'FAIL（打回）';
+                var bar = '';
+                bar += '<div class="' + badgeCls + ' mb-0">';
+                bar += '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">';
+                bar += '<div class="fw-semibold"><i class="fas fa-shield-halved me-2"></i>门禁：' + escapeHtml(mode) + ' · ' + escapeHtml(badgeText) + '</div>';
+                bar += '<div class="small text-muted">摘要模式：' + escapeHtml(genMode || 'unknown') + '</div>';
+                bar += '</div>';
+                if (!pass) {
+                    if (failures.length) {
+                        bar += '<div class="small mt-2"><div class="fw-semibold mb-1">失败原因</div><ul class="mb-2 ps-3">';
+                        failures.slice(0, 6).forEach(function(x){ bar += '<li>' + escapeHtml(String(x || '')) + '</li>'; });
+                        bar += '</ul></div>';
+                    }
+                    if (reqs.length) {
+                        bar += '<div class="small"><div class="fw-semibold mb-1">必补证据清单（建议直接写进 PRD）</div><ul class="mb-0 ps-3">';
+                        reqs.slice(0, 6).forEach(function(x){ bar += '<li>' + escapeHtml(String(x || '')) + '</li>'; });
+                        bar += '</ul></div>';
+                    }
+                }
+                sharedSummaryGateBarEl.innerHTML = bar;
+                sharedSummaryGateBarEl.style.display = 'block';
+            } else if (sharedSummary && Array.isArray(sharedSummary.validation_failures) && sharedSummary.validation_failures.length) {
+                // 兼容：若还没返回 gate_result，至少把摘要校验失败原因露出来
+                var vf = sharedSummary.validation_failures;
+                var htmlVf = '';
+                htmlVf += '<div class="alert alert-warning py-2 mb-0">';
+                htmlVf += '<div class="fw-semibold"><i class="fas fa-triangle-exclamation me-2"></i>摘要最小事实校验未通过（已回退到规则摘要）</div>';
+                htmlVf += '<ul class="small mb-0 mt-2 ps-3">';
+                vf.slice(0, 6).forEach(function(x){ htmlVf += '<li>' + escapeHtml(String(x || '')) + '</li>'; });
+                htmlVf += '</ul></div>';
+                sharedSummaryGateBarEl.innerHTML = htmlVf;
+                sharedSummaryGateBarEl.style.display = 'block';
+            } else {
+                sharedSummaryGateBarEl.innerHTML = '';
+                sharedSummaryGateBarEl.style.display = 'none';
+            }
         }
 
         var html = '';
@@ -3048,12 +3126,22 @@
             html += '<div class="fw-semibold mb-1 text-primary">2. 覆盖功能范围</div>';
             html += '<div class="mb-3 ps-3 border-start border-primary border-2 text-muted">';
             html += '<div class="rounded bg-white border px-3 py-2">';
-            html += '<div class="fw-semibold text-dark mb-2">核心功能</div>';
-            html += '<div class="d-flex flex-wrap gap-2">';
-            scope.slice(0, 8).forEach(function(item) {
-                html += '<span class="badge rounded-pill bg-light text-dark border px-3 py-2">' + escapeHtml(String(item || '')) + '</span>';
-            });
-            html += '</div>';
+            if (scopeFactItems.length) {
+                html += '<div class="fw-semibold text-dark mb-2">范围枚举</div>';
+                html += '<div class="d-flex flex-wrap gap-2 mb-3">';
+                scopeFactItems.slice(0, 3).forEach(function(item) {
+                    html += '<span class="badge rounded-pill bg-primary-subtle text-dark border px-3 py-2">' + escapeHtml(String(item || '')) + '</span>';
+                });
+                html += '</div>';
+            }
+            if (scopeCapabilityItems.length) {
+                html += '<div class="fw-semibold text-dark mb-2">核心功能</div>';
+                html += '<div class="d-flex flex-wrap gap-2">';
+                scopeCapabilityItems.slice(0, 5).forEach(function(item) {
+                    html += '<span class="badge rounded-pill bg-light text-dark border px-3 py-2">' + escapeHtml(String(item || '')) + '</span>';
+                });
+                html += '</div>';
+            }
             html += '</div>';
             html += '</div>';
         }
@@ -3065,11 +3153,19 @@
             });
             html += '</div>';
         }
-        if (points.length) {
-            html += '<div class="fw-semibold mb-1 text-primary">4. 关键技术/业务口径（红线）</div>';
-            html += '<div class="mb-0 ps-3 border-start border-primary border-2 text-muted">';
-            points.slice(0, 6).forEach(function(x){ 
+        if (factPoints.length) {
+            html += '<div class="fw-semibold mb-1 text-primary">4. 已确定事实口径</div>';
+            html += '<div class="mb-3 ps-3 border-start border-primary border-2 text-muted">';
+            factPoints.slice(0, 6).forEach(function(x){ 
                 html += renderSharedSummarySegments(String(x || ''));
+            });
+            html += '</div>';
+        }
+        if (pendingPoints.length) {
+            html += '<div class="fw-semibold mb-1 text-primary">5. 待裁决/待澄清</div>';
+            html += '<div class="mb-0 ps-3 border-start border-warning border-2 text-muted">';
+            pendingPoints.slice(0, 5).forEach(function(x){
+                html += '<div class="rounded bg-white border px-3 py-2 mb-2 small text-muted">' + escapeHtml(String(x || '')) + '</div>';
             });
             html += '</div>';
         }
@@ -4165,6 +4261,7 @@
         // 计算 P0/P1/P2
         var p0 = 0, p1 = 0, p2 = 0;
         var counts = { all: 0, state: 0, flow: 0, auth: 0, other: 0, test: 0 };
+        var missCounts = { all: 0, failure: 0, boundary: 0, auth: 0, accept: 0 };
         
         (defects || []).forEach(function(d) {
             var lv = String(d.risk_level || '').toUpperCase();
@@ -4179,6 +4276,15 @@
             else if (type.indexOf('权限') >= 0 || type.indexOf('安全') >= 0) counts.auth++;
             else if (type.indexOf('可测试性') >= 0 || type.indexOf('TEST_VERIFIABILITY') >= 0 || type.indexOf('量化') >= 0 || type.indexOf('验收标准') >= 0 || type.indexOf('指标') >= 0) counts.test++;
             else counts.other++;
+
+            var sub = String(d.missing_subtype || '');
+            if (sub) {
+                missCounts.all++;
+                if (sub === '失败路径缺失') missCounts.failure++;
+                else if (sub === '边界限制缺失') missCounts.boundary++;
+                else if (sub === '权限边界缺失') missCounts.auth++;
+                else if (sub === '验收口径缺失') missCounts.accept++;
+            }
         });
         
         document.getElementById('statP0').textContent = p0;
@@ -4193,6 +4299,11 @@
         if (document.getElementById('countAuth')) document.getElementById('countAuth').textContent = counts.auth;
         if (document.getElementById('countOther')) document.getElementById('countOther').textContent = counts.other;
         if (document.getElementById('countTest')) document.getElementById('countTest').textContent = counts.test;
+        if (document.getElementById('countMissAll')) document.getElementById('countMissAll').textContent = missCounts.all;
+        if (document.getElementById('countMissFailure')) document.getElementById('countMissFailure').textContent = missCounts.failure;
+        if (document.getElementById('countMissBoundary')) document.getElementById('countMissBoundary').textContent = missCounts.boundary;
+        if (document.getElementById('countMissAuth')) document.getElementById('countMissAuth').textContent = missCounts.auth;
+        if (document.getElementById('countMissAccept')) document.getElementById('countMissAccept').textContent = missCounts.accept;
         
         if (document.getElementById('categoryFilters')) document.getElementById('categoryFilters').style.display = 'flex';
         renderStage2ScanMeta(scanMetaData);
@@ -4248,6 +4359,9 @@
     }
 
     var currentSnapshotId = '';
+    var uiAnalysisOnlyMode = true;
+    var currentCategoryFilter = 'all';
+    var currentMissingSubtypeFilter = 'all';
     var reviewState = { items: {}, counts: {} };
     var reviewActor = '';
     var reviewActorInput = document.getElementById('reviewActorInput');
@@ -4271,6 +4385,240 @@
     function defectKey(d) {
         var base = String(d.type || '') + '|' + String(d.module || '') + '|' + String(d.description || '') + '|' + String(d.anchor || '');
         return 'd' + djb2Hash(base);
+    }
+
+    function normalizeL3DefectsForDisplay(defects) {
+        var arr = Array.isArray(defects) ? defects : [];
+        var merged = {};
+        function normText(s) {
+            return String(s || '').replace(/\s+/g, ' ').trim();
+        }
+        function normKeyPart(s) {
+            return normText(s).toLowerCase().replace(/[：:，。；、,.!?！？"'`]/g, '');
+        }
+        function shortDescKey(s) {
+            var t = normKeyPart(s);
+            return t.length > 72 ? t.slice(0, 72) : t;
+        }
+        function looksLikeHeadingQuote(s) {
+            var t = normText(s || '');
+            if (!t) return true;
+            // 典型“标题/模块名”类锚点：不算可引用原句
+            if (/^功能\s*[：:]/.test(t)) return true;
+            if (/^(模块|功能模块|业务流程|状态机|可测试性)\s*[：:]/.test(t)) return true;
+            if (t.length <= 18 && !/[，。；：、]/.test(t) && /(模块|功能|流程|规则|状态)/.test(t)) return true;
+            return false;
+        }
+        function isUsableEvidenceQuote(q) {
+            var t = normText(q || '');
+            if (!t) return false;
+            // 标题/模块名类，不算“可支撑结论的原句”
+            if (looksLikeHeadingQuote(t)) return false;
+            // 计划表/排期/负责人等“项目管理表”常见内容：能被锚点还原，但不应作为业务规则证据
+            if (/(负责人|完成时间|上线时间|排期|节点|开发|测试|服务端|客户端|小程序开发|UI设计)/.test(t)) return false;
+            // 过短或像“章节标题/列表项”，不具备引用价值
+            if (t.length < 10) return false;
+            // 没有任何自然语言断句符号且很长，常见于表格/字段堆叠
+            if (!/[，。；：、,.!?！？]/.test(t) && t.length >= 60) return false;
+            return true;
+        }
+        function filterEvidenceQuotes(quotes) {
+            var arr = Array.isArray(quotes) ? quotes : [];
+            var out = [];
+            arr.forEach(function(x) {
+                var t = normText(x || '');
+                if (!t) return;
+                if (!isUsableEvidenceQuote(t)) return;
+                if (out.indexOf(t) < 0) out.push(t);
+            });
+            return out.slice(0, 2);
+        }
+        function inferEvidenceClass(d, evidenceQuotes) {
+            // 严格：只有存在可复制原句才算 QUOTE
+            var quotes = filterEvidenceQuotes(evidenceQuotes);
+            if (quotes.length) return 'QUOTE';
+            var text = normText((d.description || '') + ' ' + (d.reason || '') + ' ' + (d.suggestion || ''));
+            // 识别“缺失定义”措辞（覆盖：未说明/未定义/缺失/没有要求/未提及等写法）
+            if (/未说明|未定义|缺失|未给出|不明确|边界未定义|只描述成功路径|未提及|未要求|没有[^。；]{0,12}(日志|埋点|监控|错误码|提示|规则|口径)|无[^。；]{0,8}(日志|埋点|监控|错误码|提示|规则|口径)/.test(text)) {
+                return 'MISSING_SPEC';
+            }
+            return 'DERIVED';
+        }
+        function inferQuoteStrength(d, evidenceQuotes) {
+            // 仅做“提示”，不改变 evidence_class 与计数/过滤口径
+            var quotes = filterEvidenceQuotes(evidenceQuotes);
+            if (!quotes.length) return '';
+            var kws = buildKeywords(d || {});
+            if (!kws || !kws.length) return 'soft';
+            var best = 0;
+            quotes.forEach(function(q) {
+                var hit = 0;
+                kws.forEach(function(k) { if (k && q.indexOf(k) >= 0) hit += 1; });
+                if (hit > best) best = hit;
+            });
+            // 命中≥2 个关键词：更可能“支撑结论”；否则为弱引用（仅用于定位）
+            return best >= 2 ? 'strong' : 'soft';
+        }
+        function pickPrdText() {
+            try {
+                // 优先取当前页面输入框（手动审计/调试更准）
+                if (typeof inputEl !== 'undefined' && inputEl && inputEl.value) return String(inputEl.value || '');
+            } catch (e) {}
+            return '';
+        }
+        function extractQuotesFromAnchor(anchorText) {
+            var out = [];
+            var s = normText(anchorText || '');
+            if (!s) return out;
+            // 形如：L7: xxx（常见）
+            var m1 = s.match(/(?:^|[；;\n])\s*(L\d{1,5})\s*[:：]\s*([^；;\n]{6,200})/g);
+            if (m1 && m1.length) {
+                m1.forEach(function(seg) {
+                    var mm = String(seg).match(/(L\d{1,5})\s*[:：]\s*([^；;\n]{6,200})/);
+                    if (mm && mm[2]) {
+                        var q = normText(mm[2]);
+                        if (q && isUsableEvidenceQuote(q) && out.indexOf(q) < 0) out.push(q);
+                    }
+                });
+            }
+            // 若锚点里直接包含一段可读句子（无 Lx:），也可作为引用（但必须不是标题/模块名）
+            if (!out.length && s.length >= 12 && s.length <= 220 && !/^L\d+(-L?\d+)?$/i.test(s) && isUsableEvidenceQuote(s)) {
+                out.push(s);
+            }
+            return out.slice(0, 2);
+        }
+        function buildKeywords(d) {
+            var raw = normText((d.type || '') + ' ' + (d.module || '') + ' ' + (d.description || '')).slice(0, 500);
+            var kws = [];
+            // 抽 2-6 字中文片段作为关键词（弱但稳）
+            var ms = raw.match(/[\u4e00-\u9fff]{2,6}/g) || [];
+            ms.forEach(function(x) {
+                if (!x) return;
+                if (x === '用户' || x === '系统' || x === '功能' || x === '流程' || x === '规则') return;
+                if (kws.indexOf(x) < 0) kws.push(x);
+            });
+            return kws.slice(0, 6);
+        }
+        function searchQuotesInPrd(prdText, keywords) {
+            var text = String(prdText || '');
+            if (!text) return { quotes: [], scope: '未提供 PRD 正文，无法做关键词检索' };
+            var lines = text.split(/\r?\n/).map(function(x){ return String(x || '').trim(); }).filter(Boolean);
+            if (!keywords || !keywords.length) return { quotes: [], scope: '关键词为空，无法检索原文' };
+            var hits = [];
+            var seen = {};
+            lines.forEach(function(ln) {
+                if (ln.length < 8 || ln.length > 220) return;
+                var score = 0;
+                keywords.forEach(function(k) { if (k && ln.indexOf(k) >= 0) score += 1; });
+                if (score >= 2) {
+                    var key = normKeyPart(ln);
+                    if (!seen[key]) {
+                        seen[key] = true;
+                        hits.push({ score: score, line: ln });
+                    }
+                }
+            });
+            hits.sort(function(a, b){ return (b.score - a.score) || (b.line.length - a.line.length); });
+            var out = hits.slice(0, 2).map(function(x){ return x.line; });
+            var scope = '关键词检索：' + keywords.slice(0, 6).join('、') + '；命中句数：' + hits.length;
+            return { quotes: out, scope: scope };
+        }
+        function inferMissingSubtype(d) {
+            var text = normText((d.type || '') + ' ' + (d.description || '') + ' ' + (d.reason || '') + ' ' + (d.suggestion || ''));
+            // 与 inferEvidenceClass 的“缺失定义”触发词保持一致，避免缺失类型统计全 0
+            if (!/未说明|未定义|缺失|未给出|不明确|边界|只描述成功路径|未提及|未要求|没有[^。；]{0,12}(日志|埋点|监控|错误码|提示|规则|口径)|无[^。；]{0,8}(日志|埋点|监控|错误码|提示|规则|口径)/.test(text)) return '';
+            // 注意顺序：验收/日志类建议里常包含“失败/成功”等词，若先判失败路径会把验收口径误归类到“失败路径缺失”
+            if (/验收|可测试性|指标|成功标准|失败标准|日志|埋点|监控|观测/.test(text)) return '验收口径缺失';
+            if (/权限|鉴权|越权|角色|可操作|访问边界|令牌|过期|重放|安全/.test(text)) return '权限边界缺失';
+            if (/边界|最小值|最大值|阈值|上限|下限|精度|条件/.test(text)) return '边界限制缺失';
+            if (/失败|超时|弱网|断网|重试|回滚|补偿|降级|异常流程/.test(text)) return '失败路径缺失';
+            return '规则定义缺失';
+        }
+        function buildMissingActionHint(subType, funcRef) {
+            var f = funcRef || '相关功能';
+            if (subType === '失败路径缺失') return '请补充“失败/超时/重试/降级”口径，并写清用户提示与状态恢复。';
+            if (subType === '边界限制缺失') return '请补充阈值与边界条件（最小/最大/默认/非法值）以及超界处理。';
+            if (subType === '权限边界缺失') return '请补充角色权限、鉴权与失效策略，明确谁可见/谁可操作。';
+            if (subType === '验收口径缺失') return '请补充可测试验收标准与最小观测字段（日志/埋点/错误码）。';
+            return '请在 PRD 中补充该规则定义与可验收描述，避免实现歧义。';
+        }
+        arr.forEach(function(d) {
+            var lv = String((d && d.risk_level) || 'P2').toUpperCase();
+            var type = normText(d && d.type);
+            var module = normText(d && d.module);
+            var desc = normText(d && d.description);
+            var key = [lv, normKeyPart(type), normKeyPart(module), shortDescKey(desc)].join('|');
+            if (!merged[key]) {
+                var anchorText = normText(d && d.anchor);
+                var anchorQuotes = extractQuotesFromAnchor(anchorText);
+                var prdText = pickPrdText();
+                var kw = buildKeywords(d || {});
+                var searched = searchQuotesInPrd(prdText, kw);
+                // 后端若已提供 evidence_quotes，优先使用（可回溯、无需依赖输入框检索）
+                var backendQuotes = (d && Array.isArray(d.evidence_quotes)) ? d.evidence_quotes : [];
+                var evidenceQuotesRaw = backendQuotes.length ? backendQuotes : (anchorQuotes.length ? anchorQuotes : (searched.quotes || []));
+                var evidenceQuotes = filterEvidenceQuotes(evidenceQuotesRaw);
+                var quoteFilteredOut = (Array.isArray(evidenceQuotesRaw) ? evidenceQuotesRaw.length : 0) > 0 && evidenceQuotes.length === 0;
+                merged[key] = {
+                    risk_level: lv,
+                    type: type || '分析项',
+                    module: module || '全局',
+                    description: desc || '【PRD未说明】',
+                    reason: normText(d && d.reason) || '【PRD未说明】',
+                    suggestion: normText(d && d.suggestion) || '【PRD未说明】',
+                    anchor: normText(d && d.anchor) || '',
+                    source_ids: [],
+                    evidence_class: inferEvidenceClass(d || {}, evidenceQuotes),
+                    missing_subtype: inferMissingSubtype(d || {}),
+                    quote_strength: inferQuoteStrength(d || {}, evidenceQuotes),
+                    evidence_quotes: evidenceQuotes,
+                    search_scope: (backendQuotes.length ? '后端还原：由锚点/行号映射提取原句' : (anchorQuotes.length ? '锚点抽取：从 anchor 提取可引用句' : searched.scope)) + (quoteFilteredOut ? '；引用质量过滤：命中但疑似标题/表格/排期行，未作为有效引用展示' : ''),
+                    merged_count: 1
+                };
+                if (merged[key].evidence_class === 'MISSING_SPEC') {
+                    merged[key].action_hint = buildMissingActionHint(merged[key].missing_subtype, merged[key].module || merged[key].type);
+                } else {
+                    merged[key].action_hint = '';
+                }
+                if (d && d.id) merged[key].source_ids.push(String(d.id));
+            } else {
+                var cur = merged[key];
+                cur.merged_count += 1;
+                var reason = normText(d && d.reason);
+                var suggestion = normText(d && d.suggestion);
+                var anchor = normText(d && d.anchor);
+                var subType = inferMissingSubtype(d || {});
+                if (reason && cur.reason.indexOf(reason) < 0) cur.reason += '；' + reason;
+                if (suggestion && cur.suggestion.indexOf(suggestion) < 0) cur.suggestion += '；' + suggestion;
+                if (anchor && cur.anchor.indexOf(anchor) < 0) cur.anchor = cur.anchor ? (cur.anchor + '；' + anchor) : anchor;
+                if (!cur.missing_subtype && subType) cur.missing_subtype = subType;
+                if (!cur.action_hint && cur.evidence_class === 'MISSING_SPEC') {
+                    cur.action_hint = buildMissingActionHint(cur.missing_subtype, cur.module || cur.type);
+                }
+                // 归并时补充引用句（最多2条）
+                var q2 = extractQuotesFromAnchor(anchor);
+                if (q2 && q2.length) {
+                    cur.evidence_quotes = Array.isArray(cur.evidence_quotes) ? cur.evidence_quotes : [];
+                    q2.forEach(function(x) {
+                        if (x && cur.evidence_quotes.indexOf(x) < 0 && cur.evidence_quotes.length < 2) cur.evidence_quotes.push(x);
+                    });
+                    cur.search_scope = '锚点抽取：从 anchor 提取可引用句';
+                }
+                // 若后续归并补齐了可引用原句，则把证据等级升级为 QUOTE（严格依赖 evidence_quotes）
+                cur.evidence_quotes = filterEvidenceQuotes(cur.evidence_quotes);
+                cur.evidence_class = inferEvidenceClass(cur, cur.evidence_quotes);
+                cur.quote_strength = inferQuoteStrength(cur, cur.evidence_quotes);
+                if (d && d.id) cur.source_ids.push(String(d.id));
+            }
+        });
+        var out = Object.keys(merged).map(function(k){ return merged[k]; });
+        out.sort(function(a, b) {
+            var levels = { P0: 0, P1: 1, P2: 2 };
+            var lvCmp = (levels[a.risk_level] || 9) - (levels[b.risk_level] || 9);
+            if (lvCmp !== 0) return lvCmp;
+            return (b.merged_count || 1) - (a.merged_count || 1);
+        });
+        return out;
     }
 
     function loadReviewState() {
@@ -4312,19 +4660,39 @@
         }).then(function(r){ return r.json(); });
     }
 
-    function renderDefectCards(defects, filterCategory) {
+    function syncFilterChipStates() {
+        document.querySelectorAll('.filter-chip[data-filter-group="category"]').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-category') === currentCategoryFilter);
+        });
+        document.querySelectorAll('.filter-chip[data-filter-group="missing"]').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-missing-subtype') === currentMissingSubtypeFilter);
+        });
+    }
+
+    function renderDefectCards(defects, filterCategory, filterMissingSubtype) {
         if (!cardAreaEl) return;
-        
-        var filtered = defects || [];
-        if (filterCategory && filterCategory !== 'all') {
+
+        var category = filterCategory || currentCategoryFilter || 'all';
+        var missingSubtype = filterMissingSubtype || currentMissingSubtypeFilter || 'all';
+        currentCategoryFilter = category;
+        currentMissingSubtypeFilter = missingSubtype;
+        syncFilterChipStates();
+
+        var filtered = normalizeL3DefectsForDisplay(defects || []);
+        if (category && category !== 'all') {
             filtered = filtered.filter(function(d) {
                 var type = String(d.type || '') + String(d.description || '');
-                if (filterCategory === '状态机') return type.indexOf('状态') >= 0;
-                if (filterCategory === '流程') return type.indexOf('流程') >= 0 || type.indexOf('并发') >= 0;
-                if (filterCategory === '权限') return type.indexOf('权限') >= 0 || type.indexOf('安全') >= 0;
-                if (filterCategory === '可测试性') return type.indexOf('可测试性') >= 0 || type.indexOf('TEST_VERIFIABILITY') >= 0 || type.indexOf('量化') >= 0 || type.indexOf('验收标准') >= 0 || type.indexOf('指标') >= 0;
-                if (filterCategory === '其他') return type.indexOf('状态') < 0 && type.indexOf('流程') < 0 && type.indexOf('并发') < 0 && type.indexOf('权限') < 0 && type.indexOf('安全') < 0 && type.indexOf('可测试性') < 0 && type.indexOf('TEST_VERIFIABILITY') < 0;
+                if (category === '状态机') return type.indexOf('状态') >= 0;
+                if (category === '流程') return type.indexOf('流程') >= 0 || type.indexOf('并发') >= 0;
+                if (category === '权限') return type.indexOf('权限') >= 0 || type.indexOf('安全') >= 0;
+                if (category === '可测试性') return type.indexOf('可测试性') >= 0 || type.indexOf('TEST_VERIFIABILITY') >= 0 || type.indexOf('量化') >= 0 || type.indexOf('验收标准') >= 0 || type.indexOf('指标') >= 0;
+                if (category === '其他') return type.indexOf('状态') < 0 && type.indexOf('流程') < 0 && type.indexOf('并发') < 0 && type.indexOf('权限') < 0 && type.indexOf('安全') < 0 && type.indexOf('可测试性') < 0 && type.indexOf('TEST_VERIFIABILITY') < 0;
                 return true;
+            });
+        }
+        if (missingSubtype && missingSubtype !== 'all') {
+            filtered = filtered.filter(function(d) {
+                return String(d.missing_subtype || '') === missingSubtype;
             });
         }
 
@@ -4358,6 +4726,13 @@
             html += '    <div class="defect-tags">';
             html += '      <span class="defect-tag">' + escapeHtml(d.module || '全局') + '</span>';
             if (d.anchor) html += '      <span class="defect-tag">' + escapeHtml(d.anchor) + '</span>';
+            html += '      <span class="defect-tag">证据:' + escapeHtml(d.evidence_class || 'DERIVED') + '</span>';
+            // “弱引用”仅做提示，不改变证据等级
+            if (String(d.evidence_class || '') === 'QUOTE' && String(d.quote_strength || '') === 'soft') {
+                html += '      <span class="defect-tag">引用:弱</span>';
+            }
+            if (d.missing_subtype) html += '      <span class="defect-tag">' + escapeHtml(d.missing_subtype) + '</span>';
+            if ((d.merged_count || 1) > 1) html += '      <span class="defect-tag">归并:' + String(d.merged_count) + '条</span>';
             html += '      <span class="defect-tag">评审:' + escapeHtml(st) + (assignee ? ('@' + escapeHtml(assignee)) : '') + '</span>';
             html += '    </div>';
             html += '  </div>';
@@ -4376,6 +4751,40 @@
             html += '    <div class="defect-info-label">建议</div>';
             html += '    <div class="defect-info-content">' + escapeHtml(d.suggestion || '-') + '</div>';
             html += '  </div>';
+
+            // 原文引用（可复制）
+            var quotes = Array.isArray(d.evidence_quotes) ? d.evidence_quotes : [];
+            html += '  <div class="defect-info-row">';
+            html += '    <div class="defect-info-label">原文引用</div>';
+            if (quotes.length) {
+                html += '    <div class="defect-info-content">' + quotes.map(function(q){ return '“' + escapeHtml(q) + '”'; }).join('<br>') + '</div>';
+            } else {
+                var anchorText = String(d.anchor || '');
+                html += '    <div class="defect-info-content text-muted">未抽取到可引用原句（锚点：' + escapeHtml(anchorText || '—') + '）。</div>';
+            }
+            html += '  </div>';
+
+            // 检索范围（证明“缺失”不是拍脑袋）
+            if (d.search_scope) {
+                html += '  <div class="defect-info-row">';
+                html += '    <div class="defect-info-label">检索范围</div>';
+                html += '    <div class="defect-info-content text-muted">' + escapeHtml(d.search_scope) + '</div>';
+                html += '  </div>';
+            }
+
+            if (String(d.evidence_class || '') === 'MISSING_SPEC') {
+                var funcRef = String(d.module || d.type || '相关功能');
+                html += '  <div class="defect-info-row">';
+                html += '    <div class="defect-info-label">缺失说明</div>';
+                html += '    <div class="defect-info-content">PRD 未发现可直接引用规则（功能引用：' + escapeHtml(funcRef) + '）。该项属于“缺失定义”而非“解析失败”。</div>';
+                html += '  </div>';
+                if (d.action_hint) {
+                    html += '  <div class="defect-info-row">';
+                    html += '    <div class="defect-info-label">补充动作</div>';
+                    html += '    <div class="defect-info-content">' + escapeHtml(d.action_hint) + '</div>';
+                    html += '  </div>';
+                }
+            }
 
             html += '  <div class="mt-2 p-2 rounded bg-light border">';
             html += '    <div class="row g-2 align-items-center">';
@@ -4436,7 +4845,7 @@
                         reviewState.items = reviewState.items || {};
                         reviewState.items[dk] = res.data.item;
                         showNonBlockingToast('评审状态已保存', 'success');
-                        renderDefectCards(defectsData, filterCategory || 'all');
+                        renderDefectCards(defectsData, currentCategoryFilter || 'all', currentMissingSubtypeFilter || 'all');
                     } else {
                         alert('保存失败：' + ((res && res.message) || '未知错误'));
                     }
@@ -4461,7 +4870,7 @@
                         reviewState.items = reviewState.items || {};
                         reviewState.items[dk] = res.data.item;
                         showNonBlockingToast('已标记为已修复', 'success');
-                        renderDefectCards(defectsData, filterCategory || 'all');
+                        renderDefectCards(defectsData, currentCategoryFilter || 'all', currentMissingSubtypeFilter || 'all');
                     } else {
                         alert('操作失败：' + ((res && res.message) || '未知错误'));
                     }
@@ -4587,6 +4996,9 @@
         // 页面瘦身：本页只保留「内容大纲 + 分层审计报告」。
         // Stage4/5 测试矩阵、系统图、知识卡片、导读等"非大纲/非报告本体"内容不在本页展示。
         wrap.style.display = 'none';
+        renderDecisionPanelMain();
+        renderMainOutline();
+        applyLevelVisibility(reportLevel || 'L3');
         return;
         var hasFeatureNodes = buildFeatureNodes().length > 0;
         var hasOutline = outlineEngine && typeof outlineEngine === 'object';
@@ -4668,7 +5080,7 @@
         btnDownloadWord.style.display = 'inline-block';
         var w = document.getElementById('btnDownloadByLevelWrap');
         if (w) w.style.display = 'inline-block';
-        btnSaveCases.style.display = 'inline-block';
+        btnSaveCases.style.display = uiAnalysisOnlyMode ? 'none' : 'inline-block';
         var copyWrap = document.getElementById('copyLevelButtonsWrap');
         if (copyWrap) {
             var okLevel = (reportLevel === 'OUTLINE' || reportLevel === 'L1' || reportLevel === 'L2' || reportLevel === 'L3');
@@ -4887,7 +5299,7 @@
         });
     }
 
-    var levelNames = { OUTLINE: '认知大纲', L1: '管理摘要 (L1)', L2: '产品分析 (L2)', L3: '技术审计 (L3)', VALIDATION: '验证大纲', TEST_CASES: '测试用例生成', SHIFT_LEFT: '测试左移资产', IMPACT: '变更影响分析' };
+    var levelNames = { OUTLINE: '审计总览', L1: '执行建议', L2: '角色分析', L3: '问题矩阵', VALIDATION: '技术详情', TEST_CASES: '测试用例生成', SHIFT_LEFT: '测试左移资产', IMPACT: '变更影响分析' };
     function applyLevelVisibility(level) {
         var isOutline = level === 'OUTLINE';
         var isL1 = level === 'L1';
@@ -4897,16 +5309,24 @@
         var isTestCases = level === 'TEST_CASES';
         var isShiftLeft = level === 'SHIFT_LEFT';
         var isImpact = level === 'IMPACT';
-        // 主报告区：各页签只显示本层级内容（不混排导读/导图/平台影响/大纲等）
+        var hasExtraAssets = !!(
+            (testMatrix && typeof testMatrix === 'object') ||
+            (diagrams && typeof diagrams === 'object') ||
+            (kg && typeof kg === 'object') ||
+            (parseMeta && typeof parseMeta === 'object')
+        );
         var map = {
-            decisionPanelMain: isL3,
+            decisionPanelMain: isOutline || isL1,
             fourPillarsAuditWrap: false,
             sharedSummaryMainWrap: isOutline,
             contentOutlineMainWrap: isOutline,
-
-            changeImpactMainWrap: isImpact,
-            validationOutlineMainWrap: isValidation,
-            testCaseMainWrap: isTestCases,
+            readerGuideMainWrap: isOutline,
+            mainFeatureMapWrap: false,
+            platformImpactMainWrap: isValidation,
+            changeImpactMainWrap: isValidation || isImpact,
+            validationOutlineMainWrap: isValidation || isTestCases,
+            testCaseMainWrap: uiAnalysisOnlyMode ? false : (isValidation || isTestCases),
+            hiddenAssumptionArea: isValidation,
             shiftLeftMainWrap: false
         };
         Object.keys(map).forEach(function(id) {
@@ -4914,28 +5334,26 @@
             if (!el) return;
             el.style.display = map[id] ? 'block' : 'none';
         });
-        // 导读、功能导图、平台影响：不放入任一主栏层级（避免与 L3/L1/L2/大纲混排）；仍由左侧「测试矩阵与系统图」等补充区承载 Stage 产物
-        ['readerGuideMainWrap', 'mainFeatureMapWrap', 'platformImpactMainWrap'].forEach(function(id) {
-            var el = document.getElementById(id);
-            if (el) el.style.display = 'none';
-        });
-        if (dashboardEl) dashboardEl.style.display = isL3 ? 'block' : 'none';
+        var extraWrapEl = document.getElementById('extraWrap');
+        if (extraWrapEl) extraWrapEl.style.display = (isValidation && hasExtraAssets) ? 'block' : 'none';
+        if (dashboardEl) dashboardEl.style.display = (isOutline || isL3) ? 'block' : 'none';
         var cat = document.getElementById('categoryFilters');
         if (cat) cat.style.display = (isL3 && currentMode === 'card') ? 'flex' : 'none';
         if (levelContextBadgeEl) levelContextBadgeEl.textContent = levelNames[level] || level;
         if (levelContextDescEl) {
-            if (isOutline) levelContextDescEl.textContent = '当前展示全员共识摘要与认知大纲；结构视图统一收敛到技术审计 (L3)';
-            else if (isL3) levelContextDescEl.textContent = '当前仅展示技术审计（L3）报告与总览';
-            else if (isL2) levelContextDescEl.textContent = '当前仅展示产品分析（L2）报告';
-            else if (isL1) levelContextDescEl.textContent = '当前仅展示管理摘要（L1）报告';
+            if (isOutline) levelContextDescEl.textContent = '当前展示结论摘要、认知大纲与导读，适合先快速看结论。';
+            else if (isL2) levelContextDescEl.textContent = '当前展示按角色组织的分析内容，方便不同职能快速对齐。';
+            else if (isL3) levelContextDescEl.textContent = '当前聚焦问题卡片与风险分布，适合集中看问题矩阵。';
+            else if (isL1) levelContextDescEl.textContent = '当前展示建议与优先级，适合直接推进整改和协作。';
+            else if (isValidation) levelContextDescEl.textContent = uiAnalysisOnlyMode ? '当前集中展示技术审计正文、验证视图与扩展技术资产。' : '当前集中展示技术审计正文、验证视图、测试用例与扩展技术资产。';
             else if (isImpact) levelContextDescEl.textContent = '当前仅展示架构级变更影响分析';
-            else if (isTestCases) levelContextDescEl.textContent = '当前展示 AI 自动生成的功能测试用例表';
+            else if (isTestCases) levelContextDescEl.textContent = uiAnalysisOnlyMode ? '当前模式已屏蔽测试用例生成功能。' : '当前展示 AI 自动生成的功能测试用例表';
             else if (isShiftLeft) levelContextDescEl.textContent = '当前仅展示测试左移资产：API契约、Mock、测试数据与埋点建议';
             else levelContextDescEl.textContent = '当前仅展示与该层级对应的报告正文';
         }
         renderFourPillarsAuditBlock(level);
         if (isShiftLeft) renderShiftLeft();
-        if (isTestCases) renderTestCases();
+        if (isTestCases && !uiAnalysisOnlyMode) renderTestCases();
 
         // 分层复制按钮：功能保留，但当前版本暂不展示
         var copyWrap = document.getElementById('copyLevelButtonsWrap');
@@ -4945,8 +5363,9 @@
     }
     function setLevel(level) {
         reportLevel = level || 'OUTLINE';
-        if (reportLevel === 'OUTLINE') currentMode = 'doc';
-        ['btnLevelOutline','btnLevelL1','btnLevelL2','btnLevelL3','btnLevelValidation','btnLevelTestCases','btnLevelShiftLeft','btnLevelImpact'].forEach(function(id) {
+        if (reportLevel === 'L3') currentMode = defectsData && defectsData.length ? 'card' : 'doc';
+        else currentMode = 'doc';
+        ['btnLevelOutline','btnLevelL1','btnLevelL2','btnLevelL3','btnLevelValidation'].forEach(function(id) {
             var b = document.getElementById(id);
             if (!b) return;
             var isActive = b.getAttribute('data-level') === reportLevel;
@@ -4967,12 +5386,14 @@
         var content = '';
         if (reportLevel === 'OUTLINE') {
             content = reports.OUTLINE || '';
-        } else if (reportLevel === 'IMPACT' || reportLevel === 'VALIDATION' || reportLevel === 'TEST_CASES') {
-            content = ''; // IMPACT and VALIDATION are purely dynamic, no report text needed in main area
+        } else if (reportLevel === 'IMPACT' || reportLevel === 'TEST_CASES') {
+            content = ''; // 这两个视图以动态区块为主，不走主报告 Markdown
+        } else if (reportLevel === 'VALIDATION') {
+            content = reports.L3 || '';
         } else {
             content = reports[reportLevel] || reports.L3 || '';
         }
-        if (reportLevel !== 'IMPACT' && reportLevel !== 'VALIDATION' && reportLevel !== 'TEST_CASES' && content) {
+        if (reportLevel !== 'IMPACT' && reportLevel !== 'TEST_CASES' && content) {
             lastReport = content;
             if (reportLevel === 'OUTLINE') {
                 // 大纲以结构化区（contentOutlineMainWrap）为准，不再重复渲染同一份 Markdown
@@ -4980,27 +5401,28 @@
                 outputEl.style.display = 'none';
             } else {
                 var renderedHtml = marked.parse(content);
-                outputEl.innerHTML = reportLevel === 'L3' ? enhanceL3MarkdownHtml(renderedHtml) : renderedHtml;
+                outputEl.innerHTML = (reportLevel === 'L3' || reportLevel === 'VALIDATION') ? enhanceL3MarkdownHtml(renderedHtml) : renderedHtml;
                 outputEl.style.display = (reportLevel === 'L3' ? (currentMode === 'doc') : true) ? 'block' : 'none';
             }
         } else {
             lastReport = '';
             outputEl.innerHTML = '';
-            if (reportLevel === 'OUTLINE' || reportLevel === 'IMPACT' || reportLevel === 'VALIDATION' || reportLevel === 'TEST_CASES') {
+            if (reportLevel === 'OUTLINE' || reportLevel === 'IMPACT' || reportLevel === 'TEST_CASES') {
                 outputEl.style.display = 'none';
             }
         }
 
         // 处理总览和卡片渲染
         if (summaryData) {
-            renderAuditDashboard(summaryData, defectsData);
+            var l3DisplayDefects = (reportLevel === 'L3') ? normalizeL3DefectsForDisplay(defectsData) : defectsData;
+            renderAuditDashboard(summaryData, l3DisplayDefects);
             if (reportLevel === 'L3' && currentMode === 'card') {
-                renderDefectCards(defectsData);
+                renderDefectCards(l3DisplayDefects);
                 cardAreaEl.style.display = 'block';
                 outputEl.style.display = 'none';
             } else {
                 cardAreaEl.style.display = 'none';
-                if (reportLevel === 'OUTLINE' || reportLevel === 'IMPACT' || reportLevel === 'VALIDATION' || reportLevel === 'TEST_CASES') {
+                if (reportLevel === 'OUTLINE' || reportLevel === 'IMPACT' || reportLevel === 'TEST_CASES') {
                     outputEl.style.display = 'none';
                 } else {
                     outputEl.style.display = 'block';
@@ -5010,7 +5432,7 @@
         } else {
             cardAreaEl.style.display = 'none';
             if (modeSwitchEl) modeSwitchEl.style.display = 'none';
-            if (reportLevel === 'OUTLINE' || reportLevel === 'IMPACT' || reportLevel === 'VALIDATION' || reportLevel === 'TEST_CASES') {
+            if (reportLevel === 'OUTLINE' || reportLevel === 'IMPACT' || reportLevel === 'TEST_CASES') {
                 outputEl.style.display = 'none';
             }
         }
@@ -5104,10 +5526,14 @@
     // 模式切换
     document.querySelectorAll('.filter-chip').forEach(function(btn) {
         btn.addEventListener('click', function() {
-            document.querySelectorAll('.filter-chip').forEach(function(b){ b.classList.remove('active'); });
-            this.classList.add('active');
-            var cat = this.getAttribute('data-category');
-            renderDefectCards(defectsData, cat);
+            var group = this.getAttribute('data-filter-group') || '';
+            if (group === 'missing') {
+                currentMissingSubtypeFilter = this.getAttribute('data-missing-subtype') || 'all';
+            } else {
+                currentCategoryFilter = this.getAttribute('data-category') || 'all';
+            }
+            syncFilterChipStates();
+            renderDefectCards(defectsData, currentCategoryFilter, currentMissingSubtypeFilter);
         });
     });
     var btnLevelL1 = document.getElementById('btnLevelL1');
@@ -5121,18 +5547,6 @@
     var btnLevelValidation = document.getElementById('btnLevelValidation');
     if (btnLevelValidation) {
         btnLevelValidation.addEventListener('click', function() { setLevel('VALIDATION'); });
-    }
-    var btnLevelTestCases = document.getElementById('btnLevelTestCases');
-    if (btnLevelTestCases) {
-        btnLevelTestCases.addEventListener('click', function() { setLevel('TEST_CASES'); });
-    }
-    var btnLevelShiftLeft = document.getElementById('btnLevelShiftLeft');
-    if (btnLevelShiftLeft) {
-        btnLevelShiftLeft.addEventListener('click', function() { setLevel('SHIFT_LEFT'); });
-    }
-    var btnLevelImpact = document.getElementById('btnLevelImpact');
-    if (btnLevelImpact) {
-        btnLevelImpact.addEventListener('click', function() { setLevel('IMPACT'); });
     }
 
     function renderTestCases() {
@@ -6237,6 +6651,7 @@
         testPoints = null;
         validationOutline = null;
         riskPrediction = null;
+        gateResult = null;
         sharedSummary = null;
         readerGuide = null;
         activeLinkedTestPointId = '';
@@ -6312,6 +6727,7 @@
                     riskPrediction = obj.risk_prediction || null;
                     understandingCards = obj.understanding_cards || null;
                     releaseGate = obj.release_gate || null;
+                    gateResult = obj.gate_result || null;
                     sharedSummary = obj.shared_summary || null;
                     readerGuide = obj.reader_guide || null;
                     parseMeta = obj.parse_meta || null;
@@ -6335,9 +6751,9 @@
                     
                     reports.OUTLINE = buildOutlineReportMarkdown();
                     var level = reportLevel || 'L3';
-                    if (!reports[level]) level = 'L3';
+                    if (level !== 'OUTLINE' && level !== 'VALIDATION' && !reports[level]) level = 'L3';
                     reportLevel = level;
-                    lastReport = reports[level] || outputEl.textContent;
+                    lastReport = reports[level] || (level === 'VALIDATION' ? (reports.L3 || '') : '') || outputEl.textContent;
                     outputEl.textContent = lastReport;
                     setLevel(level);
                     showReportButtons();
@@ -6956,7 +7372,9 @@
         widget.classList.toggle('collapsed', !isExpanded);
         toggleBtn.innerHTML = isExpanded ? '<i class="fas fa-compress"></i>' : '<i class="fas fa-expand"></i>';
         if (isExpanded && messages.length === 0) {
-            addMessage('assistant', '你好！我是PRD审计助手。\n\n你可以对我说：\n• "审计这个PRD"\n• "分析变更影响"\n• "生成测试用例"\n• "查一下Jira Bug"\n\n或者直接点击下方的快捷按钮。');
+            addMessage('assistant', uiAnalysisOnlyMode
+                ? '你好！我是PRD审计助手。\n\n你可以对我说：\n• "审计这个PRD"\n• "分析变更影响"\n• "查一下Jira Bug"\n\n或者直接点击下方的快捷按钮。'
+                : '你好！我是PRD审计助手。\n\n你可以对我说：\n• "审计这个PRD"\n• "分析变更影响"\n• "生成测试用例"\n• "查一下Jira Bug"\n\n或者直接点击下方的快捷按钮。');
         }
     }
 
@@ -7079,16 +7497,19 @@
         }
         
         // 切换到变更影响标签
-        var btnLevelImpact = document.getElementById('btnLevelImpact');
-        if (btnLevelImpact) {
-            btnLevelImpact.click();
-            return Promise.resolve('已切换到"变更影响分析"标签。\n\n请在输入框中输入变更描述，然后点击"开始分析"。');
+        var btnLevelValidation = document.getElementById('btnLevelValidation');
+        if (btnLevelValidation) {
+            btnLevelValidation.click();
+            return Promise.resolve('已切换到"技术详情"标签。\n\n请在输入框中输入变更描述，然后点击"开始分析"。');
         }
         return Promise.resolve('变更影响分析功能暂时不可用。');
     }
 
     // 生成测试用例
     function doGenerateTestCase() {
+        if (uiAnalysisOnlyMode) {
+            return Promise.resolve('当前页面已切换为仅分析模式，测试用例生成功能暂时屏蔽。');
+        }
         var testPoints = window.testPoints;
         if (!testPoints) {
             return Promise.resolve('⚠️ 请先执行PRD审计，获取测试点数据后，才能生成测试用例。');
@@ -7185,7 +7606,7 @@
             var prdInput = document.getElementById('inputContent');
             if (savedSnapshotId && prdInput && !prdInput.value.trim()) {
                 console.log('自动恢复上一次的审计记录:', savedSnapshotId);
-                loadSnapshotDetail(savedSnapshotId);
+                loadSnapshotDetail(savedSnapshotId, { restoreReports: false, autoRestoreInputOnly: true });
             }
         } catch (e) {
             console.error('自动恢复记录失败:', e);

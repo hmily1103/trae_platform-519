@@ -209,6 +209,7 @@ def call_llm_with_retry(
     stream: bool = False,
     timeout: int = 60,
     max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
     max_retries: int = 2,
     retry_delay: int = 2
 ) -> str:
@@ -225,7 +226,8 @@ def call_llm_with_retry(
                 config_override=config_override, 
                 stream=stream, 
                 timeout=timeout, 
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                temperature=temperature,
             )
         except Exception as e:
             last_err = e
@@ -253,12 +255,14 @@ def call_llm(
     config_override: Optional[Dict[str, Any]] = None,
     stream: bool = False,
     timeout: int = 60,
-    max_tokens: Optional[int] = None
+    max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
 ) -> str:
     """
     调用 LLM，返回完整文本响应（非流式）或首个 chunk 后的完整文本（流式内部聚合）
     非流式时返回完整文本；流式时仍返回完整文本（内部聚合）。
     max_tokens: 可选，最大生成 token 数；不传则用 API 默认（长报告建议传 8192 或 16384 避免截断）。
+    temperature: 可选，兼容旧调用链；仅在底层接口支持时透传。
     """
     if config_override:
         config = config_override
@@ -273,9 +277,26 @@ def call_llm(
         raise ValueError('API Key 未配置')
 
     if provider == 'gemini':
-        return _call_gemini(messages, api_key, model, stream, timeout, max_tokens=max_tokens)
+        return _call_gemini(
+            messages,
+            api_key,
+            model,
+            stream,
+            timeout,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
     else:
-        return _call_openai_compatible(messages, api_key, base_url, model, stream, timeout, max_tokens=max_tokens)
+        return _call_openai_compatible(
+            messages,
+            api_key,
+            base_url,
+            model,
+            stream,
+            timeout,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
 
 
 def _call_gemini(
@@ -284,7 +305,8 @@ def _call_gemini(
     model: str,
     stream: bool,
     timeout: int,
-    max_tokens: Optional[int] = None
+    max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
 ) -> str:
     """调用 Google Gemini API"""
     start = time.time()
@@ -321,6 +343,8 @@ def _call_gemini(
         payload["system_instruction"] = {"parts": [{"text": system_text}]}
     if max_tokens is not None:
         payload.setdefault("generationConfig", {})["maxOutputTokens"] = max_tokens
+    if temperature is not None:
+        payload.setdefault("generationConfig", {})["temperature"] = temperature
 
     session = requests.Session()
     session.trust_env = False
@@ -370,6 +394,7 @@ def _call_gemini(
                 "stream": True,
                 "timeout": timeout,
                 "max_tokens": max_tokens,
+                "temperature": temperature,
                 "http_status": status,
                 "ok": ok,
                 "duration_ms": int((time.time() - start) * 1000),
@@ -409,6 +434,7 @@ def _call_gemini(
             "stream": False,
             "timeout": timeout,
             "max_tokens": max_tokens,
+            "temperature": temperature,
             "http_status": status,
             "ok": ok,
             "duration_ms": int((time.time() - start) * 1000),
@@ -428,7 +454,8 @@ def _call_openai_compatible(
     model: str,
     stream: bool,
     timeout: int,
-    max_tokens: Optional[int] = None
+    max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
 ) -> str:
     """调用 OpenAI 兼容接口（DeepSeek、OpenAI 等）"""
     start = time.time()
@@ -445,6 +472,8 @@ def _call_openai_compatible(
     }
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
+    if temperature is not None:
+        payload["temperature"] = temperature
 
     session = requests.Session()
     session.trust_env = False
@@ -493,6 +522,7 @@ def _call_openai_compatible(
                 "stream": True,
                 "timeout": timeout,
                 "max_tokens": max_tokens,
+                "temperature": temperature,
                 "http_status": status,
                 "ok": ok,
                 "duration_ms": int((time.time() - start) * 1000),
@@ -509,7 +539,15 @@ def _call_openai_compatible(
     try:
         r = session.post(url, json=payload, headers=headers, timeout=req_timeout)
         status = r.status_code
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except Exception as e:
+            # Attach response body for easier debugging (e.g. DeepSeek 400 details).
+            try:
+                body = (r.text or "")[:1200]
+            except Exception:
+                body = ""
+            raise type(e)(str(e) + (f" | response={body}" if body else ""))
         data = r.json()
         usage = data.get("usage") if isinstance(data, dict) else None
         choice = data.get('choices', [{}])[0]
@@ -528,6 +566,7 @@ def _call_openai_compatible(
             "stream": False,
             "timeout": timeout,
             "max_tokens": max_tokens,
+            "temperature": temperature,
             "http_status": status,
             "ok": ok,
             "duration_ms": int((time.time() - start) * 1000),

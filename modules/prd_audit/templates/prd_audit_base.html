@@ -11,6 +11,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit/review_meeting_v2') else '' }}" href="/prd_audit/review_meeting_v2">
+                        <i class="fas fa-users me-2"></i>虚拟评审会
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {{ 'active' if request.path.startswith('/prd_audit/knowledge') else '' }}" href="/prd_audit/knowledge">
                         <i class="fas fa-database me-2"></i>PRD知识库
                     </a>
