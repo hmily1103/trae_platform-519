@@ -10,7 +10,7 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
-from flask import Blueprint, request, render_template
+from flask import Blueprint, request, render_template, send_file
 
 from utils.response import success_response, error_response
 
@@ -43,6 +43,41 @@ except Exception:
 
 unified_bp = Blueprint("unified", __name__, template_folder="templates")
 _START_LOCK = threading.RLock()
+
+_PLATFORM_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def _merge_orchestration_details(store, run_id: str, children: Any, statuses: Any, errors: Any) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {"children": children, "statuses": statuses, "errors": errors}
+    try:
+        ex = store.get_report(run_id)
+        prev = (ex or {}).get("details") or {}
+        if prev.get("log_monitor_bundle"):
+            merged["log_monitor_bundle"] = prev["log_monitor_bundle"]
+        if prev.get("recommendations"):
+            merged["recommendations"] = prev["recommendations"]
+    except Exception:
+        pass
+    return merged
+
+
+def _merge_orchestration_artifacts(store, run_id: str, children: Dict[str, Any]) -> list:
+    try:
+        from shared.unified.report_store import _dedupe_artifacts
+    except Exception:
+
+        def _dedupe_artifacts(items):  # type: ignore
+            return items
+
+    new = _build_orchestration_artifacts(children)
+    try:
+        ex = store.get_report(run_id)
+        for a in (ex or {}).get("artifacts") or []:
+            if isinstance(a, dict) and a.get("type") == "file_ref" and a.get("module") == "log_monitor":
+                new.append(a)
+    except Exception:
+        pass
+    return _dedupe_artifacts(new)
 
 
 def _safe_get_json() -> Dict[str, Any]:
@@ -220,6 +255,7 @@ def _start_unified_run(data: Dict[str, Any]):
         if "log_monitor" in modules:
             try:
                 from modules.log_monitor import views as log_views
+                from modules.log_monitor.voice_tracker import VoiceCommandTracker
 
                 log_cfg = (data.get("log_monitor") or {})
                 task_id = log_cfg.get("task_id") or f"log_monitor_{int(time.time())}"
@@ -232,6 +268,8 @@ def _start_unified_run(data: Dict[str, Any]):
                 with log_views.MONITOR_TASKS_LOCK:
                     if task_id in log_views.MONITOR_TASKS:
                         raise RuntimeError("log_monitor task already running")
+
+                voice_tracker = VoiceCommandTracker()
 
                 controller = log_views.AdbController()
                 alert_engine = log_views.AlertEngine()
@@ -250,6 +288,10 @@ def _start_unified_run(data: Dict[str, Any]):
                                 "timestamp": time.time(),
                             }
                         )
+                    try:
+                        voice_tracker.process_log(log_line)
+                    except Exception:
+                        pass
                     alerts = alert_engine.check_log(log_line, device_id, target_package)
                     if alerts:
                         with alert_queue_lock:
@@ -273,6 +315,7 @@ def _start_unified_run(data: Dict[str, Any]):
                         "alert_queue": alert_queue,
                         "alert_queue_lock": alert_queue_lock,
                         "alert_engine": alert_engine,
+                        "voice_tracker": voice_tracker,
                         "target_package": target_package,
                     }
 
@@ -636,9 +679,12 @@ def api_unified_status(run_id: str):
 
     if get_unified_report_store:
         try:
-            artifacts = _build_orchestration_artifacts(children)
-            child_summary = _summarize_child_statuses(statuses)
             store = get_unified_report_store()
+            artifacts = _merge_orchestration_artifacts(store, run_id, children)
+            child_summary = _summarize_child_statuses(statuses)
+            merged_details = _merge_orchestration_details(
+                store, run_id, children, statuses, run.get("errors") or []
+            )
             store.save_report(
                 unified_id=run_id,
                 module="unified",
@@ -649,11 +695,7 @@ def api_unified_status(run_id: str):
                     "overall_status": overall,
                     **child_summary,
                 },
-                details={
-                    "children": children,
-                    "statuses": statuses,
-                    "errors": run.get("errors") or [],
-                },
+                details=merged_details,
                 device_id=run.get("request", {}).get("device_id"),
                 package_name=run.get("request", {}).get("package_name"),
                 legacy_id=run_id,
@@ -723,10 +765,25 @@ def api_unified_stop(run_id: str):
     if "log_monitor" in children:
         try:
             from modules.log_monitor import views as log_views
+            from modules.log_monitor.bundle_export import export_log_monitor_bundle
+
             task_id = children["log_monitor"].get("task_id")
             with log_views.MONITOR_TASKS_LOCK:
                 info = log_views.MONITOR_TASKS.get(task_id)
                 if info:
+                    if get_unified_report_store:
+                        try:
+                            summary, art_entries = export_log_monitor_bundle(run_id, task_id, info)
+                            store = get_unified_report_store()
+                            store.extend_report(
+                                run_id,
+                                details_update={"log_monitor_bundle": summary},
+                                artifacts_extend=art_entries,
+                            )
+                        except Exception as ex:
+                            import logging
+
+                            logging.getLogger(__name__).warning("Unified: log_monitor export failed: %s", ex)
                     info["controller"].stop_monitoring()
                     del log_views.MONITOR_TASKS[task_id]
             stop_results["log_monitor"] = {"stopped": True}
@@ -772,6 +829,26 @@ def api_unified_stop(run_id: str):
         pass
 
     return success_response(data={"run_id": run_id, "stop_results": stop_results}, message="unified run stop issued")
+
+
+@unified_bp.route("/api/orchestration/<run_id>/artifact/<path:filename>", methods=["GET"])
+def api_orchestration_artifact(run_id: str, filename: str):
+    """下载一键任务导出的日志监控产物（完整 logcat / 语音 JSON / 告警 JSON）。"""
+    if not get_unified_report_store:
+        return error_response(message="Unified report store not available", status_code=500)
+    if not is_safe_unified_id(run_id):
+        return error_response(message="Invalid run id", error="invalid run_id", status_code=400)
+    fn = os.path.basename(filename or "")
+    allowed = {"log_monitor_full.log", "voice_tracker_full.json", "log_monitor_alerts.json"}
+    if fn not in allowed:
+        return error_response(message="不允许的文件名", error="invalid filename", status_code=400)
+    path = os.path.join(_PLATFORM_ROOT, "reports", "unified", "artifacts", run_id, fn)
+    if not os.path.isfile(path):
+        return error_response(message="文件不存在或未导出", error="not found", status_code=404)
+    try:
+        return send_file(path, as_attachment=True, download_name=fn)
+    except Exception as e:
+        return error_response(message="读取文件失败", error=str(e), status_code=500)
 
 
 @unified_bp.route("/api/runs/<run_id>", methods=["DELETE"])

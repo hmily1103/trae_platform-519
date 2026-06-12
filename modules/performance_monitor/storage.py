@@ -159,6 +159,15 @@ class PerformanceStorage:
                 'is_perceptual_stalling': getattr(snapshot, 'is_perceptual_stalling', False),
                 'perceptual_stall_severity': getattr(snapshot, 'perceptual_stall_severity', ''),
                 'frame_time_variance': getattr(snapshot, 'frame_time_variance', 0),
+                'mpp_active_instances': getattr(snapshot, 'mpp_active_instances', 0),
+                'mpp_total_work_count': getattr(snapshot, 'mpp_total_work_count', 0),
+                'mpp_work_count_delta': getattr(snapshot, 'mpp_work_count_delta', 0),
+                'mpp_work_count_delta_time_sec': getattr(snapshot, 'mpp_work_count_delta_time_sec', 0),
+                'decoder_stuck': getattr(snapshot, 'decoder_stuck', False),
+                'decoder_stuck_duration_sec': getattr(snapshot, 'decoder_stuck_duration_sec', 0),
+                'decode_fps_estimate': getattr(snapshot, 'decode_fps_estimate', 0),
+                'decode_drop_estimate': getattr(snapshot, 'decode_drop_estimate', 0),
+                'decode_drop_ratio': getattr(snapshot, 'decode_drop_ratio', 0),
                 'processes': [
                     {
                         'pid': p.pid,

@@ -2,172 +2,439 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>代码级精准回归 - Trae Platform</title>
-    <!-- 复用 prd_audit 的样式和依赖 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VOD 智能精准回归 - Trae Platform</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
     <style>
-        body { background-color: #f8f9fa; }
-        .markdown-body {
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        .markdown-body h3 {
-            font-size: 1.1rem;
-            margin-top: 1.5rem;
-            margin-bottom: 0.8rem;
-            color: #2c3e50;
-            border-bottom: 1px solid #eaecef;
-            padding-bottom: 0.3em;
-        }
-        .markdown-body ul {
-            padding-left: 1.5em;
-        }
-        .code-textarea {
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 13px;
-            background-color: #f6f8fa;
-        }
+        body { background: #f5f7fb; color: #1f2937; }
+        .page-shell { max-width: 1500px; }
+        .card { border: 0; }
+        .sticky-input { position: sticky; top: 16px; }
+        .code-textarea { font: 12px/1.5 Consolas, "Courier New", monospace; background: #f8fafc; }
+        .metric { border-left: 4px solid #2563eb; background: #fff; }
+        .risk-P0 { border-left: 4px solid #dc2626; }
+        .risk-P1 { border-left: 4px solid #f59e0b; }
+        .risk-P2 { border-left: 4px solid #64748b; }
+        .gate-PASS { background: #dcfce7; color: #166534; }
+        .gate-CONDITIONAL_PASS { background: #fef3c7; color: #92400e; }
+        .gate-BLOCKED { background: #fee2e2; color: #991b1b; }
+        .gate-REVIEW_REQUIRED { background: #dbeafe; color: #1e40af; }
+        .table td, .table th { vertical-align: middle; font-size: 13px; }
+        .executor-link { text-decoration: none; font-weight: 600; }
+        .markdown-body { line-height: 1.65; font-size: 14px; }
+        .markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+        .markdown-body th, .markdown-body td { border: 1px solid #dee2e6; padding: .5rem; }
+        .empty-panel { min-height: 420px; display: grid; place-items: center; color: #64748b; }
+        .nav-pills .nav-link { color: #475569; }
+        .nav-pills .nav-link.active { background: #1d4ed8; }
+        .small-label { font-size: 12px; color: #64748b; }
     </style>
 </head>
 <body>
-
-<!-- 简单的顶部导航（你可以把它嵌入到全局导航中） -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#"><i class="fas fa-bullseye me-2"></i>精准回归测试 (Code)</a>
-        <div class="collapse navbar-collapse">
-            <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link" href="/">返回首页</a></li>
-            </ul>
-        </div>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid page-shell">
+        <a class="navbar-brand" href="/"><i class="fas fa-bullseye me-2"></i>VOD 智能精准回归</a>
+        <a class="btn btn-sm btn-outline-light" href="/unified/reports">报告中心</a>
     </div>
 </nav>
 
-<div class="container">
-    <div class="row">
-        <!-- 左侧输入区 -->
-        <div class="col-md-5">
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white fw-bold">
-                    <i class="fas fa-code me-2 text-primary"></i>代码变更输入 (Git Diff)
-                </div>
+<main class="container-fluid page-shell py-4">
+    <div class="row g-4">
+        <div class="col-xl-4">
+            <section class="card shadow-sm sticky-input">
+                <div class="card-header bg-white fw-bold py-3">需求与代码变更</div>
                 <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-5">
+                            <label class="form-label small-label">版本号</label>
+                            <input id="versionInput" class="form-control form-control-sm" placeholder="如 V1.3.2">
+                        </div>
+                        <div class="col-7">
+                            <label class="form-label small-label">项目类型</label>
+                            <select id="projectType" class="form-select form-select-sm">
+                                <option value="vod" selected>雷石 KTV VOD 全链路</option>
+                                <option value="backend">后端服务</option>
+                                <option value="mobile">机顶盒/移动端</option>
+                                <option value="frontend">前端工程</option>
+                                <option value="fullstack">全栈工程</option>
+                            </select>
+                        </div>
+                    </div>
+                    <details class="mb-3">
+                        <summary class="small fw-semibold text-primary">测试环境快照（建议填写）</summary>
+                        <div class="row g-2 mt-1">
+                            <div class="col-6"><input id="deviceIdInput" class="form-control form-control-sm" placeholder="设备IP/ADB ID"></div>
+                            <div class="col-6"><input id="stbModelInput" class="form-control form-control-sm" placeholder="机顶盒型号"></div>
+                            <div class="col-6"><input id="firmwareInput" class="form-control form-control-sm" placeholder="固件版本"></div>
+                            <div class="col-6"><input id="serverInput" class="form-control form-control-sm" placeholder="服务器环境/IP"></div>
+                        </div>
+                    </details>
                     <div class="mb-3">
-                        <label class="form-label small text-muted">项目类型</label>
-                        <select class="form-select form-select-sm" id="projectType">
-                            <option value="backend" selected>后端服务 (Java/Python/Go等)</option>
-                            <option value="frontend">前端工程 (Vue/React等)</option>
-                        </select>
+                        <div class="d-flex justify-content-between">
+                            <label class="form-label small-label">需求说明</label>
+                            <span id="requirementCount" class="small-label">0 / 30,000</span>
+                        </div>
+                        <textarea id="requirementInput" class="form-control" rows="5"
+                                  placeholder="粘贴需求目标、业务规则、异常与验收口径"></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small text-muted">粘贴 Git Diff 文本或改动的代码片段</label>
-                        <textarea id="codeDiffInput" class="form-control code-textarea" rows="18" placeholder="示例:
-@@ -10,4 +10,6 @@
- public class OrderService {
--    public void createOrder() {
--        // 原始逻辑
-+    public void createOrder(boolean isVip) {
-+        if(isVip) {
-+           // 优先处理
-+        }
-     }
- }"></textarea>
+                        <div class="d-flex justify-content-between">
+                            <label class="form-label small-label">Git Diff</label>
+                            <span id="diffCount" class="small-label">0 / 100,000</span>
+                        </div>
+                        <textarea id="codeDiffInput" class="form-control code-textarea" rows="15"
+                                  placeholder="粘贴 git diff 内容"></textarea>
+                    </div>
+                    <div class="d-flex gap-2 mb-3">
+                        <button id="btnExample" class="btn btn-sm btn-outline-secondary" type="button">VOD 示例</button>
+                        <button id="btnClear" class="btn btn-sm btn-outline-secondary" type="button">清空</button>
+                        <span class="small-label ms-auto align-self-center">Ctrl + Enter</span>
                     </div>
                     <button id="btnAnalyze" class="btn btn-primary w-100">
-                        <span id="btnText"><i class="fas fa-magic me-2"></i>一键推导回归策略</span>
-                        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none ms-2" role="status" aria-hidden="true"></span>
+                        <span id="btnText"><i class="fas fa-wand-magic-sparkles me-2"></i>生成精准回归计划</span>
+                        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none ms-2"></span>
                     </button>
+                    <div id="sourceHint" class="small text-muted mt-2"></div>
                 </div>
-            </div>
+            </section>
         </div>
 
-        <!-- 右侧输出区 -->
-        <div class="col-md-7">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
-                    <span><i class="fas fa-chart-network me-2 text-success"></i>爆炸半径与回归大纲</span>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="copyReport()"><i class="far fa-copy me-1"></i>复制报告</button>
+        <div class="col-xl-8">
+            <div id="emptyState" class="card shadow-sm empty-panel">
+                <div class="text-center">
+                    <i class="fas fa-diagram-project fa-3x mb-3 opacity-50"></i>
+                    <h5>从变更到质量结论</h5>
+                    <p class="mb-0">系统将生成 VOD 风险模型、最小验证集、执行器映射和确定性门禁。</p>
                 </div>
-                <div class="card-body bg-light" style="overflow-y: auto; min-height: 500px;">
-                    <div id="reportContainer" class="markdown-body p-3 bg-white border rounded h-100 d-none">
-                        <!-- 报告内容 -->
+            </div>
+
+            <div id="workspace" class="d-none">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-3"><div class="card metric shadow-sm p-3"><span class="small-label">分析任务</span><strong id="analysisId">-</strong></div></div>
+                    <div class="col-md-3"><div class="card metric shadow-sm p-3"><span class="small-label">风险</span><strong id="riskMetric">0</strong></div></div>
+                    <div class="col-md-3"><div class="card metric shadow-sm p-3"><span class="small-label">测试点</span><strong id="testMetric">0</strong></div></div>
+                    <div class="col-md-3"><div id="gateMetricCard" class="card shadow-sm p-3"><span class="small-label">质量门禁</span><strong id="gateMetric">-</strong></div></div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <ul class="nav nav-pills gap-2" id="workspaceTabs">
+                            <li class="nav-item"><button class="nav-link active" data-panel="riskPanel">风险模型</button></li>
+                            <li class="nav-item"><button class="nav-link" data-panel="testPanel">最小验证集</button></li>
+                            <li class="nav-item"><button class="nav-link" data-panel="executionPanel">执行记录</button></li>
+                            <li class="nav-item"><button class="nav-link" data-panel="reportPanel">质量结论</button></li>
+                        </ul>
                     </div>
-                    <div id="emptyState" class="text-center text-muted mt-5 pt-5">
-                        <i class="fas fa-flask fa-3x mb-3 text-secondary" style="opacity: 0.5;"></i>
-                        <p>请在左侧输入代码 Diff，点击推导获取精准测试策略。</p>
+                    <div class="card-body">
+                        <section id="riskPanel" class="workspace-panel"></section>
+                        <section id="testPanel" class="workspace-panel d-none"></section>
+                        <section id="executionPanel" class="workspace-panel d-none"></section>
+                        <section id="reportPanel" class="workspace-panel d-none"></section>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
+</main>
 
 <script>
-    var currentReport = '';
+var currentAnalysis = null;
+var exampleRequirement = '新增歌曲收藏能力：用户可以在点歌页收藏和取消收藏。收藏状态需要同步到用户中心，并写入 Redis 和数据库。连续点击不得产生重复收藏；断网恢复后状态应一致。';
+var exampleDiff = `--- a/services/favorite_service.py
++++ b/services/favorite_service.py
+@@ -10,5 +10,15 @@ class FavoriteService:
+-    def add(self, user_id, song_id):
+-        return self.repository.add(user_id, song_id)
++    def add(self, user_id, song_id):
++        lock_key = "favorite:" + user_id + ":" + song_id
++        if not self.redis.setnx(lock_key, 1):
++            return {"code": 409, "message": "duplicated"}
++        try:
++            result = self.repository.add(user_id, song_id)
++            self.redis.delete("favorite_list:" + user_id)
++            return result
++        finally:
++            self.redis.delete(lock_key)`;
 
-    document.getElementById('btnAnalyze').addEventListener('click', function() {
-        var codeDiff = document.getElementById('codeDiffInput').value.trim();
-        var projectType = document.getElementById('projectType').value;
-        
-        if (!codeDiff) {
-            alert('请粘贴代码 Diff！');
-            return;
-        }
-        
-        var btn = this;
-        var btnText = document.getElementById('btnText');
-        var btnSpinner = document.getElementById('btnSpinner');
-        var reportContainer = document.getElementById('reportContainer');
-        var emptyState = document.getElementById('emptyState');
-        
-        btn.disabled = true;
-        btnText.textContent = 'AI 正在推导链路...';
-        btnSpinner.classList.remove('d-none');
-        
-        fetch('/precision_test/api/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                code_diff: codeDiff,
-                project_type: projectType
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.ok || data.success || data.code === 0) {
-                var mdReport = data.impact_report || (data.data && data.data.impact_report);
-                currentReport = mdReport;
-                emptyState.classList.add('d-none');
-                reportContainer.classList.remove('d-none');
-                reportContainer.innerHTML = window.marked.parse(mdReport);
-            } else {
-                alert('分析失败: ' + (data.message || data.msg || '未知错误'));
+function escapeHtml(value) {
+    var div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+}
+
+function sanitizeHtml(html) {
+    if (window.DOMPurify) return window.DOMPurify.sanitize(html);
+    var template = document.createElement('template');
+    template.innerHTML = html;
+    template.content.querySelectorAll('script,iframe,object,embed,form').forEach(function(node) { node.remove(); });
+    template.content.querySelectorAll('*').forEach(function(node) {
+        Array.from(node.attributes).forEach(function(attr) {
+            var name = attr.name.toLowerCase();
+            var value = attr.value.trim().toLowerCase();
+            if (name.indexOf('on') === 0 || ((name === 'href' || name === 'src') && value.indexOf('javascript:') === 0)) {
+                node.removeAttribute(attr.name);
             }
-        })
-        .catch(err => {
-            alert('请求异常: ' + err);
-        })
-        .finally(() => {
-            btn.disabled = false;
-            btnText.innerHTML = '<i class="fas fa-magic me-2"></i>一键推导回归策略';
-            btnSpinner.classList.add('d-none');
         });
     });
+    return template.innerHTML;
+}
 
-    function copyReport() {
-        if (!currentReport) {
-            alert('暂无报告可复制');
-            return;
-        }
-        navigator.clipboard.writeText(currentReport).then(() => {
-            alert('报告已复制到剪贴板！可以直接粘贴到 PR 评论区。');
-        }).catch(err => {
-            alert('复制失败: ' + err);
-        });
+function renderMarkdown(text) {
+    if (window.marked) return sanitizeHtml(window.marked.parse(text || ''));
+    return '<pre class="text-wrap">' + escapeHtml(text || '') + '</pre>';
+}
+
+function requestJson(url, options) {
+    return fetch(url, options).then(async function(response) {
+        var payload = await response.json();
+        if (!response.ok || payload.ok === false) throw new Error(payload.message || '请求失败');
+        return payload.data;
+    });
+}
+
+function setLoading(loading) {
+    document.getElementById('btnAnalyze').disabled = loading;
+    document.getElementById('btnSpinner').classList.toggle('d-none', !loading);
+    document.getElementById('btnText').innerHTML = loading
+        ? '正在分析需求、代码与 VOD 风险...'
+        : '<i class="fas fa-wand-magic-sparkles me-2"></i>生成精准回归计划';
+}
+
+function renderWorkspace(model) {
+    currentAnalysis = model;
+    document.getElementById('emptyState').classList.add('d-none');
+    document.getElementById('workspace').classList.remove('d-none');
+    document.getElementById('analysisId').textContent = model.analysis_id;
+    document.getElementById('riskMetric').textContent = model.risks.length;
+    document.getElementById('testMetric').textContent = model.test_points.length;
+    renderGate(model.quality_gate);
+    renderRisks(model);
+    renderTests(model);
+    renderExecution(model);
+    renderReport(model);
+    document.getElementById('sourceHint').textContent = model.analysis_source === 'llm'
+        ? '分析来源：AI + VOD规则校验'
+        : '分析来源：VOD规则降级。' + (model.llm_error || '');
+    history.replaceState(null, '', '?analysis_id=' + encodeURIComponent(model.analysis_id));
+}
+
+function renderGate(gate) {
+    document.getElementById('gateMetric').textContent = gate.decision;
+    var card = document.getElementById('gateMetricCard');
+    card.className = 'card shadow-sm p-3 gate-' + gate.decision;
+}
+
+function renderRisks(model) {
+    var summary = model.change.diff_summary || {};
+    var html = '<div class="d-flex justify-content-between align-items-start mb-3">'
+        + '<div><h5 class="mb-1">' + escapeHtml(model.change.summary) + '</h5>'
+        + '<div class="small text-muted">版本 ' + escapeHtml(model.change.version)
+        + ' · 文件 ' + (summary.file_count || 0) + ' · +' + (summary.additions || 0) + ' / -' + (summary.deletions || 0) + '</div></div>'
+        + '<span class="badge text-bg-secondary">' + escapeHtml(model.analysis_source) + '</span></div>';
+    var env = model.change.environment || {};
+    if (env.device_id || env.stb_model || env.firmware || env.server) {
+        html += '<div class="alert alert-light border py-2 small"><strong>环境：</strong>'
+            + escapeHtml([env.device_id, env.stb_model, env.firmware, env.server, env.network].filter(Boolean).join(' · '))
+            + '</div>';
     }
-</script>
+    model.risks.forEach(function(risk) {
+        html += '<article class="card border mb-3 risk-' + risk.priority + '"><div class="card-body">'
+            + '<div class="d-flex justify-content-between"><strong>' + escapeHtml(risk.id + ' · ' + risk.title) + '</strong>'
+            + '<span class="badge ' + (risk.priority === 'P0' ? 'text-bg-danger' : risk.priority === 'P1' ? 'text-bg-warning' : 'text-bg-secondary') + '">' + risk.priority + '</span></div>'
+            + '<div class="small text-muted my-2">' + escapeHtml(risk.category) + ' · '
+            + (risk.impact_type === 'direct' ? '直接影响' : '间接影响') + ' · 置信度 ' + escapeHtml(risk.confidence) + '</div>'
+            + '<p class="mb-2">' + escapeHtml(risk.scope) + '</p>'
+            + '<div class="small"><strong>证据：</strong>' + escapeHtml((risk.evidence || []).join('；')) + '</div>'
+            + '</div></article>';
+    });
+    document.getElementById('riskPanel').innerHTML = html;
+}
 
+function renderTests(model) {
+    var executions = {};
+    model.execution_plan.forEach(function(item) { executions[item.test_point_id] = item; });
+    var html = '<div class="alert alert-primary py-2">仅保留 ' + model.test_points.length
+        + ' 条最小验证集。自动执行表示已有模块可承接，不代表已经执行成功。</div>'
+        + '<div class="table-responsive"><table class="table table-hover"><thead><tr>'
+        + '<th>编号</th><th>等级</th><th>测试点</th><th>步骤 / 预期</th><th>执行方式</th></tr></thead><tbody>';
+    model.test_points.forEach(function(point) {
+        var execution = executions[point.id];
+        var executor = execution.executor_url
+            ? '<a class="executor-link" target="_blank" href="' + escapeHtml(execution.executor_url) + '">' + escapeHtml(execution.executor_name) + '</a>'
+            : escapeHtml(execution.executor_name);
+        html += '<tr><td>' + point.id + '</td><td><strong>' + point.priority + '</strong></td>'
+            + '<td><div class="fw-semibold">' + escapeHtml(point.title) + '</div><small class="text-muted">' + escapeHtml(point.type) + ' · ' + escapeHtml(point.risk_ids.join(',')) + '</small></td>'
+            + '<td><div>' + escapeHtml(point.steps) + '</div><small class="text-success">预期：' + escapeHtml(point.expected) + '</small></td>'
+            + '<td><span class="badge text-bg-light border me-1">' + escapeHtml(execution.mode) + '</span>' + executor + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('testPanel').innerHTML = html;
+}
+
+function renderExecution(model) {
+    var points = {};
+    model.test_points.forEach(function(point) { points[point.id] = point; });
+    var html = '<div class="d-flex flex-wrap justify-content-between gap-2 mb-3">'
+        + '<div><h5 class="mb-0">执行结果</h5><small class="text-muted">设备离线、ADB异常或环境不可用请选择 ENV_ERROR。</small></div>'
+        + '<div class="d-flex gap-2"><select id="gateMode" class="form-select form-select-sm">'
+        + '<option value="observe"' + (model.gate_mode === 'observe' ? ' selected' : '') + '>观察模式</option>'
+        + '<option value="enforce"' + (model.gate_mode === 'enforce' ? ' selected' : '') + '>强制门禁</option></select>'
+        + '<button class="btn btn-sm btn-primary" onclick="saveResults()">保存并计算门禁</button></div></div>'
+        + '<div class="table-responsive"><table class="table"><thead><tr><th>测试项</th><th style="width:150px">结果</th><th>Bug / 说明</th><th>规避</th></tr></thead><tbody>';
+    model.execution_plan.forEach(function(item) {
+        var point = points[item.test_point_id] || {};
+        html += '<tr data-execution-id="' + item.id + '"><td><div class="fw-semibold">' + escapeHtml(point.title || item.test_point_id) + '</div>'
+            + '<small class="text-muted">' + item.priority + ' · ' + escapeHtml(item.executor_name) + ' · ' + escapeHtml(item.mode) + '</small></td>'
+            + '<td><select class="form-select form-select-sm result-status">';
+        ['PENDING','PASS','FAIL','BLOCKED','SKIPPED','ENV_ERROR'].forEach(function(status) {
+            html += '<option value="' + status + '"' + (item.status === status ? ' selected' : '') + '>' + status + '</option>';
+        });
+        html += '</select></td><td><div class="input-group input-group-sm mb-1"><span class="input-group-text">Bug</span>'
+            + '<input class="form-control result-bug" value="' + escapeHtml(item.bug_id || '') + '"></div>'
+            + '<input class="form-control form-control-sm result-note" placeholder="结论或环境问题说明" value="' + escapeHtml(item.note || '') + '"></td>'
+            + '<td class="text-center"><input class="form-check-input result-workaround" type="checkbox"' + (item.workaround ? ' checked' : '') + '></td></tr>';
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('executionPanel').innerHTML = html;
+}
+
+function renderReport(model) {
+    var gate = model.quality_gate;
+    var html = '<div class="alert gate-' + gate.decision + '">'
+        + '<div class="d-flex justify-content-between align-items-center"><h4 class="mb-0">' + gate.decision + '</h4>'
+        + '<span>' + (gate.enforced ? '强制门禁' : '观察模式') + '</span></div>'
+        + '<div class="mt-2">' + escapeHtml(gate.reasons.join('；')) + '</div>'
+        + '<div class="small mt-1">覆盖率 ' + gate.coverage_rate + '% · P0通过 ' + gate.p0_passed + '/' + gate.p0_total + '</div></div>'
+        + '<div class="d-flex flex-wrap gap-2 mb-3">'
+        + '<button class="btn btn-success" onclick="finalizeReport()"><i class="fas fa-file-circle-check me-1"></i>生成正式报告</button>'
+        + '<button class="btn btn-outline-primary" onclick="pushFeishu()"><i class="fas fa-paper-plane me-1"></i>发送飞书结论</button>'
+        + '<button class="btn btn-outline-secondary" onclick="copyReport()">复制报告</button></div>'
+        + '<div id="reportMarkdown" class="markdown-body border rounded p-3 bg-white">'
+        + renderMarkdown(model.report_markdown || model.impact_report || '') + '</div>';
+    document.getElementById('reportPanel').innerHTML = html;
+}
+
+function collectResults() {
+    return Array.from(document.querySelectorAll('#executionPanel tr[data-execution-id]')).map(function(row) {
+        return {
+            execution_id: row.dataset.executionId,
+            status: row.querySelector('.result-status').value,
+            bug_id: row.querySelector('.result-bug').value.trim(),
+            note: row.querySelector('.result-note').value.trim(),
+            workaround: row.querySelector('.result-workaround').checked
+        };
+    });
+}
+
+function saveResults() {
+    if (!currentAnalysis) return;
+    requestJson('/precision_test/api/analyses/' + encodeURIComponent(currentAnalysis.analysis_id) + '/results', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({results: collectResults(), gate_mode: document.getElementById('gateMode').value})
+    }).then(function(model) {
+        renderWorkspace(model);
+        activatePanel('reportPanel');
+    }).catch(function(error) { alert(error.message); });
+}
+
+function finalizeReport() {
+    if (!currentAnalysis) return;
+    requestJson('/precision_test/api/analyses/' + encodeURIComponent(currentAnalysis.analysis_id) + '/finalize', {method: 'POST'})
+        .then(function(data) {
+            currentAnalysis.report_markdown = data.report_markdown;
+            currentAnalysis.quality_gate = data.quality_gate;
+            renderReport(currentAnalysis);
+            alert('正式报告已保存到报告中心');
+        }).catch(function(error) { alert(error.message); });
+}
+
+function pushFeishu() {
+    if (!currentAnalysis) return;
+    requestJson('/precision_test/api/analyses/' + encodeURIComponent(currentAnalysis.analysis_id) + '/push_feishu', {method: 'POST'})
+        .then(function() { alert('质量结论已发送到飞书'); })
+        .catch(function(error) { alert(error.message); });
+}
+
+function copyReport() {
+    if (!currentAnalysis) return;
+    navigator.clipboard.writeText(currentAnalysis.report_markdown || currentAnalysis.impact_report || '')
+        .then(function() { alert('报告已复制'); })
+        .catch(function(error) { alert('复制失败：' + error.message); });
+}
+
+function activatePanel(panelId) {
+    document.querySelectorAll('.workspace-panel').forEach(function(panel) { panel.classList.add('d-none'); });
+    document.getElementById(panelId).classList.remove('d-none');
+    document.querySelectorAll('#workspaceTabs .nav-link').forEach(function(button) {
+        button.classList.toggle('active', button.dataset.panel === panelId);
+    });
+}
+
+document.querySelectorAll('#workspaceTabs .nav-link').forEach(function(button) {
+    button.addEventListener('click', function() { activatePanel(button.dataset.panel); });
+});
+
+document.getElementById('requirementInput').addEventListener('input', function() {
+    document.getElementById('requirementCount').textContent = this.value.length.toLocaleString() + ' / 30,000';
+});
+document.getElementById('codeDiffInput').addEventListener('input', function() {
+    document.getElementById('diffCount').textContent = this.value.length.toLocaleString() + ' / 100,000';
+});
+document.getElementById('codeDiffInput').addEventListener('keydown', function(event) {
+    if (event.ctrlKey && event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('btnAnalyze').click();
+    }
+});
+document.getElementById('btnExample').addEventListener('click', function() {
+    document.getElementById('versionInput').value = 'V1.3.2';
+    document.getElementById('requirementInput').value = exampleRequirement;
+    document.getElementById('codeDiffInput').value = exampleDiff;
+    document.getElementById('requirementInput').dispatchEvent(new Event('input'));
+    document.getElementById('codeDiffInput').dispatchEvent(new Event('input'));
+});
+document.getElementById('btnClear').addEventListener('click', function() {
+    ['versionInput','requirementInput','codeDiffInput','deviceIdInput','stbModelInput','firmwareInput','serverInput'].forEach(function(id) { document.getElementById(id).value = ''; });
+    document.getElementById('requirementInput').dispatchEvent(new Event('input'));
+    document.getElementById('codeDiffInput').dispatchEvent(new Event('input'));
+});
+document.getElementById('btnAnalyze').addEventListener('click', function() {
+    var diff = document.getElementById('codeDiffInput').value.trim();
+    var requirement = document.getElementById('requirementInput').value.trim();
+    if (!diff) return alert('请粘贴 Git Diff');
+    if (diff.length > 100000 || requirement.length > 30000) return alert('输入内容超过长度限制');
+    setLoading(true);
+    requestJson('/precision_test/api/analyze', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            version: document.getElementById('versionInput').value.trim(),
+            requirement: requirement,
+            code_diff: diff,
+            project_type: document.getElementById('projectType').value,
+            environment: {
+                device_id: document.getElementById('deviceIdInput').value.trim(),
+                stb_model: document.getElementById('stbModelInput').value.trim(),
+                firmware: document.getElementById('firmwareInput').value.trim(),
+                server: document.getElementById('serverInput').value.trim()
+            }
+        })
+    }).then(function(data) {
+        renderWorkspace(data.analysis);
+    }).catch(function(error) {
+        alert('分析失败：' + error.message);
+    }).finally(function() { setLoading(false); });
+});
+
+var initialId = new URLSearchParams(location.search).get('analysis_id');
+if (initialId) {
+    requestJson('/precision_test/api/analyses/' + encodeURIComponent(initialId))
+        .then(renderWorkspace).catch(function() { history.replaceState(null, '', location.pathname); });
+}
+</script>
 </body>
 </html>

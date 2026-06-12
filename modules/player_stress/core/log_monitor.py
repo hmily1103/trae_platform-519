@@ -137,6 +137,10 @@ class LogMonitor:
                 "PREPARING": [r"onPrepared", r"prepareAsync", r"msg=2\(STARTED\)"], 
                 "STARTED": [r"onStart", r"start\(\)", r"cmp=.*\.START"],
                 "FIRST_FRAME": [r"MEDIA_INFO_VIDEO_RENDERING_START", r"first frame rendered", r"onInfo\(3\)"],
+                "BUFFERING_START": [r"BUFFERING_START", r"MEDIA_INFO_BUFFERING_START", r"STATE_BUFFERING", r"buffering\s*start", r"onInfo\((701|702)\)"],
+                "BUFFERING_END": [r"BUFFERING_END", r"MEDIA_INFO_BUFFERING_END", r"STATE_READY", r"buffering\s*end", r"onInfo\((702)\)"],
+                "SEEK_START": [r"\bseekto\b", r"\bseek\s*start\b", r"\bonseek\b"],
+                "SEEK_END": [r"onSeekComplete", r"\bseek\s*complete\b", r"\bseek\s*end\b"],
                 "COMPLETED": [r"onCompletion", r"MEDIA_PLAYBACK_COMPLETE", r"End of playback"],
                 "ERROR": [r"onError", r"MEDIA_ERROR"]
             }

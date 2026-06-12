@@ -402,6 +402,18 @@ class AdbController:
                         network_rx_kb=self._cached_rx,
                         network_tx_kb=self._cached_tx
                     )
+
+                    video_metrics = getattr(self, "_cached_video_frame_metrics", None)
+                    if isinstance(video_metrics, dict):
+                        snapshot.mpp_active_instances = int(video_metrics.get("mpp_active_instances") or 0)
+                        snapshot.mpp_total_work_count = int(video_metrics.get("mpp_total_work_count") or 0)
+                        snapshot.mpp_work_count_delta = int(video_metrics.get("mpp_work_count_delta") or 0)
+                        snapshot.mpp_work_count_delta_time_sec = float(video_metrics.get("mpp_work_count_delta_time_sec") or 0.0)
+                        snapshot.decoder_stuck = bool(video_metrics.get("decoder_stuck") or False)
+                        snapshot.decoder_stuck_duration_sec = float(video_metrics.get("decoder_stuck_duration_sec") or 0.0)
+                        snapshot.decode_fps_estimate = float(video_metrics.get("decode_fps_estimate") or 0.0)
+                        snapshot.decode_drop_estimate = int(video_metrics.get("decode_drop_estimate") or 0)
+                        snapshot.decode_drop_ratio = float(video_metrics.get("decode_drop_ratio") or 0.0)
                     
                     if self.performance_callback:
                         try:
@@ -664,10 +676,16 @@ class AdbController:
             if preferred_display_id is not None:
                 collector.preferred_display_id = preferred_display_id
 
-            fps = collector.measure_video_fps(display_id=preferred_display_id)
-            fps_int = int(fps) if fps and fps > 0 else 0
-            # 当前实现不从 SurfaceFlinger 提取标准 Jank 和帧时间，先返回 0 与空列表
-            return fps_int, 0, []
+            metrics = collector.measure_video_frame_metrics(display_id=preferred_display_id)
+            self._cached_video_frame_metrics = metrics if isinstance(metrics, dict) else {}
+            fps = float(metrics.get("fps") or 0.0)
+            fps_int = int(fps) if fps > 0 else 0
+            jank_count = int(metrics.get("jank_count") or 0)
+            frame_times = metrics.get("frame_times_ms") or []
+            if not isinstance(frame_times, list):
+                frame_times = []
+            frame_times = [float(x) for x in frame_times[:120] if isinstance(x, (int, float)) and x > 0]
+            return fps_int, jank_count, frame_times
 
         except Exception as e:
             logger.error(f"收集 FPS 数据失败: {e}")

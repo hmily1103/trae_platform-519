@@ -4,6 +4,7 @@
 """
 import threading
 import time
+import statistics
 from datetime import datetime
 from typing import Optional, Callable, Dict, Any, List
 from utils.logger import setup_logger
@@ -161,6 +162,10 @@ class PerformanceMonitorService:
                 frame_times = getattr(controller, '_cached_frame_times', [])
                 
                 if frame_times:
+                    try:
+                        stall_analyzer.update_expected_frame_time(statistics.median(frame_times))
+                    except Exception:
+                        pass
                     # 逐帧添加到分析器
                     current_time = time.time()
                     for frame_time_ms in frame_times:

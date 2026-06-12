@@ -90,6 +90,34 @@ class PerceptualStallAnalyzer:
         
         # 连续卡顿检测阈值
         self.consecutive_jank_threshold = 3  # 连续3帧卡顿视为感知卡顿
+
+    def update_expected_frame_time(self, expected_frame_time_ms: float):
+        try:
+            v = float(expected_frame_time_ms)
+        except Exception:
+            return
+
+        if v <= 0:
+            return
+
+        if v < 5.0:
+            v = 5.0
+        if v > 50.0:
+            v = 50.0
+
+        if not getattr(self, "expected_frame_time_ms", 0):
+            self.expected_frame_time_ms = v
+        else:
+            self.expected_frame_time_ms = self.expected_frame_time_ms * 0.7 + v * 0.3
+
+        try:
+            self.target_fps = int(round(1000.0 / self.expected_frame_time_ms))
+        except Exception:
+            pass
+
+        self.mild_threshold_ms = self.expected_frame_time_ms * 1.5
+        self.moderate_threshold_ms = self.expected_frame_time_ms * 2.0
+        self.severe_threshold_ms = self.expected_frame_time_ms * 3.0
         
     def add_frame_time(self, frame_time_ms: float, timestamp: Optional[float] = None) -> Optional[PerceptualStallEvent]:
         """

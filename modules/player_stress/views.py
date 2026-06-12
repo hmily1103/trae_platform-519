@@ -2,6 +2,7 @@
 import os
 import sys
 import json
+import re
 import logging
 import threading
 import time
@@ -29,6 +30,17 @@ TEST_THREAD = None
 TEST_LOCK = threading.Lock()
 LOG_BUFFER = deque(maxlen=2000) # Keep last 2000 lines
 LOG_LOCK = threading.Lock()
+TEST_STATE_LOCK = threading.Lock()
+TEST_RUN_STATE = {
+    "status": "idle",
+    "started_at": None,
+    "planned_end_at": None,
+    "finished_at": None,
+    "duration_seconds": 0,
+    "completion_reason": "",
+    "report_file": "",
+    "summary_file": "",
+}
 
 def logger_callback(msg):
     """线程安全的日志回调函数"""
@@ -42,8 +54,10 @@ def logger_callback(msg):
 
 def run_test_background(config):
     """后台运行测试的线程函数"""
-    global TEST_INSTANCE
+    global TEST_INSTANCE, TEST_RUN_STATE
     log_monitor = None
+    runner = None
+    failed = False
     try:
         now = datetime.now().strftime('%H:%M:%S')
         logger_callback(f"[{now}] 🚀 测试线程已启动，正在初始化...")
@@ -72,6 +86,7 @@ def run_test_background(config):
         runner.run()
         logger_callback(f"[{datetime.now().strftime('%H:%M:%S')}] [THREAD] 测试执行完成")
     except Exception as e:
+        failed = True
         error_msg = f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Test Thread Error: {e}"
         logger_callback(error_msg)
         import traceback
@@ -85,6 +100,24 @@ def run_test_background(config):
             except Exception:
                 pass
         logger_callback(f"[{datetime.now().strftime('%H:%M:%S')}] 🏁 测试线程已完成")
+        finished_at = time.time()
+        with TEST_STATE_LOCK:
+            if failed:
+                status = "failed"
+                reason = "运行异常"
+            elif runner and getattr(runner, "stop_flag", False):
+                status = "stopped"
+                reason = "用户手动停止"
+            else:
+                status = "completed"
+                reason = "已达到计划时长"
+            TEST_RUN_STATE.update({
+                "status": status,
+                "finished_at": finished_at,
+                "completion_reason": reason,
+                "report_file": getattr(runner, "last_csv_file", "") or "",
+                "summary_file": getattr(runner, "last_summary_file", "") or "",
+            })
         logger.debug("run_test_background: 线程已完成")
 
 @stress_bp.route('/')
@@ -564,8 +597,18 @@ def api_check_environment():
             'available_displays': available_displays if available_displays else [],  # 确保是列表
             'display_error': display_error,
             'device_id': device_id,
+            'device_ip': '',
+            'firmware_incremental': '',
             'suggestions': []
         }
+        try:
+            identity_adb = AdbManager(device_id=device_id)
+            result_data['device_ip'] = identity_adb.get_device_ip()
+            result_data['firmware_incremental'] = (
+                identity_adb.get_firmware_incremental()
+            )
+        except Exception as identity_error:
+            logger.debug("设备身份信息获取失败: %s", identity_error)
         
         # 添加建议
         if not root_available:
@@ -594,9 +637,96 @@ def api_check_environment():
             status_code=500
         )
 
+@stress_bp.route('/api/fps_probe', methods=['GET'])
+def api_fps_probe():
+    try:
+        device_id = request.args.get('device_id', None)
+        if device_id:
+            device_id = str(device_id).strip()
+        package_name = request.args.get('package_name', 'com.thunder.ktv:media')
+        package_name = str(package_name).strip()
+        display_id = request.args.get('display_id', '1')
+        try:
+            display_id = int(display_id)
+        except (TypeError, ValueError):
+            display_id = 1
+
+        if not device_id:
+            devices = AdbManager.list_devices()
+            if len(devices) == 1:
+                device_id = devices[0]
+            else:
+                return error_response(message='缺少 device_id', error='device_id is required', status_code=400)
+
+        import re
+        if not re.fullmatch(r'[A-Za-z0-9._:-]+', package_name):
+            return error_response(message='package_name 非法', error='invalid package_name', status_code=400)
+
+        from .core.monitor import PerformanceMonitor
+        adb = AdbManager(device_id=device_id)
+        pm = PerformanceMonitor(adb, package_name, monitor_config={"tv_display_id": display_id})
+
+        main_pkg = package_name.split(':')[0]
+        media_pkg = package_name if ':' in package_name else None
+
+        def clip_text(s: str, limit: int = 2000) -> str:
+            if not s:
+                return ""
+            s = str(s)
+            return s if len(s) <= limit else (s[:limit] + "\n...(truncated)")
+
+        out_gfx_main = adb._run_command(["shell", "dumpsys", "gfxinfo", main_pkg], timeout=3)
+        out_fs_main = adb._run_command(["shell", "dumpsys", "gfxinfo", main_pkg, "framestats"], timeout=3)
+        out_gfx_media = ""
+        out_fs_media = ""
+        if media_pkg:
+            out_gfx_media = adb._run_command(["shell", "dumpsys", "gfxinfo", media_pkg], timeout=3)
+            out_fs_media = adb._run_command(["shell", "dumpsys", "gfxinfo", media_pkg, "framestats"], timeout=3)
+
+        sf_list = adb._run_command(["shell", "dumpsys", "SurfaceFlinger", "--list"], timeout=3)
+        sf_list_d = adb._run_command(["shell", "dumpsys", "SurfaceFlinger", "--display-id", str(display_id), "--list"], timeout=3)
+
+        framestats_main_fps = pm._get_fps_from_framestats(main_pkg)
+        framestats_media_fps = pm._get_fps_from_framestats(media_pkg) if media_pkg else 0.0
+        gfxinfo_fps = pm._get_fps_from_gfxinfo()
+        sf_fps = pm._get_fps_from_surfaceflinger(display_id=display_id)
+
+        candidates = []
+        if sf_list and "Error:" not in sf_list:
+            for line in sf_list.splitlines():
+                line_l = line.lower()
+                if main_pkg in line or package_name in line or 'video' in line_l or 'media' in line_l or 'surfaceview' in line or 'textureview' in line:
+                    candidates.append(line.strip())
+                if len(candidates) >= 20:
+                    break
+
+        return success_response(data={
+            "device_id": device_id,
+            "package_name": package_name,
+            "display_id": display_id,
+            "fps": {
+                "framestats_main_fps": framestats_main_fps,
+                "framestats_media_fps": framestats_media_fps,
+                "gfxinfo_fps": gfxinfo_fps,
+                "surfaceflinger_fps": sf_fps
+            },
+            "surfaceflinger_candidates": candidates,
+            "raw": {
+                "gfxinfo_main": clip_text(out_gfx_main),
+                "framestats_main": clip_text(out_fs_main),
+                "gfxinfo_media": clip_text(out_gfx_media),
+                "framestats_media": clip_text(out_fs_media),
+                "sf_list": clip_text(sf_list),
+                "sf_list_display": clip_text(sf_list_d)
+            }
+        })
+    except Exception as e:
+        logger.error("fps_probe 失败: %s", e, exc_info=True)
+        return error_response(message='fps_probe 失败', error=str(e), status_code=500)
+
 @stress_bp.route('/api/start', methods=['POST'])
 def api_start_test():
-    global TEST_THREAD, TEST_INSTANCE
+    global TEST_THREAD, TEST_INSTANCE, TEST_RUN_STATE
     
     try:
         with TEST_LOCK:
@@ -642,6 +772,38 @@ def api_start_test():
             default_interval = cfg.get('interval_seconds', 5)
             performance_mode = data.get('performance_mode', '标准模式')
             interval_seconds = data.get('interval_seconds', default_interval)
+            try:
+                tv_display_id = int(data.get('tv_display_id', 1))
+                screen_check_interval_seconds = max(
+                    1.0,
+                    float(data.get('screen_check_interval_seconds', 5)),
+                )
+                tv_freeze_threshold_seconds = max(
+                    1.0,
+                    float(data.get('tv_freeze_threshold_seconds', 3)),
+                )
+                tv_poll_interval_seconds = max(
+                    0.2,
+                    float(data.get('tv_poll_interval_seconds', 0.5)),
+                )
+                tv_stall_frame_gap_threshold_ms = max(
+                    100.0,
+                    float(data.get('tv_stall_frame_gap_threshold_ms', 250)),
+                )
+                tv_stall_start_confirmations = max(
+                    2,
+                    int(data.get('tv_stall_start_confirmations', 3)),
+                )
+                tv_stall_recovery_confirmations = max(
+                    1,
+                    int(data.get('tv_stall_recovery_confirmations', 2)),
+                )
+            except (TypeError, ValueError):
+                return error_response(
+                    message='电视端监控参数格式错误',
+                    error='invalid tv display monitor settings',
+                    status_code=400,
+                )
             
             # 根据监控模式设置参数
             if performance_mode == '极低功耗':
@@ -674,13 +836,44 @@ def api_start_test():
                 'monitor': {
                     'interval_seconds': interval_seconds,
                     'enable_screenshot': enable_screenshot,
-                    'enable_fps': enable_fps
+                    'enable_fps': enable_fps,
+                    'tv_display_id': tv_display_id,
+                    'auto_detect_tv_display': bool(data.get('auto_detect_tv_display', True)),
+                    'allow_display0_fallback': False,
+                    'screen_check_interval_seconds': screen_check_interval_seconds,
+                    'tv_freeze_threshold_seconds': tv_freeze_threshold_seconds,
+                    'tv_poll_interval_seconds': tv_poll_interval_seconds,
+                    'tv_stall_frame_gap_threshold_ms': tv_stall_frame_gap_threshold_ms,
+                    'tv_stall_start_confirmations': tv_stall_start_confirmations,
+                    'tv_stall_recovery_confirmations': tv_stall_recovery_confirmations,
+                    'tv_cpu_baseline_interval_seconds': max(
+                        1.0,
+                        float(data.get('tv_cpu_baseline_interval_seconds', 2)),
+                    ),
+                    'tv_cpu_during_interval_seconds': max(
+                        0.5,
+                        float(data.get('tv_cpu_during_interval_seconds', 1)),
+                    ),
                 },
                 'report': {
                     'output_dir': get_module_report_dir('player_stress')
                 },
                 'http_vod': data.get('http_vod', {})  # 从请求中获取，如果没有则为空
             }
+
+            started_at = time.time()
+            duration_seconds = duration * 60
+            with TEST_STATE_LOCK:
+                TEST_RUN_STATE = {
+                    "status": "running",
+                    "started_at": started_at,
+                    "planned_end_at": started_at + duration_seconds,
+                    "finished_at": None,
+                    "duration_seconds": duration_seconds,
+                    "completion_reason": "",
+                    "report_file": "",
+                    "summary_file": "",
+                }
             
             # Clear previous logs and add initial log IMMEDIATELY
             now = datetime.now().strftime('%H:%M:%S')
@@ -821,24 +1014,76 @@ def api_start_test():
 
 @stress_bp.route('/api/stop', methods=['POST'])
 def api_stop_test():
-    global TEST_INSTANCE
+    global TEST_INSTANCE, TEST_THREAD, TEST_RUN_STATE
     with TEST_LOCK:
-        if TEST_INSTANCE:
-            TEST_INSTANCE.stop()
-            logger.info('播放器压测停止')
-            return success_response(message='停止信号已发送')
-        else:
+        if not TEST_INSTANCE or not TEST_THREAD or not TEST_THREAD.is_alive():
             return error_response(
                 message='当前没有运行中的测试',
                 error='No running test instance',
                 status_code=400
             )
+        with TEST_STATE_LOCK:
+            TEST_RUN_STATE["status"] = "stopping"
+            TEST_RUN_STATE["completion_reason"] = "正在停止监控并生成报告"
+        logger_callback(
+            f"[{datetime.now().strftime('%H:%M:%S')}] [STOP] 收到停止请求"
+        )
+        TEST_INSTANCE.stop()
+        thread = TEST_THREAD
+
+    # Do not keep the HTTP request blocked while the current ADB sample and
+    # report generation finish. The UI polls /api/status until the thread exits.
+    thread.join(timeout=1.5)
+    stopped = not thread.is_alive()
+    if stopped:
+        logger.info('播放器压测已停止')
+        return success_response(
+            message='监控已停止，报告已保存',
+            data={'stopped': True, 'status': 'stopped'},
+        )
+    logger.warning('播放器压测仍在执行收尾')
+    return success_response(
+        message='停止信号已生效，正在等待当前采集结束并生成报告',
+        data={'stopped': False, 'status': 'stopping'},
+    )
 
 @stress_bp.route('/api/status', methods=['GET'])
 def api_status():
     try:
-        global TEST_THREAD, TEST_INSTANCE, LOG_BUFFER, LOG_LOCK
+        global TEST_THREAD, TEST_INSTANCE, LOG_BUFFER, LOG_LOCK, TEST_RUN_STATE
         is_running = TEST_THREAD is not None and TEST_THREAD.is_alive()
+        with TEST_STATE_LOCK:
+            run_state = dict(TEST_RUN_STATE)
+        if is_running and run_state.get("status") != "stopping":
+            run_state["status"] = "running"
+        now = time.time()
+        started_at = float(run_state.get("started_at") or 0)
+        planned_end_at = float(run_state.get("planned_end_at") or 0)
+        finished_at = float(run_state.get("finished_at") or 0)
+        duration_seconds = int(run_state.get("duration_seconds") or 0)
+        elapsed_end = now if is_running or not finished_at else finished_at
+        elapsed_seconds = (
+            max(0, int(elapsed_end - started_at))
+            if started_at
+            else 0
+        )
+        remaining_seconds = (
+            max(0, int(planned_end_at - now))
+            if is_running and planned_end_at
+            else 0
+        )
+        progress_percent = (
+            min(100.0, (elapsed_seconds / duration_seconds) * 100.0)
+            if duration_seconds > 0
+            else 0.0
+        )
+        if run_state.get("status") == "completed":
+            progress_percent = 100.0
+        run_state.update({
+            "elapsed_seconds": elapsed_seconds,
+            "remaining_seconds": remaining_seconds,
+            "progress_percent": round(progress_percent, 1),
+        })
         
         # Get logs - 简单直接
         logs = []
@@ -849,8 +1094,67 @@ def api_status():
         metrics = None
         history = []
         performance_mode = None  # 供前端显示提示
+        device_info = {
+            'device_id': '',
+            'device_ip': '',
+            'firmware_incremental': '',
+        }
+        tv_monitor = {
+            'watcher_running': False,
+            'active_event': None,
+            'recent_events': [],
+        }
         if TEST_INSTANCE and hasattr(TEST_INSTANCE, 'monitor'):
             monitor = TEST_INSTANCE.monitor
+            device_info = {
+                'device_id': str(
+                    getattr(TEST_INSTANCE, 'config', {}).get('device_id', '')
+                    or ''
+                ),
+                'device_ip': str(
+                    getattr(TEST_INSTANCE, 'device_ip', '') or ''
+                ),
+                'firmware_incremental': str(
+                    getattr(TEST_INSTANCE, 'firmware_incremental', '') or ''
+                ),
+            }
+            watcher = getattr(TEST_INSTANCE, 'tv_playback_watcher', None)
+            if watcher:
+                active_event = getattr(watcher, '_active_event', None)
+
+                def event_summary(event):
+                    if not isinstance(event, dict):
+                        return None
+                    contention = event.get('cpu_contention') or {}
+                    candidate = contention.get('top_candidate') or {}
+                    return {
+                        'event_id': event.get('event_id'),
+                        'start_time': event.get('start_time'),
+                        'end_time': event.get('end_time'),
+                        'duration_ms': event.get('duration_ms', 0),
+                        'reason': event.get('reason', ''),
+                        'surface_name': event.get('surface_name', ''),
+                        'max_frame_gap_ms': event.get('max_frame_gap_ms', 0),
+                        'min_fps': event.get('min_fps', 0),
+                        'evidence_dir': event.get('evidence_dir', ''),
+                        'cpu_contention_detected': bool(contention.get('detected')),
+                        'cpu_candidate': {
+                            'process': candidate.get('process', ''),
+                            'baseline_cpu_percent': candidate.get('baseline_cpu_percent', 0),
+                            'peak_cpu_percent': candidate.get('peak_cpu_percent', 0),
+                            'after_cpu_percent': candidate.get('after_cpu_percent', 0),
+                            'confidence': candidate.get('confidence', 0),
+                        } if candidate else None,
+                    }
+
+                tv_monitor['watcher_running'] = bool(watcher.running)
+                tv_monitor['active_event'] = event_summary(active_event)
+                recent = list(getattr(monitor, 'tv_stall_events', []))[-5:]
+                tv_monitor['recent_events'] = [
+                    summary for summary in
+                    (event_summary(event) for event in reversed(recent))
+                    if summary
+                ]
             # 从 config 获取当前模式（用于前端提示）
             if hasattr(TEST_INSTANCE, 'config') and TEST_INSTANCE.config:
                 mon_cfg = TEST_INSTANCE.config.get('monitor', {})
@@ -862,10 +1166,43 @@ def api_status():
                 # Extract key metrics
                 metrics = {
                     'video_fps': latest_snapshot.get('video_fps', 0),
+                    'video_fps_source': latest_snapshot.get('video_fps_source', ''),
+                    'tv_display_id': latest_snapshot.get('tv_display_id'),
+                    'tv_display_verified': latest_snapshot.get('tv_display_verified', False),
+                    'tv_display_verification_reason': latest_snapshot.get('tv_display_verification_reason', ''),
+                    'tv_surface_name': latest_snapshot.get('tv_surface_name', ''),
+                    'expected_stream_fps': latest_snapshot.get('expected_stream_fps', 0),
                     'mpp_work_count': latest_snapshot.get('mpp_work_count', 0),
+                    'mpp_work_count_delta': latest_snapshot.get('mpp_work_count_delta', 0),
+                    'mpp_work_count_delta_time_sec': latest_snapshot.get('mpp_work_count_delta_time_sec', 0),
                     'decoder_stuck': latest_snapshot.get('decoder_stuck', False),
+                    'decoder_stuck_duration_sec': latest_snapshot.get('decoder_stuck_duration_sec', 0),
                     'tv_stutter_detected': latest_snapshot.get('tv_stutter_detected', False),
-                    'cpu_percent': latest_snapshot.get('cpu_percent', 0),
+                    'decode_fps_estimate': latest_snapshot.get('decode_fps_estimate', 0),
+                    'decode_slowdown_detected': latest_snapshot.get('decode_slowdown_detected', False),
+                    'decode_drop_estimate': latest_snapshot.get('decode_drop_estimate', 0),
+                    'decode_drop_ratio': latest_snapshot.get('decode_drop_ratio', 0),
+                    'ignore_video_metrics': latest_snapshot.get('ignore_video_metrics', False),
+                    'ignore_video_reason': latest_snapshot.get('ignore_video_reason', ''),
+                    'tv_stall_count': len(getattr(monitor, 'tv_stall_events', [])),
+                    'cpu_percent': latest_snapshot.get(
+                        'system_cpu_percent',
+                        latest_snapshot.get('cpu_percent', 0),
+                    ),
+                    'player_cpu_percent': latest_snapshot.get(
+                        'player_cpu_percent',
+                        latest_snapshot.get('cpu_percent', 0),
+                    ),
+                    'system_cpu_percent': latest_snapshot.get('system_cpu_percent', 0),
+                    'system_cpu_pressure': latest_snapshot.get('system_cpu_pressure', False),
+                    'root_cause_type': latest_snapshot.get('root_cause_type', ''),
+                    'suspect_process': latest_snapshot.get('suspect_process', ''),
+                    'root_cause_confidence': latest_snapshot.get('root_cause_confidence', 0),
+                    'root_cause_evidence': latest_snapshot.get('root_cause_evidence', {}),
+                    'top_consumers': latest_snapshot.get('top_consumers', ''),
+                    'max_temperature_c': latest_snapshot.get('max_temperature_c', 0),
+                    'min_cpu_frequency_ratio': latest_snapshot.get('min_cpu_frequency_ratio', 0),
+                    'thermal_throttling': latest_snapshot.get('thermal_throttling', False),
                     'pss_mb': latest_snapshot.get('pss_mb', 0),
                     'gfx_jank_count': latest_snapshot.get('gfx_jank_count', 0),
                     'log_stutter_count': latest_snapshot.get('log_stutter_count', 0),
@@ -893,7 +1230,10 @@ def api_status():
             'metrics': metrics,
             'history': history,
             'performance_mode': performance_mode,
-            'song_count': song_count
+            'song_count': song_count,
+            'tv_monitor': tv_monitor,
+            'run_state': run_state,
+            'device_info': device_info,
         })
     except Exception as e:
         logger.error(f'获取测试状态失败: {e}', exc_info=True)
@@ -909,17 +1249,68 @@ def api_reports():
         report_dir = get_module_report_dir('player_stress')
         if not os.path.exists(report_dir):
             return success_response(data={'reports': []})
-            
-        files = []
+
+        entries_by_prefix = {}
+        filename_pattern = re.compile(r'^(report|summary)_(\d{8}_\d{6})\.(csv|html|txt|json)$')
+
         try:
-            for f in os.listdir(report_dir):
-                if f.endswith('.html') or f.endswith('.json') or f.endswith('.txt'):
-                    files.append(f)
-            files.sort(reverse=True)
+            for filename in os.listdir(report_dir):
+                file_path = os.path.join(report_dir, filename)
+                if not os.path.isfile(file_path):
+                    continue
+                match = filename_pattern.match(filename)
+                if not match:
+                    continue
+
+                kind, prefix, ext = match.groups()
+                entry = entries_by_prefix.get(prefix)
+                if not entry:
+                    entry = {
+                        'prefix': prefix,
+                        'csv': '',
+                        'html': '',
+                        'txt': '',
+                        'json': '',
+                        'meta': {},
+                    }
+                    entries_by_prefix[prefix] = entry
+
+                if kind == 'report':
+                    if ext == 'csv':
+                        entry['csv'] = filename
+                    elif ext == 'html':
+                        entry['html'] = filename
+                elif kind == 'summary':
+                    if ext == 'txt':
+                        entry['txt'] = filename
+                    elif ext == 'json':
+                        entry['json'] = filename
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                summary_json = json.load(f)
+                            meta = summary_json.get('meta') if isinstance(summary_json, dict) else None
+                            decision = summary_json.get('decision') if isinstance(summary_json, dict) else None
+                            stats = summary_json.get('stats') if isinstance(summary_json, dict) else None
+                            entry['meta'] = {
+                                'device_id': (meta or {}).get('device_id', ''),
+                                'device_ip': (meta or {}).get('device_ip', ''),
+                                'firmware_incremental': (meta or {}).get('firmware_incremental', ''),
+                                'package_name': (meta or {}).get('package_name', ''),
+                                'end_time': (meta or {}).get('end_time', ''),
+                                'duration_sec': (meta or {}).get('duration_sec', 0),
+                                'score': (decision or {}).get('score', None),
+                                'grade': (decision or {}).get('grade', ''),
+                                'tv_perceptual_score': ((decision or {}).get('metrics') or {}).get('perceptual_stutter', {}).get('score', None),
+                                'log_stutter_count': (stats or {}).get('final_log_stutter_count', None),
+                                'root_cause_top': (((stats or {}).get('root_cause_analysis') or {}).get('most_confident_cause') or {}).get('root_cause_type', ''),
+                            }
+                        except Exception as e:
+                            logger.warning(f'读取 summary JSON 失败: {filename} | {e}')
         except Exception as e:
             logger.warning(f'读取报告目录失败: {e}')
-        
-        return success_response(data={'reports': files})
+
+        entries = sorted(entries_by_prefix.values(), key=lambda item: item.get('prefix', ''), reverse=True)
+        return success_response(data={'reports': entries})
     except Exception as e:
         logger.error(f'获取报告列表失败: {e}', exc_info=True)
         return error_response(
@@ -936,4 +1327,3 @@ def view_report(filename):
         return error_response(message="Invalid filename", status_code=400)
     report_dir = get_module_report_dir('player_stress')
     return send_from_directory(report_dir, os.path.basename(filename))
-

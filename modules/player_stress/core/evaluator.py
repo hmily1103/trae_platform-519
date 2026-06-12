@@ -188,9 +188,11 @@ class PlayStateEvaluator:
         
         # 3. Screen Anomalies
         if self.screen_anomaly_count > 0:
-            ded = self.screen_anomaly_count * 20
+            ded = min(40, self.screen_anomaly_count * 20)
             score -= ded
-            deductions.append(f"屏幕异常 {self.screen_anomaly_count} 次 (-{ded})")
+            deductions.append(
+                f"有效屏幕异常 {self.screen_anomaly_count} 次 (-{ded}，同类封顶40)"
+            )
 
         # 4. Resource Degradation (from summary_stats)
         degradation = summary_stats.get("degradation_analysis", {})
@@ -198,6 +200,57 @@ class PlayStateEvaluator:
         if growth > 50:
             score -= 20
             deductions.append(f"内存严重泄露 ({growth}MB/h) (-20)")
+
+        avg_system_cpu = float(
+            summary_stats.get("avg_system_cpu_percent", 0) or 0.0
+        )
+        max_system_cpu = float(
+            summary_stats.get("max_system_cpu_percent", 0) or 0.0
+        )
+        cpu_overloaded = avg_system_cpu >= 85.0 or max_system_cpu >= 95.0
+        if avg_system_cpu >= 85.0:
+            score -= 25
+            deductions.append(f"整机平均CPU过高 ({avg_system_cpu:.1f}%) (-25)")
+        elif avg_system_cpu >= 75.0:
+            score -= 15
+            deductions.append(f"整机平均CPU偏高 ({avg_system_cpu:.1f}%) (-15)")
+        elif max_system_cpu >= 95.0:
+            score -= 10
+            deductions.append(f"整机CPU峰值过高 ({max_system_cpu:.1f}%) (-10)")
+
+        root_cause_data = summary_stats.get("root_cause_analysis", {}) or {}
+        identified_causes = int(root_cause_data.get("identified_causes", 0) or 0) if isinstance(root_cause_data, dict) else 0
+        most_confident = (root_cause_data.get("most_confident_cause") or {}) if isinstance(root_cause_data, dict) else {}
+        cause_type = str(most_confident.get("root_cause_type", "") or "")
+
+        cause_evidence = (
+            most_confident.get("evidence", {})
+            if isinstance(most_confident, dict)
+            else {}
+        ) or {}
+        resource_only = bool(cause_evidence.get("resource_only", False))
+
+        if (
+            identified_causes > 0
+            and cause_type != "AV_SYNC_ISSUE"
+            and not resource_only
+        ):
+            if cause_type == "CPU_CONTENTION":
+                ded = 15
+                score -= ded
+                deductions.append(f"多进程CPU竞争导致卡顿 (-{ded})")
+            elif cause_type == "DECODER_STUCK":
+                ded = 25
+                score -= ded
+                deductions.append(f"硬件解码器卡死 (-{ded})")
+            elif cause_type == "MEMORY_PRESSURE":
+                ded = 10
+                score -= ded
+                deductions.append(f"内存压力异常 (-{ded})")
+            else:
+                ded = 5
+                score -= ded
+                deductions.append(f"检测到卡顿根因候选 {identified_causes} 次 (-{ded})")
             
         score = max(0, int(score))
         
@@ -207,13 +260,39 @@ class PlayStateEvaluator:
         elif score >= 60: grade = "B"
         elif score >= 40: grade = "C"
         
-        ready_to_release = (score >= 60) and (total_restarts == 0) and (total_crashes == 0)
+        tv_stall_count = int(summary_stats.get("tv_stall_count", 0) or 0)
+        decoder_stuck_count = int(
+            summary_stats.get("decoder_stuck_count", 0) or 0
+        )
+        surface_locked = bool(summary_stats.get("tv_surface_locked", False))
+        release_blockers = []
+        if cpu_overloaded:
+            release_blockers.append("整机CPU持续高负载")
+        if tv_stall_count > 0:
+            release_blockers.append(f"确认电视端卡顿 {tv_stall_count} 次")
+        if decoder_stuck_count > 0:
+            release_blockers.append(f"解码器卡死 {decoder_stuck_count} 次")
+        if not surface_locked:
+            release_blockers.append("未锁定电视端视频Surface，证据覆盖不足")
+
+        ready_to_release = (
+            score >= 60
+            and total_restarts == 0
+            and total_crashes == 0
+            and not release_blockers
+        )
 
         return {
             "score": score,
             "grade": grade,
             "deductions": deductions,
             "ready_to_release": ready_to_release,
+            "release_blockers": release_blockers,
+            "assessment": (
+                "pass"
+                if ready_to_release
+                else ("inconclusive" if not surface_locked else "fail")
+            ),
             "counts": {
                 "restart": total_restarts,
                 "crash": total_crashes,
@@ -221,7 +300,7 @@ class PlayStateEvaluator:
             }
         }
 
-    def get_one_sentence_summary(self, duration_str: str, song_count: int, score_result: Dict) -> str:
+    def get_one_sentence_summary(self, duration_str: str, song_count: int, score_result: Dict, root_cause_info: Optional[Dict] = None) -> str:
         score = score_result['score']
         grade = score_result['grade']
         ready = score_result['ready_to_release']
@@ -233,8 +312,47 @@ class PlayStateEvaluator:
         if counts.get('screen_anomaly', 0) > 0: issues.append(f"{counts['screen_anomaly']}次屏幕异常")
         
         issue_str = f"发生 {'、'.join(issues)}，" if issues else "运行稳定，"
-        recommendation = "建议上线" if ready else "建议驳回发布"
+        blockers = list(score_result.get("release_blockers", []) or [])
+        assessment = str(score_result.get("assessment", "") or "")
+        if ready:
+            recommendation = "建议上线"
+        elif assessment == "inconclusive":
+            recommendation = "本轮证据不足，不给出上线结论"
+        else:
+            recommendation = "不建议上线"
+
+        root_cause_str = ""
+        if isinstance(root_cause_info, dict):
+            top_cause = root_cause_info.get("most_confident_cause") or {}
+            evidence = (
+                top_cause.get("evidence", {})
+                if isinstance(top_cause, dict) else {}
+            ) or {}
+            if (
+                isinstance(top_cause, dict)
+                and top_cause.get("root_cause_type")
+                and not evidence.get("signal_only", False)
+                and not evidence.get("resource_only", False)
+                and float(top_cause.get("confidence", 0) or 0) >= 60
+            ):
+                cause_type = str(top_cause.get("root_cause_type", "") or "")
+                suspect = str(top_cause.get("suspect_process", "") or "")
+                type_cn = {
+                    "CPU_CONTENTION": "CPU竞争",
+                    "DECODER_STUCK": "解码器卡死",
+                    "MEMORY_PRESSURE": "内存压力",
+                    "LOW_FPS_DEGRADATION": "持续低帧",
+                    "AV_SYNC_ISSUE": "音画同步/缓冲",
+                }.get(cause_type, cause_type)
+                if suspect:
+                    root_cause_str = f"主要根因为{type_cn}（{suspect}），"
+                else:
+                    root_cause_str = f"主要根因为{type_cn}，"
         
+        blocker_str = (
+            f"阻断项：{'；'.join(blockers)}。"
+            if blockers else ""
+        )
         return (f"本次压测持续 {duration_str}，共播放 {song_count} 首歌曲。"
                 f"稳定性评分 {score} ({grade})。"
-                f"{issue_str}{recommendation}。")
+                f"{root_cause_str}{issue_str}{blocker_str}{recommendation}。")

@@ -1,90 +1,95 @@
 import unittest
-from unittest.mock import MagicMock, patch
-import sys
-import os
-
-# Add project root to path
-# current: .../tests/test_monitor_mock.py
-# target: .../trae_platform/
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+from unittest.mock import MagicMock
 
 from modules.player_stress.core.monitor import PerformanceMonitor
 
-class TestMonitorRefactor(unittest.TestCase):
-    def setUp(self):
-        self.mock_adb = MagicMock()
-        self.package_name = "com.test.pkg"
-        
-        # Mock CollectorManager before importing monitor or initializing
-        # Since monitor imports it at top level, we need to patch it where it is imported
-        self.patcher = patch('modules.player_stress.core.monitor.CollectorManager')
-        self.MockCollectorManager = self.patcher.start()
-        
-        self.monitor = PerformanceMonitor(self.mock_adb, self.package_name)
-        
-    def tearDown(self):
-        self.patcher.stop()
-        
-    def test_collect_metrics_calls_collector_manager(self):
-        # Setup mock return value for collect_all
-        mock_collector_instance = self.MockCollectorManager.return_value
-        mock_collector_instance.collect_all.return_value = {
-            'video_fps': 30.0,
-            'mpp_active': 1,
-            'mpp_sessions': 1,
-            'mpp_work_count': 100,
-            'decoder_stuck': False,
-            'tv_stutter_detected': False
-        }
-        
-        # Setup adb mocks to avoid errors in other parts of collect_metrics
-        self.mock_adb.get_pid.return_value = 1234
-        self.mock_adb.get_memory_info.return_value = {"pss_mb": 100}
-        self.mock_adb.get_cpu_usage.return_value = 10.0
-        self.mock_adb.get_gfx_info.return_value = {'total_frames': 100, 'janky_frames': 5}
-        self.mock_adb.is_device_online.return_value = True
-        
-        # Mock evaluator
-        self.monitor.evaluator = MagicMock()
-        
-        # Run collect_metrics
-        metrics = self.monitor.collect_snapshot()
-        
-        # Verify collector_manager.collect_all was called
-        mock_collector_instance.collect_all.assert_called_once()
-        
-        # Verify metrics contain data from collector
-        self.assertEqual(metrics['video_fps'], 30.0)
-        self.assertEqual(metrics['mpp_active'], 1)
-        self.assertFalse(metrics['decoder_stuck'])
-        
-    def test_zero_interference_mode(self):
-        # Setup mock return value
-        mock_collector_instance = self.MockCollectorManager.return_value
-        mock_collector_instance.collect_all.return_value = {
-            'video_fps': 30.0,
-            'mpp_active': 1
-        }
-        
-        self.mock_adb.get_pid.return_value = 1234
-        self.mock_adb.get_memory_info.return_value = {"pss_mb": 100}
-        self.mock_adb.get_cpu_usage.return_value = 10.0
-        self.mock_adb.get_gfx_info.return_value = {'total_frames': 100, 'janky_frames': 5}
-        self.mock_adb.is_device_online.return_value = True
-        
-        # Enable zero interference mode
-        self.monitor._disable_fps = True
-        
-        # Run collect_metrics
-        metrics = self.monitor.collect_snapshot()
-        
-        # Verify collector_manager.collect_all was called
-        mock_collector_instance.collect_all.assert_called_once()
-        
-        # Verify FPS is 0 despite collector returning 30.0 (because it's overridden in monitor)
-        self.assertEqual(metrics['video_fps'], 0.0)
-        # Verify MPP data is still there
-        self.assertEqual(metrics['mpp_active'], 1)
 
-if __name__ == '__main__':
+class TestPerformanceMonitor(unittest.TestCase):
+    def setUp(self):
+        self.adb = MagicMock()
+        self.monitor = PerformanceMonitor(
+            self.adb,
+            "com.test.pkg:media",
+            monitor_config={"tv_display_id": 1, "allow_display0_fallback": False},
+        )
+
+    def test_tv_surface_fps_is_preferred(self):
+        self.monitor._get_fps_from_surfaceflinger = MagicMock(return_value=30.0)
+        self.monitor._get_fps_from_gfxinfo = MagicMock(return_value=60.0)
+
+        fps = self.monitor._measure_video_fps(display_id=1, mpp_stats={})
+
+        self.assertEqual(fps, 30.0)
+        self.assertEqual(
+            self.monitor._last_video_fps_source,
+            "surfaceflinger_display_1",
+        )
+        self.monitor._get_fps_from_gfxinfo.assert_not_called()
+
+    def test_zero_interference_mode_skips_active_fps_collection(self):
+        self.adb.is_device_online.return_value = True
+        self.adb.get_pid.return_value = 1234
+        self.adb.get_memory_info.return_value = {"pss_mb": 100}
+        self.adb.get_cpu_usage.return_value = 10.0
+        self.adb.get_gfx_info.return_value = {
+            "total_frames": 100,
+            "janky_frames": 5,
+        }
+        self.adb.is_audio_active.return_value = False
+        self.adb._run_command.return_value = "Display id=0\nDisplay id=1\n"
+        self.monitor.rk_monitor.is_supported = False
+        self.monitor._disable_fps = True
+        self.monitor._measure_video_fps = MagicMock(return_value=30.0)
+
+        snapshot = self.monitor.collect_snapshot()
+
+        self.assertEqual(snapshot["video_fps"], 0.0)
+        self.assertEqual(snapshot["video_fps_source"], "none")
+        self.assertEqual(snapshot["tv_display_id"], 1)
+        self.assertTrue(snapshot["tv_display_verified"])
+        self.monitor._measure_video_fps.assert_not_called()
+
+    def test_decode_slowdown_triggers_top_snapshot(self):
+        self.adb.is_device_online.return_value = True
+        self.adb.get_pid.return_value = 1234
+        self.adb.get_memory_info.return_value = {"pss_mb": 100}
+        self.adb.get_cpu_usage.return_value = 12.0
+        self.adb.get_system_cpu_usage.return_value = 85.0
+        self.adb.get_thermal_status.return_value = {
+            "available": True,
+            "max_temperature_c": 65.0,
+            "min_frequency_ratio": 0.9,
+            "thermal_throttling": False,
+        }
+        self.adb.get_gfx_info.return_value = {
+            "total_frames": 100,
+            "janky_frames": 0,
+        }
+        self.adb.is_audio_active.return_value = True
+        self.adb._run_command.return_value = "Display id=0\nDisplay id=1\n"
+        self.adb.get_top_heavy_processes.return_value = "com.noisy.worker(45%)"
+        self.monitor.rk_monitor.is_supported = True
+        self.monitor.rk_monitor.get_mpp_stats = MagicMock(return_value={
+            "active_instances": 1,
+            "session_count": 1,
+            "total_work_count": 100,
+            "work_count_delta": 10,
+            "work_count_delta_time_sec": 1.0,
+            "decoder_stuck": False,
+        })
+        self.monitor._measure_video_fps = MagicMock(return_value=0.0)
+        self.monitor._expected_stream_fps = 30.0
+        self.monitor._expected_stream_fps_ready = True
+
+        snapshot = self.monitor.collect_snapshot()
+
+        self.assertTrue(snapshot["decode_slowdown_detected"])
+        self.assertEqual(snapshot["decode_fps_estimate"], 10.0)
+        self.assertEqual(snapshot["expected_stream_fps"], 30.0)
+        self.assertEqual(snapshot["system_cpu_percent"], 85.0)
+        self.assertEqual(snapshot["top_consumers"], "com.noisy.worker(45%)")
+        self.adb.get_top_heavy_processes.assert_called_once()
+
+
+if __name__ == "__main__":
     unittest.main()

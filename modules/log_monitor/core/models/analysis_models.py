@@ -47,3 +47,12 @@ class PerformanceSnapshot:
     is_perceptual_stalling: bool = False  # 当前是否在卡顿
     perceptual_stall_severity: str = ""  # 当前卡顿严重程度：mild/moderate/severe
     frame_time_variance: float = 0.0  # 帧时间方差（波动性）
+    mpp_active_instances: int = 0
+    mpp_total_work_count: int = 0
+    mpp_work_count_delta: int = 0
+    mpp_work_count_delta_time_sec: float = 0.0
+    decoder_stuck: bool = False
+    decoder_stuck_duration_sec: float = 0.0
+    decode_fps_estimate: float = 0.0
+    decode_drop_estimate: int = 0
+    decode_drop_ratio: float = 0.0

@@ -268,6 +268,15 @@
                         </div>
                     </div>
                 </div>
+                <div class="col-md-2 mb-3">
+                    <div class="card metric-card" id="decodeCard" style="background-color: #6c757d; color: white;">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">解码丢帧</h6>
+                            <h3 id="decodeDrop">0</h3>
+                            <small id="decodeStatus">未启用</small>
+                        </div>
+                    </div>
+                </div>
             </div>
             <!-- 卡顿详细信息 -->
             <div class="row mt-2" id="stallDetails" style="display: none;">
@@ -1067,6 +1076,14 @@
         const isStalling = data.is_perceptual_stalling || false;
         const stallSeverity = data.perceptual_stall_severity || '';
         const frameVariance = data.frame_time_variance || 0;
+
+        const mppActive = data.mpp_active_instances || 0;
+        const mppTotal = data.mpp_total_work_count || 0;
+        const mppWorkDelta = data.mpp_work_count_delta || 0;
+        const decoderStuck = !!data.decoder_stuck;
+        const decoderStuckSec = data.decoder_stuck_duration_sec || 0;
+        const decodeDrop = data.decode_drop_estimate || 0;
+        const decodeDropRatio = data.decode_drop_ratio || 0;
         
         // 更新指标卡片
         $('#cpuUsage').text(cpu.toFixed(1) + '%');
@@ -1116,6 +1133,22 @@
         updateChart('network', [networkRx, networkTx], timestamp);
         updateChart('jank', jank, timestamp);
         updateChart('stall', stallScore, timestamp);
+
+        const decodeCard = $('#decodeCard');
+        $('#decodeDrop').text(decodeDrop);
+        if (!mppActive && !mppTotal && !decoderStuck) {
+            $('#decodeStatus').text('未启用');
+            decodeCard.css('background-color', '#6c757d');
+        } else if (decoderStuck) {
+            $('#decodeStatus').text('解码卡死 ' + decoderStuckSec.toFixed(1) + 's');
+            decodeCard.css('background-color', '#dc3545');
+        } else if (decodeDrop >= 3 || decodeDropRatio >= 0.10) {
+            $('#decodeStatus').text('疑似丢帧 ' + (decodeDropRatio * 100).toFixed(1) + '%');
+            decodeCard.css('background-color', '#fd7e14');
+        } else {
+            $('#decodeStatus').text('正常');
+            decodeCard.css('background-color', '#28a745');
+        }
     }
     
     // 获取严重程度文本

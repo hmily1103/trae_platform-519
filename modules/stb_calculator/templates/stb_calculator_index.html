@@ -1,0 +1,591 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-end mb-4 border-bottom pb-3">
+    <div>
+      <div class="text-primary fw-bold text-uppercase small mb-2" style="letter-spacing: 1px;">
+        <a href="/" class="text-decoration-none text-muted me-2 hover-primary"><i class="fas fa-arrow-left"></i> 返回平台</a>
+        // Storage Capacity Analyzer
+      </div>
+      <h2 class="fw-bold mb-1 text-dark">HDD 带机顶盒<span class="text-primary">容量计算器</span></h2>
+      <div class="text-muted small" style="font-family: monospace;">DISK THROUGHPUT · STB LOAD ESTIMATOR · v1.1</div>
+    </div>
+    <div>
+      <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+        <i class="fas fa-circle fa-fade me-1 small"></i> Realtime Calc
+      </span>
+    </div>
+  </div>
+
+  <!-- Input Parameters -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+      <h6 class="mb-0 fw-bold text-uppercase" style="letter-spacing: 1px;">
+        <i class="fas fa-sliders-h text-primary me-2"></i>Input Parameters
+      </h6>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
+        <!-- 场景预设（口径拆分） -->
+        <div class="col-12">
+          <label class="form-label text-muted small fw-bold text-uppercase" for="scenePreset">
+            场景预设 <span class="text-primary ms-1">口径</span>
+          </label>
+          <select class="form-select form-select-lg fw-bold" id="scenePreset" onchange="onPresetChange()">
+            <option value="single" selected>单盘公式口径（可自定义盘位与勾选损耗）</option>
+            <option value="fourbay">四盘位复合实测口径（lookup）</option>
+            <option value="hybrid">SSD + HDD 异构（说明向 / 公式仍可按勾选估算）</option>
+          </select>
+          <div class="form-text small text-muted mt-1">
+            单盘与四盘位<strong>不是同一套系数</strong>：四盘位行按历史复合压测表取值；单盘行按下方公式与并发下载任务数推算区间。
+          </div>
+          <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="optResetDiskOnLeaveFourbay" onchange="calcStb()">
+            <label class="form-check-label small text-muted" for="optResetDiskOnLeaveFourbay">
+              从「四盘位」切到「单盘 / 异构」时，自动将并发盘位改回 <span style="font-family: monospace;">1</span>（默认关闭：保留为 4，便于与多盘公式对照）
+            </label>
+          </div>
+        </div>
+
+        <!-- 四盘位：场景选择 -->
+        <div class="col-12 d-none" id="fourbayPanel">
+          <div class="p-3 bg-light border rounded">
+            <div class="fw-bold text-dark mb-2"><i class="fas fa-layer-group text-primary me-2"></i>四盘位复合场景（选最接近实测的一档）</div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="small text-muted fw-bold mb-2">1080p 方向</div>
+                <div class="d-flex flex-column gap-2">
+                  <label class="d-flex align-items-center gap-2 mb-0">
+                    <input type="radio" name="fourbayScene" value="1080_mv" onchange="calcStb()">
+                    <span>1080 + MV + 下载（约 <strong>18–20</strong> 对）</span>
+                  </label>
+                  <label class="d-flex align-items-center gap-2 mb-0">
+                    <input type="radio" name="fourbayScene" value="1080_pip" onchange="calcStb()">
+                    <span>1080 + 画中画 + 下载（约 <strong>17</strong> 对）</span>
+                  </label>
+                  <label class="d-flex align-items-center gap-2 mb-0">
+                    <input type="radio" name="fourbayScene" value="1080_wall" onchange="calcStb()" checked>
+                    <span>1080 + 壁纸 / 动效 + 下载（约 <strong>16–17</strong> 对）</span>
+                  </label>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="small text-muted fw-bold mb-2">4K 方向</div>
+                <div class="d-flex flex-column gap-2">
+                  <label class="d-flex align-items-center gap-2 mb-0">
+                    <input type="radio" name="fourbayScene" value="4k_dl" onchange="calcStb()">
+                    <span>4K + 下载（约 <strong>23–25</strong> 对）</span>
+                  </label>
+                  <label class="d-flex align-items-center gap-2 mb-0">
+                    <input type="radio" name="fourbayScene" value="4k_heavy" onchange="calcStb()">
+                    <span>4K + 壁纸 / 画中画 + 下载（约 <strong>21–22</strong> 对）</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 基础参数 -->
+        <div class="col-md-6">
+          <label class="form-label text-muted small fw-bold text-uppercase" for="diskSpeed">
+            单盘顺序读取速度 <span class="text-primary ms-1">MB/s</span>
+          </label>
+          <input class="form-control form-control-lg fw-bold" style="font-family: monospace;" type="number" id="diskSpeed"
+                 value="179.17" min="1" max="99999" step="0.01"
+                 oninput="calcStb()">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label text-muted small fw-bold text-uppercase" for="bitrate">
+            单路视频码流 <span class="text-primary ms-1">Mbps</span>
+          </label>
+          <input class="form-control form-control-lg fw-bold" style="font-family: monospace;" type="number" id="bitrate"
+                 value="6" min="0.1" max="9999" step="0.1"
+                 oninput="calcStb()">
+        </div>
+
+        <!-- 架构与场景选项 -->
+        <div class="col-md-6">
+          <label class="form-label text-muted small fw-bold text-uppercase">
+            存储阵列架构
+          </label>
+          <div class="d-flex gap-3 flex-wrap">
+            <div class="input-group" style="max-width: 280px;">
+              <span class="input-group-text bg-light text-muted small fw-bold">并发盘位</span>
+              <input type="number" class="form-control fw-bold" id="diskCount" value="1" min="1" max="24" oninput="calcStb()">
+            </div>
+            <div class="form-check form-switch d-flex align-items-center">
+              <input class="form-check-input me-2" type="checkbox" id="hasSSD" onchange="calcStb()" style="width: 2.5em; height: 1.25em;">
+              <label class="form-check-label small fw-bold text-muted mt-1" for="hasSSD">SSD 异构加速 (存热数据)</label>
+            </div>
+          </div>
+          <div class="form-text small" id="diskCountHint"></div>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label text-muted small fw-bold text-uppercase">
+            业务复杂度场景损耗
+          </label>
+          <div class="d-flex gap-3 flex-wrap mt-1">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="hasDownload" onchange="calcStb()" checked>
+              <label class="form-check-label small text-muted" for="hasDownload">后台并发下载</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="hasPip" onchange="calcStb()">
+              <label class="form-check-label small text-muted" for="hasPip">开启画中画/动态壁纸</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="is4K" onchange="calcStb()">
+              <label class="form-check-label small text-muted" for="is4K">全场 4K 播放</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 并发下载任务数（单盘 / 异构公式用） -->
+        <div class="col-md-6" id="downloadTasksRow">
+          <label class="form-label text-muted small fw-bold text-uppercase" for="downloadTasks">
+            并发下载任务数 <span class="text-primary ms-1">个</span>
+          </label>
+          <input class="form-control form-control-lg fw-bold" style="font-family: monospace;" type="number" id="downloadTasks"
+                 value="2" min="1" max="24" step="1" oninput="calcStb()">
+          <div class="form-text small text-muted">在「后台并发下载」开启时参与区间推算：任务越多，区间整体下移。</div>
+        </div>
+        <div class="col-md-6 d-none" id="fourbayTasksNote">
+          <label class="form-label text-muted small fw-bold text-uppercase">四盘位口径</label>
+          <div class="p-3 bg-white border rounded small text-muted">
+            此项由<strong>历史复合压测表</strong>直接给出带机区间；下方并发下载任务数<strong>不参与</strong>四盘位 lookup，仅供对照单盘公式时切换预设使用。
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 p-3 bg-light border-start border-primary border-4 rounded text-muted small" style="font-family: monospace;" id="formula">
+      </div>
+
+      <!-- 异构说明 -->
+      <div class="mt-3 p-3 border rounded d-none" id="hybridCallout">
+        <div class="fw-bold text-dark mb-1"><i class="fas fa-database text-primary me-2"></i>SSD + HDD 异构说明</div>
+        <div class="small text-muted">
+          热数据与随机读偏向 SSD 时，可显著缓解「画中画 / 4K / 壁纸」带来的寻址惩罚；下表公式仍按勾选估算，
+          若仅 SSD 不足以覆盖 workload，请以<strong>压测表 + 现场监控</strong>为准。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+      <h6 class="mb-0 fw-bold text-uppercase" style="letter-spacing: 1px;">
+        <i class="fas fa-chart-pie text-success me-2"></i>Calculation Results
+      </h6>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
+
+        <!-- Result 1 -->
+        <div class="col-md-4">
+          <div class="card h-100 border-warning-subtle shadow-sm" style="border-top: 3px solid #ffc107 !important;">
+            <div class="card-body position-relative">
+              <h6 class="text-muted text-uppercase small fw-bold mb-3">理论最大带机上限</h6>
+              <span class="position-absolute top-0 end-0 mt-3 me-3 badge bg-light text-muted border">无任何损耗</span>
+              <div class="d-flex align-items-baseline mb-2">
+                <h1 class="display-4 fw-bold text-warning mb-0" style="font-family: monospace;" id="rTheo">238</h1>
+                <span class="text-muted ms-2">对</span>
+              </div>
+              <div class="text-muted small">
+                = <b class="text-dark" id="rTheoU">476</b> 台机顶盒
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result 2 -->
+        <div class="col-md-4">
+          <div class="card h-100 border-success-subtle shadow-sm" style="border-top: 3px solid #198754 !important;">
+            <div class="card-body position-relative">
+              <h6 class="text-muted text-uppercase small fw-bold mb-3">安全带机量基线</h6>
+              <span class="position-absolute top-0 end-0 mt-3 me-3 badge bg-light text-muted border" id="effBase">效率 8.8%</span>
+              <div class="d-flex align-items-baseline mb-2">
+                <h1 class="display-4 fw-bold text-success mb-0" style="font-family: monospace;" id="rPlay">21</h1>
+                <span class="text-muted ms-2">对</span>
+              </div>
+              <div class="text-muted small">
+                = <b class="text-dark" id="rPlayU">42</b> 台机顶盒 (基础场景)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result 3 -->
+        <div class="col-md-4">
+          <div class="card h-100 border-primary-subtle shadow-sm" style="border-top: 3px solid #0d6efd !important;">
+            <div class="card-body position-relative">
+              <h6 class="text-primary text-uppercase small fw-bold mb-3">实际建议带机量 (折损后)</h6>
+              <span class="position-absolute top-0 end-0 mt-3 me-3 badge bg-primary-subtle text-primary border border-primary-subtle" id="effActual">效率 6.7%</span>
+              <div class="d-flex align-items-baseline mb-2 flex-wrap gap-2">
+                <h1 class="display-4 fw-bold text-primary mb-0" style="font-family: monospace;" id="rActual">16</h1>
+                <span class="text-muted ms-2">对</span>
+                <span class="badge bg-light text-dark border" id="rActualBand" style="font-family: monospace;">14–18 对</span>
+              </div>
+              <div class="text-muted small" id="rActualNote">
+                并发下载任务数区间位移参考见公式栏。
+              </div>
+              <div class="text-muted small mt-1">
+                = <b class="text-dark" id="rActualU">32</b> 台机顶盒
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 测试口径建议 -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white py-2">
+      <h6 class="mb-0 fw-bold text-uppercase small" style="letter-spacing: 1px;">
+        <i class="fas fa-flask text-secondary me-2"></i>测试口径建议（简版）
+      </h6>
+    </div>
+    <div class="card-body py-3">
+      <ul class="small text-muted mb-0 ps-3">
+        <li><strong>单盘公式</strong>：顺序读用稳定段带宽；播放稳定判据建议统一（如连续 M 分钟无卡帧 / 缓存不达阈）。</li>
+        <li><strong>四盘位复合</strong>：业务组合与「并发下载」定义要与线上一致；表中为历史复合场景下的<strong>可再现区间</strong>。</li>
+        <li><strong>对比用途</strong>：横向对比时固定码流、分辨率、任务类型与任务数，否则「对数」不可直接对齐。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Historical Reference -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+      <h6 class="mb-0 fw-bold text-uppercase" style="letter-spacing: 1px;">
+        <i class="fas fa-history text-secondary me-2"></i>Historical / 压测对照
+      </h6>
+    </div>
+    <div class="card-body">
+
+      <div class="bg-light border-start border-secondary border-4 rounded p-3 mb-4 d-flex flex-wrap gap-4 small" style="font-family: monospace;">
+        <div><span class="text-muted">服务器 · </span><span class="text-dark fw-bold">4.0 服务器</span></div>
+        <div><span class="text-muted">硬盘 · </span><span class="text-dark fw-bold">酷狼 5400 转</span></div>
+        <div><span class="text-muted">读取速度 · </span><span class="text-dark fw-bold">179.17 MB/sec</span></div>
+        <div><span class="text-muted">视频规格 · </span><span class="text-dark fw-bold">6 Mbps · 1080p</span></div>
+      </div>
+
+      <h6 class="text-muted text-uppercase small fw-bold mb-3">单盘 HDD（与公式校准相关）</h6>
+      <div class="row g-4 mb-4">
+        <div class="col-md-6">
+          <div class="card border border-success-subtle h-100">
+            <div class="card-header bg-success-subtle text-success py-2 text-uppercase small fw-bold" style="letter-spacing: 1px;">
+              <i class="fas fa-play me-2"></i>仅播放
+            </div>
+            <ul class="list-group list-group-flush" style="font-family: monospace;">
+              <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div><span class="text-muted small me-3">#1</span><span class="fs-5 fw-bold text-dark me-1">21</span> 对</div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle">无卡顿</span>
+              </li>
+              <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div><span class="text-muted small me-3">#2</span><span class="fs-5 fw-bold text-dark me-1">19</span> 对</div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle">无卡顿</span>
+              </li>
+              <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div><span class="text-muted small me-3">#3</span><span class="fs-5 fw-bold text-dark me-1">21</span> 对</div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle">无卡顿</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="card border border-primary-subtle h-100">
+            <div class="card-header bg-primary-subtle text-primary py-2 text-uppercase small fw-bold" style="letter-spacing: 1px;">
+              <i class="fas fa-download me-2"></i>播放 + 下载（单盘）
+            </div>
+            <ul class="list-group list-group-flush" style="font-family: monospace;">
+              <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div><span class="text-muted small me-3">#1</span><span class="fs-5 fw-bold text-dark me-1">16</span> 对</div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle">无卡顿</span>
+              </li>
+              <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div><span class="text-muted small me-3">#2</span><span class="fs-5 fw-bold text-dark me-1">17</span> 对</div>
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">偶有卡顿</span>
+              </li>
+            </ul>
+            <div class="card-footer small text-muted bg-white border-top-0 pt-0">
+              与当前公式中单盘「下载衰减」校准区间：<strong>16–17 对</strong>。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h6 class="text-muted text-uppercase small fw-bold mb-3">四盘位阵列 · 复合场景（lookup 口径）</h6>
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle" style="font-family: monospace;">
+          <thead class="table-light small text-uppercase">
+            <tr>
+              <th>场景</th>
+              <th class="text-end">带机（对）</th>
+              <th>现象 / 备注</th>
+            </tr>
+          </thead>
+          <tbody class="small">
+            <tr>
+              <td>1080 + MV + 下载</td>
+              <td class="text-end fw-bold">18 – 20</td>
+              <td class="text-muted">复合负载下的小幅波动</td>
+            </tr>
+            <tr>
+              <td>1080 + 画中画 + 下载</td>
+              <td class="text-end fw-bold">17</td>
+              <td class="text-muted">随机读增多</td>
+            </tr>
+            <tr>
+              <td>1080 + 壁纸 / 动效 + 下载</td>
+              <td class="text-end fw-bold">16 – 17</td>
+              <td class="text-muted">与单盘下载档对齐数量级</td>
+            </tr>
+            <tr>
+              <td>4K + 下载</td>
+              <td class="text-end fw-bold">23 – 25</td>
+              <td class="text-muted">码流与聚合带宽占优</td>
+            </tr>
+            <tr>
+              <td>4K + 壁纸 / 画中画 + 下载</td>
+              <td class="text-end fw-bold">21 – 22</td>
+              <td class="text-muted">重度随机读仍明显高于单盘理论简单乘法</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="text-center text-muted small mt-2" style="font-family: monospace; letter-spacing: 0.5px;">
+    [ v1.1 · 单盘公式 / 四盘 lookup / 异构说明分流 · 切回单盘时恢复盘位 1 为可选项 · 每对 = 2 台机顶盒 ]
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+  @keyframes numIn {
+    from { opacity: .25; transform: translateY(-5px); }
+    to   { opacity: 1;   transform: translateY(0); }
+  }
+  .stb-flash { animation: numIn .18s ease-out; }
+  .hover-primary:hover { color: #0d6efd !important; }
+</style>
+
+<script>
+  const FOUR_BAY = {
+    '1080_mv':   { lo: 18, hi: 20, mid: 19, tag: '1080+MV+下载' },
+    '1080_pip':  { lo: 17, hi: 17, mid: 17, tag: '1080+画中画+下载' },
+    '1080_wall': { lo: 16, hi: 17, mid: 16, tag: '1080+壁纸+下载' },
+    '4k_dl':     { lo: 23, hi: 25, mid: 24, tag: '4K+下载' },
+    '4k_heavy':  { lo: 21, hi: 22, mid: 21, tag: '4K+壁纸/画中画+下载' },
+  };
+
+  function flash(el) {
+    el.classList.remove('stb-flash');
+    void el.offsetWidth;
+    el.classList.add('stb-flash');
+  }
+
+  function setStbValue(id, v) {
+    const el = document.getElementById(id);
+    const s = String(v);
+    if (el.textContent !== s) { el.textContent = s; flash(el); }
+  }
+
+  function selectedFourbayKey() {
+    const el = document.querySelector('input[name="fourbayScene"]:checked');
+    return el ? el.value : '1080_wall';
+  }
+
+  function downloadTaskMultiplier(taskCount, hasDownload) {
+    if (!hasDownload) return { mid: 1, lo: 1, hi: 1 };
+    const n = Math.max(1, Math.min(24, parseInt(taskCount, 10) || 1));
+    // 首任务基准 0.76，每增加一个并发任务额外约 3% 复合衰减（示意，与历史 21→16~17 对齐）
+    const base = 0.76;
+    const step = 0.97;
+    const mid = base * Math.pow(step, n - 1);
+    const lo = base * Math.pow(step, n + 1);   // 更重
+    const hi = base * Math.pow(step, Math.max(0, n - 2)); // 更轻
+    return { mid, lo, hi, n };
+  }
+
+  let stbLastScenePreset = null;
+
+  function onPresetChange() {
+    const preset = document.getElementById('scenePreset').value;
+    const fbPanel = document.getElementById('fourbayPanel');
+    const hybridEl = document.getElementById('hybridCallout');
+    const dlRow = document.getElementById('downloadTasksRow');
+    const fbNote = document.getElementById('fourbayTasksNote');
+    const diskInput = document.getElementById('diskCount');
+    const hint = document.getElementById('diskCountHint');
+    const optReset = document.getElementById('optResetDiskOnLeaveFourbay').checked;
+
+    if (stbLastScenePreset === 'fourbay' && preset !== 'fourbay' && optReset) {
+      diskInput.value = 1;
+    }
+    stbLastScenePreset = preset;
+
+    fbPanel.classList.toggle('d-none', preset !== 'fourbay');
+    hybridEl.classList.toggle('d-none', preset !== 'hybrid');
+    fbNote.classList.toggle('d-none', preset !== 'fourbay');
+    dlRow.classList.toggle('d-none', preset === 'fourbay');
+
+    if (preset === 'fourbay') {
+      diskInput.value = 4;
+      diskInput.setAttribute('readonly', 'readonly');
+      hint.textContent = '四盘位口径下固定为 4 盘，与历史复合压测一致。';
+    } else {
+      diskInput.removeAttribute('readonly');
+      hint.textContent = '';
+    }
+    calcStb();
+  }
+
+  function calcStb() {
+    const preset = document.getElementById('scenePreset').value;
+    const spd = parseFloat(document.getElementById('diskSpeed').value) || 0;
+    const bps = parseFloat(document.getElementById('bitrate').value) || 0;
+    let diskCount = parseInt(document.getElementById('diskCount').value, 10) || 1;
+    const hasSSD = document.getElementById('hasSSD').checked;
+    const hasDownload = document.getElementById('hasDownload').checked;
+    const hasPip = document.getElementById('hasPip').checked;
+    const is4K = document.getElementById('is4K').checked;
+    const downloadTasks = parseInt(document.getElementById('downloadTasks').value, 10) || 2;
+
+    if (preset === 'fourbay') {
+      diskCount = 4;
+    }
+
+    if (spd <= 0 || bps <= 0 || diskCount < 1) return;
+
+    const bwMB = bps / 8;
+    const streams = spd / bwMB;
+    const theoSingle = Math.floor(streams);
+    const arrayMultiplier = diskCount;
+    const theoTotal = theoSingle * arrayMultiplier;
+
+    const baseEfficiency = 0.088;
+    let basePlay = Math.floor(theoTotal * baseEfficiency);
+
+    // ----- 四盘位：lookup，不完全走惩罚连乘 -----
+    if (preset === 'fourbay') {
+      const key = selectedFourbayKey();
+      const row = FOUR_BAY[key] || FOUR_BAY['1080_wall'];
+      const lo = row.lo;
+      const hi = row.hi;
+      const mid = row.mid;
+
+      document.getElementById('formula').innerHTML =
+        `<div class="mb-2"><span class="fw-bold text-dark">口径：四盘位复合实测 lookup</span> — ${row.tag}</div>` +
+        `<div class="mb-2">单路带宽 = ${bps} Mbps ÷ 8 = <span class="text-dark fw-bold">${bwMB.toFixed(3)}</span> MB/s；理论阵列总路数（仍按公式）= <span class="text-dark fw-bold">${theoTotal}</span></div>` +
+        `<div>历史表中该场景带机区间：<span class="text-primary fw-bold">${lo}–${hi}</span> 对（中位参考 <span class="text-dark fw-bold">${mid}</span> 对）。</div>`;
+
+      setStbValue('rTheo', theoTotal);
+      setStbValue('rTheoU', theoTotal * 2);
+      setStbValue('rPlay', basePlay);
+      setStbValue('rPlayU', basePlay * 2);
+      document.getElementById('effBase').textContent = '基线效率 8.8%';
+
+      setStbValue('rActual', mid);
+      setStbValue('rActualU', mid * 2);
+      document.getElementById('rActualBand').textContent = `${lo}–${hi} 对`;
+      document.getElementById('effActual').textContent = '对照表区间';
+      document.getElementById('rActualNote').textContent =
+        `场景「${row.tag}」：表中为复合压测口径，非单盘公式外推。`;
+      return;
+    }
+
+    // ----- 单盘 / 异构：公式 + 下载任务区间 -----
+    let penalty = 1.0;
+    const tm = downloadTaskMultiplier(downloadTasks, hasDownload);
+
+    if (hasDownload) {
+      penalty *= tm.mid;
+    }
+
+    if (hasPip) {
+      penalty *= 0.85;
+    }
+
+    if (is4K) {
+      penalty *= 0.90;
+    }
+
+    if (hasSSD && (hasPip || is4K)) {
+      if (hasPip) penalty /= 0.85;
+      if (is4K) penalty /= 0.90;
+      penalty *= 1.05;
+    }
+
+    const penLo = (function () {
+      let p = 1.0;
+      if (hasDownload) p *= tm.lo;
+      if (hasPip) p *= 0.85;
+      if (is4K) p *= 0.90;
+      if (hasSSD && (hasPip || is4K)) {
+        if (hasPip) p /= 0.85;
+        if (is4K) p /= 0.90;
+        p *= 1.05;
+      }
+      return p;
+    })();
+
+    const penHi = (function () {
+      let p = 1.0;
+      if (hasDownload) p *= tm.hi;
+      if (hasPip) p *= 0.85;
+      if (is4K) p *= 0.90;
+      if (hasSSD && (hasPip || is4K)) {
+        if (hasPip) p /= 0.85;
+        if (is4K) p /= 0.90;
+        p *= 1.05;
+      }
+      return p;
+    })();
+
+    let actualPlay = Math.floor(basePlay * penalty);
+    const lowPlay = Math.floor(basePlay * penLo);
+    const highPlay = Math.floor(basePlay * penHi);
+    const loDisp = Math.min(actualPlay, lowPlay, highPlay);
+    const hiDisp = Math.max(actualPlay, lowPlay, highPlay);
+    const actualEfficiency = (baseEfficiency * penalty * 100).toFixed(1);
+
+    document.getElementById('formula').innerHTML =
+      `<div class="mb-2">单路带宽 = 码流 ÷ 8 = <span class="text-dark fw-bold">${bwMB.toFixed(3)}</span> MB/s</div>` +
+      `<div class="mb-2">理论阵列总路数 = 单盘理论 <span class="text-primary fw-bold">${theoSingle}</span> × <span class="text-primary fw-bold">${diskCount}</span> 盘 = <span class="text-dark fw-bold">${theoTotal}</span></div>` +
+      `<div class="mb-2">业务场景综合衰减（中位）= <span class="text-danger fw-bold">${(penalty * 100).toFixed(1)}%</span>；并发下载任务数 = <span class="text-dark fw-bold">${hasDownload ? tm.n : 0}</span>（参与下载衰减）</div>` +
+      `<div>区间（任务数上下浮动 + 合成不确定性）：约 <span class="text-primary fw-bold">${loDisp}–${hiDisp}</span> 对；SSD 加速：${hasSSD ? '已开启' : '未开启'}</div>`;
+
+    setStbValue('rTheo', theoTotal);
+    setStbValue('rTheoU', theoTotal * 2);
+
+    setStbValue('rPlay', basePlay);
+    setStbValue('rPlayU', basePlay * 2);
+    document.getElementById('effBase').textContent = '基线效率 8.8%';
+
+    setStbValue('rActual', actualPlay);
+    setStbValue('rActualU', actualPlay * 2);
+    document.getElementById('rActualBand').textContent = `${loDisp}–${hiDisp} 对`;
+    document.getElementById('effActual').textContent = `折损后效率 ${actualEfficiency}%`;
+    document.getElementById('rActualNote').textContent =
+      preset === 'hybrid'
+        ? `异构说明向：若热数据命中高，现场可优于区间上沿；请以监控为准。当前中位 ${actualPlay} 对。`
+        : `中位 ${actualPlay} 对；区间覆盖并发下载任务数扰动与合成不确定性（示意）。`;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    onPresetChange();
+  });
+</script>
+{% endblock %}

@@ -4,46 +4,81 @@
 <style>
   /* QA-led vertical workbench: readable by default */
   /* Full-width workbench inside main content area (keep left sidebar from base layout) */
-  .v2-wrap { max-width: none; width: 100%; margin: 0; }
+  body { background-color: #f7f8fa; }
+  .v2-wrap { max-width: none; width: 100%; margin: 0; padding-top: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
   @media (min-width: 992px) {
     .v2-wrap { padding-right: 10px; }
   }
-  .v2-card { background: #fff; border: 1px solid rgba(15,23,42,.10); border-radius: 14px; box-shadow: 0 4px 18px rgba(2,6,23,.04); }
-  .v2-card-h { padding: 14px 16px; border-bottom: 1px solid rgba(15,23,42,.08); display:flex; align-items:center; justify-content:space-between; gap: 12px; }
-  .v2-card-b { padding: 14px 16px; }
-  .v2-title { font-size: 18px; font-weight: 700; }
-  .v2-sub { font-size: 14px; color: rgba(15,23,42,.70); }
-  .v2-body { font-size: 14px; line-height: 1.65; color: rgba(15,23,42,.92); }
-  .v2-pill { display:inline-flex; align-items:center; padding: 3px 10px; border-radius: 999px; font-size: 12px; border: 1px solid rgba(15,23,42,.14); background: rgba(15,23,42,.03); }
-  .v2-pill.p0 { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.22); }
-  .v2-pill.blocked { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.28); }
-  .v2-pill.pass { background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.25); }
-  .v2-kpis { display:flex; flex-wrap: wrap; gap: 10px; }
-  .v2-kpi { display:flex; gap: 8px; align-items:center; font-size: 13px; color: rgba(15,23,42,.78); }
-  .v2-kpi b { color: rgba(15,23,42,.95); }
+  .v2-card { background: #fff; border: 1px solid rgba(15,23,42,.06); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.04); margin-bottom: 16px; overflow: hidden; transition: box-shadow 0.2s ease; }
+  .v2-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .v2-card-h { padding: 16px 20px; border-bottom: 1px solid rgba(15,23,42,.04); display:flex; align-items:center; justify-content:space-between; gap: 12px; background: #fff; }
+  details[open] > .v2-card-h { border-bottom: 1px solid rgba(15,23,42,.06); }
+  .v2-card-b { padding: 20px; background: #fafcff; }
+  .v2-title { font-size: 16px; font-weight: 600; color: #1d2129; display: flex; align-items: center; gap: 8px; }
+  .v2-title i { font-size: 18px; width: 24px; text-align: center; }
+  .v2-title .text-primary { color: #165dff !important; }
+  .v2-title .text-danger { color: #f53f3f !important; }
+  .v2-title .text-success { color: #00b42a !important; }
+  .v2-sub { font-size: 13px; color: #86909c; font-weight: 400; margin-left: 4px; }
+  .v2-body { font-size: 14px; line-height: 1.65; color: #4e5969; }
+  .v2-pill { display:inline-flex; align-items:center; padding: 4px 12px; border-radius: 4px; font-size: 13px; border: 1px solid #e5e6eb; background: #f2f3f5; color: #4e5969; cursor: pointer; transition: all 0.2s; }
+  .v2-pill:hover { background: #e5e6eb; }
+  .v2-pill.p0 { background: #ffece8; border-color: #fdcdc5; color: #f53f3f; }
+  .v2-pill.blocked { background: #fff7e8; border-color: #ffe4ba; color: #ff7d00; }
+  .v2-pill.pass { background: #e8ffea; border-color: #bdf6c6; color: #00b42a; }
+  .v2-pill.action-pill { background: #fff; border: 1px solid #165dff; color: #165dff; font-weight: 500; }
+  .v2-pill.action-pill:hover { background: #f0f5ff; }
+  .v2-kpis { display:flex; flex-wrap: wrap; gap: 24px; margin-bottom: 16px; }
+  .v2-kpi { display:flex; gap: 8px; align-items:center; font-size: 14px; color: #86909c; }
+  .v2-kpi b { color: #1d2129; font-size: 16px; font-weight: 600; }
   .v2-input { display:flex; flex-direction: column; gap: 10px; }
   .v2-row { display:flex; flex-wrap: wrap; gap: 10px; align-items:center; }
-  .v2-blocker { border: 1px solid rgba(15,23,42,.10); border-radius: 14px; padding: 12px 14px; background: rgba(2,6,23,.02); }
-  .v2-blocker h5 { font-size: 15px; margin: 0 0 8px 0; font-weight: 700; }
-  .v2-muted { color: rgba(15,23,42,.65); }
+  .v2-blocker { border: 1px solid #e5e6eb; border-radius: 8px; padding: 16px; background: #fff; margin-bottom: 12px; }
+  .v2-blocker h5 { font-size: 15px; margin: 0 0 8px 0; font-weight: 600; color: #1d2129; }
+  .v2-muted { color: #86909c; }
   .v2-list { margin: 6px 0 0 0; padding-left: 18px; }
-  .v2-list li { margin-bottom: 6px; }
-  .v2-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: rgba(2,6,23,.03); border: 1px solid rgba(15,23,42,.10); border-radius: 12px; padding: 10px 12px; }
-  .v2-actions { display:flex; flex-wrap: wrap; gap: 10px; }
-  /* WeChat-like group chat */
-  .v2-chat { background: rgba(2,6,23,.02); border: 1px solid rgba(15,23,42,.08); border-radius: 14px; padding: 12px; }
-  .v2-chat .round-sep { text-align:center; color: rgba(15,23,42,.55); font-size: 12px; margin: 10px 0; }
-  .v2-msg { display:flex; gap: 10px; margin-bottom: 10px; align-items:flex-start; }
-  .v2-msg .av { width: 34px; height: 34px; border-radius: 10px; display:flex; align-items:center; justify-content:center; font-size: 12px; font-weight: 700; color:#0f172a; background: rgba(59,130,246,.12); border:1px solid rgba(59,130,246,.22); flex: 0 0 auto; }
-  .v2-msg.dev .av { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.22); }
-  .v2-msg.pm .av { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.26); }
-  .v2-bubble { max-width: 86%; background:#fff; border:1px solid rgba(15,23,42,.10); border-radius: 14px; padding: 10px 12px; }
-  .v2-meta { display:flex; align-items:center; justify-content:space-between; gap: 10px; font-size: 12px; color: rgba(15,23,42,.60); margin-bottom: 6px; }
-  .v2-bubble pre { margin: 0; font-family: inherit; font-size: 14px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
-  /* Discussion empty state: keep placeholder but compact */
-  .v2-hide { display: none !important; }
-  .v2-empty-card .v2-card-b { padding: 10px 12px; }
-  .v2-empty-card .v2-card-b .v2-empty-hint { padding: 6px 8px; background: rgba(2,6,23,.02); border: 1px dashed rgba(15,23,42,.16); border-radius: 12px; }
+  .v2-list li { margin-bottom: 6px; color: #4e5969; }
+  .v2-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; white-space: pre-wrap; word-break: break-word; background: #f2f3f5; border: 1px solid #e5e6eb; border-radius: 8px; padding: 12px 16px; color: #1d2129; }
+  .v2-actions { display:flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  
+  /* Buttons */
+  .btn-primary { background-color: #165dff; border-color: #165dff; border-radius: 4px; padding: 6px 16px; font-weight: 500; }
+  .btn-primary:hover { background-color: #4080ff; border-color: #4080ff; }
+  .btn-outline-secondary { border-color: #e5e6eb; color: #4e5969; border-radius: 4px; background: #fff; }
+  .btn-outline-secondary:hover { background: #f2f3f5; color: #1d2129; border-color: #e5e6eb; }
+  
+  /* Empty State */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; }
+  .empty-state-icon { width: 80px; height: 80px; background: linear-gradient(135deg, #e8f3ff 0%, #badaff 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 8px 16px rgba(22, 93, 255, 0.15); position: relative; }
+  .empty-state-icon i { font-size: 40px; color: #165dff; }
+  .empty-state-icon::after { content: ''; position: absolute; top: -5px; right: -5px; width: 24px; height: 24px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  .empty-state-title { font-size: 16px; font-weight: 600; color: #1d2129; margin-bottom: 8px; }
+  .empty-state-desc { font-size: 13px; color: #86909c; max-width: 240px; }
+
+  /* WeChat Style Chat */
+  .v2-chat { padding: 16px; background: #f3f3f3; border-radius: 12px; display: flex; flex-direction: column; gap: 16px; }
+  .v2-msg { display: flex; align-items: flex-start; gap: 12px; width: 100%; margin-bottom: 4px; }
+  .v2-msg.qa { flex-direction: row-reverse; }
+  .v2-msg .av { width: 40px; height: 40px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: #fff; flex: 0 0 auto; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+  .v2-msg.dev .av { background: #10a37f; }
+  .v2-msg.pm .av { background: #f59e0b; }
+  .v2-msg.qa .av { background: #3b82f6; }
+  .v2-bubble-wrap { max-width: 75%; display: flex; flex-direction: column; }
+  .v2-msg.qa .v2-bubble-wrap { align-items: flex-end; }
+  .v2-msg:not(.qa) .v2-bubble-wrap { align-items: flex-start; }
+  .v2-meta { font-size: 12px; color: #86909c; margin-bottom: 6px; display: flex; gap: 8px; }
+  .v2-msg.qa .v2-meta { flex-direction: row-reverse; }
+  .v2-bubble { padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.5; color: #1d2129; word-break: break-word; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+  .v2-bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; border: none; background: transparent; padding: 0; color: inherit; font-size: 14px; }
+  .v2-msg.qa .v2-bubble { background: #95ec69; border: 1px solid #89d961; border-top-right-radius: 2px; }
+  .v2-msg:not(.qa) .v2-bubble { background: #fff; border: 1px solid #e5e6eb; border-top-left-radius: 2px; }
+  .v2-msg.qa .v2-bubble::after { content: ''; position: absolute; right: -6px; top: 12px; width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 6px solid #95ec69; }
+  .v2-msg:not(.qa) .v2-bubble::after { content: ''; position: absolute; left: -6px; top: 12px; width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right: 6px solid #fff; }
+  
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::after { content: '\f107'; font-family: 'Font Awesome 5 Free'; font-weight: 900; color: #86909c; transition: transform 0.2s; }
+  details[open] > summary::after { transform: rotate(180deg); }
 </style>
 
 <div class="v2-wrap">
@@ -62,10 +97,10 @@
   <details class="v2-card mb-3">
     <summary class="v2-card-h" style="cursor:pointer;">
       <div>
-        <div class="v2-title">原需求（原文）</div>
+        <div class="v2-title"><i class="fas fa-file-alt text-primary"></i>原需求（原文）</div>
         <div class="v2-sub">默认折叠；用于对照依据</div>
       </div>
-      <span class="v2-pill">折叠</span>
+      <span class="v2-pill">展开</span>
     </summary>
     <div class="v2-card-b">
       <div class="v2-code" id="prdSourceBox">尚未生成。</div>
@@ -73,45 +108,36 @@
   </details>
 
   <!-- 首屏 1：评审结论 -->
-  <div class="v2-card mb-3">
-    <div class="v2-card-h">
+  <details class="v2-card mb-3" open>
+    <summary class="v2-card-h" style="cursor:pointer;">
       <div>
-        <div class="v2-title">评审结论 <span class="v2-sub">（发布门禁 / 开工门禁）</span></div>
-        <div class="v2-sub">本轮结论与下一步（可转发）</div>
+        <div class="v2-title"><i class="fas fa-check-circle text-primary"></i>评审结论 <span class="v2-sub">（发布门禁 / 开工门禁）</span></div>
+        <div class="v2-sub" id="gateReason">未开始</div>
       </div>
       <div class="v2-actions">
-        <button class="btn btn-outline-secondary" id="btnExport"><i class="fas fa-file-export me-1"></i>导出评审结论</button>
-        <span class="v2-pill blocked" id="gatePill">—</span>
+        <button class="btn btn-outline-primary btn-sm" id="btnExport" style="background: transparent;"><i class="fas fa-file-export me-1"></i>导出评审结论</button>
       </div>
-    </div>
+    </summary>
     <div class="v2-card-b">
-      <div class="v2-blocker" style="background:#fff;">
-        <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap">
-          <div>
-            <div class="fw-semibold">门禁结论</div>
-            <div class="v2-muted small mt-1" id="gateReason">未开始</div>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="v2-pill blocked" id="gatePillBox">—</span>
-          </div>
-        </div>
-        <div class="v2-kpis mt-2">
-          <div class="v2-kpi">必须解决：<b id="kpiP0">0</b></div>
-          <div class="v2-kpi">还卡着：<b id="kpiBlocked">0</b></div>
-          <div class="v2-kpi">还缺什么：<b id="kpiReq">0</b></div>
-          <div class="v2-kpi">输入：<b id="kpiInput">—</b></div>
-        </div>
-        <div class="v2-muted small mt-2" id="gateQuick"></div>
+      <div class="v2-kpis mt-1">
+        <div class="v2-kpi">必填解决：<b id="kpiP0">0</b></div>
+        <div class="v2-kpi">还卡着：<b id="kpiBlocked">0</b></div>
+        <div class="v2-kpi">还要什么：<b id="kpiReq">0</b></div>
+        <div class="v2-kpi">输入：<b id="kpiInput">—</b></div>
       </div>
-      <div class="mt-2">
+      <div class="v2-muted small mt-2 mb-3" id="gateQuick"></div>
+      <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-primary" id="btnLlmOnly">下一步 (需补齐)</button>
+      </div>
+      
+      <div class="mt-3">
         <details class="v2-blocker" style="background:#fff;" id="llmOnlyDetails">
           <summary class="d-flex align-items-center justify-content-between" style="cursor:pointer;">
             <span class="fw-semibold">可转发结论（大模型·证据版）</span>
-            <span class="v2-pill">折叠</span>
+            <span class="v2-pill">展开</span>
           </summary>
           <div class="mt-2 d-flex gap-2 flex-wrap">
-            <button class="btn btn-outline-primary btn-sm" id="btnLlmOnly"><i class="fas fa-wand-magic-sparkles me-1"></i>可转发结论</button>
-            <button class="btn btn-outline-secondary btn-sm" id="btnCopyLlmOnly"><i class="fas fa-copy me-1"></i>复制</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btnCopyLlmOnly"><i class="fas fa-copy me-1"></i>复制结论</button>
           </div>
           <div class="v2-muted small mt-1" id="llmOnlyHint">大模型会严格按 PRD 原文输出；原文未覆盖的点会明确标出“未覆盖，需要 PM 补齐”。</div>
           <div class="v2-code mt-2" id="llmOnlyBox">尚未生成。</div>
@@ -121,32 +147,85 @@
         <details class="v2-blocker" style="background:#fff;">
           <summary class="d-flex align-items-center justify-content-between" style="cursor:pointer;">
             <span class="fw-semibold">待补齐信息（开工/发布前置）</span>
-            <span class="v2-pill">折叠</span>
+            <span class="v2-pill">展开</span>
           </summary>
           <div class="mt-2 v2-body" id="reqTop"></div>
         </details>
       </div>
     </div>
-  </div>
+  </details>
 
   <!-- 首屏 2：P0 还卡着（默认展开） -->
-  <div class="v2-card mb-3">
-    <div class="v2-card-h">
-      <div class="v2-title">P0 问题（必须先解决） <span class="v2-sub">（P0）</span></div>
+  <details class="v2-card mb-3" open>
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <div class="v2-title">
+        <span class="badge bg-danger rounded-pill px-2 py-1 me-2" style="font-size: 12px;">P0</span>
+        P0 还卡着（必须先解决） <span class="v2-sub">（P0）</span>
+      </div>
       <div class="v2-actions">
-        <button class="btn btn-outline-dark btn-sm" id="btnCopyPmTodo"><i class="fas fa-bullhorn me-1"></i>复制闭环清单</button>
+        <button class="btn btn-outline-primary btn-sm action-pill" id="btnCopyPmTodo" style="background: transparent; border-radius: 999px; padding: 2px 12px;"><i class="fas fa-bullhorn me-1"></i>复制到环节清单</button>
         <span class="v2-pill" id="chipBlockers">0 条</span>
       </div>
-    </div>
+    </summary>
     <div class="v2-card-b" id="blockerList">
       <div class="text-muted small">尚未生成。</div>
     </div>
-  </div>
+  </details>
 
+  <!-- 冻结口径填写 -->
+  <details class="v2-card mb-3" id="freezeSection">
+    <summary class="v2-card-h" style="cursor:pointer;">
+      <span class="v2-title"><i class="fas fa-code-branch text-primary"></i>冻结口径填写（把 P0 写成白纸黑字的具体数值/规则）</span>
+      <div class="v2-actions">
+        <button class="btn btn-outline-primary btn-sm action-pill" id="btnApplyFreeze" type="button" style="background: transparent; border-radius: 999px; padding: 2px 12px;"><i class="fas fa-cog me-1"></i>应用冻结口径</button>
+        <span class="v2-pill">展开</span>
+      </div>
+    </summary>
+    <div class="v2-card-b">
+      <div class="v2-muted small mb-2">填写后点“应用冻结口径”，系统会把对应 P0 从 BLOCKED 收敛到 DECIDED，并重算 Gate/重生成 PRD v2.0（不会手工强制 PASS）。</div>
+      <div class="v2-row mb-2">
+        <input class="form-control" id="frTerminals" placeholder="终端范围（用逗号分隔，例如：触摸屏, TV屏幕, 星耀屏；不支持可写 NOT_SUPPORTED:XXX）" style="min-width: 420px; flex: 2;">
+        <input class="form-control" id="frTerminalQuote" placeholder="终端范围原文证据（从PRD复制一行原文，用于 Claim-Check 支撑）" style="min-width: 420px; flex: 3;">
+      </div>
+      <div class="v2-row">
+        <input class="form-control" id="frConcN" placeholder="并发最大并发 N（例如 3）" style="min-width: 220px; flex: 1;">
+        <input class="form-control" id="frConcArb" placeholder="裁决函数（按优先级/按时间/手动>自动等）" style="min-width: 320px; flex: 2;">
+      </div>
+      <div class="v2-row mt-2">
+        <input class="form-control" id="frConcQueue" placeholder="排队机制（FIFO/单用户队列/是否丢弃/提示文案）" style="min-width: 320px; flex: 1;">
+      </div>
+      <hr style="border-color: #e5e6eb;" />
+      <div class="v2-row">
+        <input class="form-control" id="frTimeoutMs" placeholder="超时 timeout_ms（例如 15000）" style="min-width: 220px; flex: 1;">
+        <input class="form-control" id="frRetryTimes" placeholder="重试次数（例如 3）" style="min-width: 220px; flex: 1;">
+        <input class="form-control" id="frBackoff" placeholder="重试间隔（例如 10/30/60s）" style="min-width: 320px; flex: 2;">
+      </div>
+      <div class="v2-row mt-2">
+        <input class="form-control" id="frStop" placeholder="终止条件（例如：超过重试次数/用户取消/切后台）" style="min-width: 320px; flex: 1;">
+        <input class="form-control" id="frFail" placeholder="最终失败处理（例如：进入 ERROR + 提示文案）" style="min-width: 320px; flex: 1;">
+      </div>
+      <hr style="border-color: #e5e6eb;" />
+      <div class="v2-row">
+        <input class="form-control" id="frStateStore" placeholder="状态存储位置（KV/SQLite/服务端等）" style="min-width: 320px; flex: 1;">
+        <input class="form-control" id="frResume" placeholder="恢复策略（回到 IDLE/恢复 RECORDING/提示用户继续等）" style="min-width: 320px; flex: 1;">
+      </div>
+      <hr style="border-color: #e5e6eb;" />
+      <div class="v2-row">
+        <input class="form-control" id="frWho" placeholder="谁可以操作（范围/身份）" style="min-width: 260px; flex: 1;">
+        <input class="form-control" id="frToken" placeholder="Token/凭证规则（是否需要/如何获取）" style="min-width: 320px; flex: 1;">
+        <input class="form-control" id="frTtl" placeholder="Token有效期秒（例如 600）" style="min-width: 220px; flex: 1;">
+      </div>
+      <div class="v2-row mt-2">
+        <input class="form-control" id="frCross" placeholder="跨域/跨房间拦截规则" style="min-width: 320px; flex: 1;">
+        <input class="form-control" id="frDeny" placeholder="越权错误码/提示文案（例如 ERR_PERMISSION/提示）" style="min-width: 320px; flex: 1;">
+      </div>
+    </div>
+  </details>
+  
   <!-- 首屏 3：已定（本次定下来的结论） -->
   <details class="v2-card mb-3" id="decisionSection">
     <summary class="v2-card-h" style="cursor:pointer;">
-      <div class="v2-title">已定结论（可以直接做） <span class="v2-sub">（Decisions）</span></div>
+      <div class="v2-title"><i class="fas fa-check-circle text-success"></i>已定结论（可以直接做） <span class="v2-sub">（Decisions）</span></div>
       <span class="v2-pill" id="chipDecision">0 条</span>
     </summary>
     <div class="v2-card-b" id="decisionList">
@@ -157,7 +236,7 @@
   <!-- 已通过：正向反馈（不阻塞） -->
   <details class="v2-card mb-3" id="passedSection">
     <summary class="v2-card-h" style="cursor:pointer;">
-      <div class="v2-title">已通过（本轮确认） <span class="v2-sub">（PASSED）</span></div>
+      <div class="v2-title"><i class="fas fa-check-circle text-primary"></i>已通过（本轮确认） <span class="v2-sub">（PASSED）</span></div>
       <span class="v2-pill" id="chipPassed">0 条</span>
     </summary>
     <div class="v2-card-b" id="passedList">
@@ -230,153 +309,117 @@
   <!-- 其他内容：全部折叠 -->
   <details class="v2-card mb-3">
     <summary class="v2-card-h" style="cursor:pointer;">
-      <div class="v2-title">更多内容（可展开）</div>
-      <span class="v2-pill">折叠</span>
+      <div class="v2-title"><i class="fas fa-folder-open text-primary"></i>更多内容（可展开）</div>
+      <span class="v2-pill">展开</span>
     </summary>
     <div class="v2-card-b">
 
-  <details class="v2-card mb-3" id="freezeSection">
-    <summary class="v2-card-h" style="cursor:pointer;">
-      <span class="v2-title">冻结口径填写（把 P0 写成白纸黑字的具体数值/规则）</span>
-      <div class="v2-actions">
-        <button class="btn btn-outline-primary btn-sm" id="btnApplyFreeze" type="button"><i class="fas fa-check-circle me-1"></i>应用冻结口径</button>
-        <span class="v2-pill">折叠</span>
-      </div>
-    </summary>
-    <div class="v2-card-b">
-      <div class="v2-muted small mb-2">填写后点“应用冻结口径”，系统会把对应 P0 从 BLOCKED 收敛到 DECIDED，并重算 Gate/重生成 PRD v2.0（不会手工强制 PASS）。</div>
-      <div class="v2-row mb-2">
-        <input class="form-control" id="frTerminals" placeholder="终端范围（用逗号分隔，例如：触摸屏, TV屏幕, 星耀屏；不支持可写 NOT_SUPPORTED:XXX）" style="min-width: 420px; flex: 2;">
-        <input class="form-control" id="frTerminalQuote" placeholder="终端范围原文证据（从PRD复制一行原文，用于 Claim-Check 支撑）" style="min-width: 420px; flex: 3;">
-      </div>
-      <div class="v2-row">
-        <input class="form-control" id="frConcN" placeholder="并发最大并发 N（例如 3）" style="min-width: 220px; flex: 1;">
-        <input class="form-control" id="frConcArb" placeholder="裁决函数（按优先级/按时间/手动>自动等）" style="min-width: 320px; flex: 2;">
-      </div>
-      <div class="v2-row mt-2">
-        <input class="form-control" id="frConcQueue" placeholder="排队机制（FIFO/单用户队列/是否丢弃/提示文案）" style="min-width: 320px; flex: 1;">
-      </div>
-      <hr/>
-      <div class="v2-row">
-        <input class="form-control" id="frTimeoutMs" placeholder="超时 timeout_ms（例如 15000）" style="min-width: 220px; flex: 1;">
-        <input class="form-control" id="frRetryTimes" placeholder="重试次数（例如 3）" style="min-width: 220px; flex: 1;">
-        <input class="form-control" id="frBackoff" placeholder="重试间隔（例如 10/30/60s）" style="min-width: 320px; flex: 2;">
-      </div>
-      <div class="v2-row mt-2">
-        <input class="form-control" id="frStop" placeholder="终止条件（例如：超过重试次数/用户取消/切后台）" style="min-width: 320px; flex: 1;">
-        <input class="form-control" id="frFail" placeholder="最终失败处理（例如：进入 ERROR + 提示文案）" style="min-width: 320px; flex: 1;">
-      </div>
-      <hr/>
-      <div class="v2-row">
-        <input class="form-control" id="frStateStore" placeholder="状态存储位置（KV/SQLite/服务端等）" style="min-width: 320px; flex: 1;">
-        <input class="form-control" id="frResume" placeholder="恢复策略（回到 IDLE/恢复 RECORDING/提示用户继续等）" style="min-width: 320px; flex: 1;">
-      </div>
-      <hr/>
-      <div class="v2-row">
-        <input class="form-control" id="frWho" placeholder="谁可以操作（范围/身份）" style="min-width: 260px; flex: 1;">
-        <input class="form-control" id="frToken" placeholder="Token/凭证规则（是否需要/如何获取）" style="min-width: 320px; flex: 1;">
-        <input class="form-control" id="frTtl" placeholder="Token有效期秒（例如 600）" style="min-width: 220px; flex: 1;">
-      </div>
-      <div class="v2-row mt-2">
-        <input class="form-control" id="frCross" placeholder="跨域/跨房间拦截规则" style="min-width: 320px; flex: 1;">
-        <input class="form-control" id="frDeny" placeholder="越权错误码/提示文案（例如 ERR_PERMISSION/提示）" style="min-width: 320px; flex: 1;">
-      </div>
-    </div>
-  </details>
-
-  <!-- PRD v2.0 已移动到导入需求上方 -->
-
-  <div class="v2-card mb-3">
-    <div class="v2-card-h">
-      <div class="v2-title">怎么验收（测试标准） <span class="v2-sub">（Given/When/Then）</span></div>
-      <button class="btn btn-outline-secondary btn-sm" id="btnCopyAc"><i class="fas fa-copy me-1"></i>复制 AC</button>
-    </div>
-    <div class="v2-card-b" id="acTable">
-      <div class="text-muted small">尚未生成。</div>
-    </div>
-  </div>
-
-  <details class="v2-card mb-3">
-    <summary class="v2-card-h" style="cursor:pointer;" id="sumPatch">
-      <div class="v2-title">可回写原文的补丁 <span class="v2-sub">（Patch）</span></div>
-      <div class="v2-actions">
-        <button class="btn btn-outline-secondary btn-sm" id="btnTogglePatch" type="button"><i class="fas fa-eye me-1"></i>展开/收起</button>
-        <button class="btn btn-outline-secondary btn-sm" id="btnCopyPatch" type="button"><i class="fas fa-copy me-1"></i>复制全文</button>
-      </div>
-    </summary>
-    <div class="v2-card-b">
-      <div class="v2-code" id="patchBox">尚未生成。</div>
-    </div>
-  </details>
-
-  <details class="v2-card mb-3">
-    <summary class="v2-card-h" style="cursor:pointer;">
-      <div class="v2-title">结论有没有原文依据 <span class="v2-sub">（Claim-Check）</span></div>
-      <span class="v2-pill" id="chipClaims">0 条</span>
-    </summary>
-    <div class="v2-card-b" id="claimList">
-      <div class="text-muted small">尚未生成。</div>
-    </div>
-  </details>
-
-  <!-- （已移动到首屏外侧） -->
-
-  <details class="v2-card mb-3">
-    <summary class="v2-card-h" style="cursor:pointer;">
-      <span class="v2-title">导出</span>
-      <span class="v2-pill">折叠</span>
-    </summary>
-    <div class="v2-card-b">
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" value="" id="useRewriteEngine" checked>
-        <label class="form-check-label" for="useRewriteEngine">
-          LLM 重写版（更像人写的；LLM优先，失败回退 rule）
-        </label>
-      </div>
-      <div class="mt-2">
-        <div class="fw-semibold">交付类型</div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="exportKind" id="exportKindDraft" checked>
-          <label class="form-check-label" for="exportKindDraft">可开工草案版（允许 BLOCKED，会前置开工前置条件）</label>
+      <!-- 其它问题 -->
+      <details class="v2-card mb-3" id="otherSection">
+        <summary class="v2-card-h" style="cursor:pointer; background:#f8f9fa;">
+          <div class="v2-title text-muted"><i class="fas fa-question-circle text-secondary"></i>其它问题（P1/P2，或建议） <span class="v2-sub">（Others）</span></div>
+          <span class="v2-pill" id="chipOthers">0 条</span>
+        </summary>
+        <div class="v2-card-b" id="otherList">
+          <div class="text-muted small">尚未生成。</div>
         </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="exportKind" id="exportKindFrozen">
-          <label class="form-check-label" for="exportKindFrozen">正式冻结版（仅门禁 PASS 才允许导出）</label>
+      </details>
+
+      <div class="v2-card mb-3">
+        <div class="v2-card-h">
+          <div class="v2-title"><i class="fas fa-flask text-secondary"></i>怎么验收（测试标准） <span class="v2-sub">（Given/When/Then）</span></div>
+          <button class="btn btn-outline-secondary btn-sm" id="btnCopyAc"><i class="fas fa-copy me-1"></i>复制 AC</button>
+        </div>
+        <div class="v2-card-b" id="acTable">
+          <div class="text-muted small">尚未生成。</div>
         </div>
       </div>
-      <div class="text-muted small mt-2">
-        如需对比“模板拼装版”，可取消勾选再导出。
-      </div>
-    </div>
-  </details>
 
-  <details class="v2-card mb-3">
-    <summary class="v2-card-h" style="cursor:pointer;">
-      <span class="v2-title">排查用信息</span>
-      <div class="v2-actions">
-        <button class="btn btn-outline-primary btn-sm" id="btnSaveSnap" type="button"><i class="fas fa-save me-1"></i>保存会议快照</button>
-        <span class="v2-pill">折叠</span>
-      </div>
-    </summary>
-    <div class="v2-card-b">
-      <div class="v2-code mb-2" id="buildInfo">Build info：未加载</div>
-      <div class="v2-code" id="rawJson">未生成</div>
+      <details class="v2-card mb-3">
+        <summary class="v2-card-h" style="cursor:pointer;" id="sumPatch">
+          <div class="v2-title"><i class="fas fa-file-signature text-secondary"></i>可回写原文的补丁 <span class="v2-sub">（Patch）</span></div>
+          <div class="v2-actions">
+            <button class="btn btn-outline-secondary btn-sm" id="btnTogglePatch" type="button"><i class="fas fa-eye me-1"></i>展开/收起</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btnCopyPatch" type="button"><i class="fas fa-copy me-1"></i>复制全文</button>
+          </div>
+        </summary>
+        <div class="v2-card-b">
+          <div class="v2-code" id="patchBox">尚未生成。</div>
+        </div>
+      </details>
+
+      <details class="v2-card mb-3">
+        <summary class="v2-card-h" style="cursor:pointer;">
+          <div class="v2-title"><i class="fas fa-search text-secondary"></i>结论有没有原文依据 <span class="v2-sub">（Claim-Check）</span></div>
+          <span class="v2-pill" id="chipClaims">0 条</span>
+        </summary>
+        <div class="v2-card-b" id="claimList">
+          <div class="text-muted small">尚未生成。</div>
+        </div>
+      </details>
+
+      <details class="v2-card mb-3">
+        <summary class="v2-card-h" style="cursor:pointer;">
+          <span class="v2-title"><i class="fas fa-file-export text-secondary"></i>导出</span>
+          <span class="v2-pill">折叠</span>
+        </summary>
+        <div class="v2-card-b">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="useRewriteEngine" checked>
+            <label class="form-check-label" for="useRewriteEngine">
+              LLM 重写版（更像人写的；LLM优先，失败回退 rule）
+            </label>
+          </div>
+          <div class="mt-2">
+            <div class="fw-semibold">交付类型</div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="exportKind" id="exportKindDraft" checked>
+              <label class="form-check-label" for="exportKindDraft">可开工草案版（允许 BLOCKED，会前置开工前置条件）</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="exportKind" id="exportKindFrozen">
+              <label class="form-check-label" for="exportKindFrozen">正式冻结版（仅门禁 PASS 才允许导出）</label>
+            </div>
+          </div>
+          <div class="text-muted small mt-2">
+            如需对比“模板拼装版”，可取消勾选再导出。
+          </div>
+        </div>
+      </details>
+
+      <details class="v2-card mb-3">
+        <summary class="v2-card-h" style="cursor:pointer;">
+          <span class="v2-title"><i class="fas fa-bug text-secondary"></i>排查用信息</span>
+          <div class="v2-actions">
+            <button class="btn btn-outline-primary btn-sm" id="btnSaveSnap" type="button"><i class="fas fa-save me-1"></i>保存会议快照</button>
+            <span class="v2-pill">折叠</span>
+          </div>
+        </summary>
+        <div class="v2-card-b">
+          <div class="v2-code mb-2" id="buildInfo">Build info：未加载</div>
+          <div class="v2-code" id="rawJson">未生成</div>
+        </div>
+      </details>
     </div>
-  </details>
-</div>
   </details> <!-- 更多内容 -->
 
     </div> <!-- left col -->
 
     <!-- Right: discussion (30%) -->
     <div class="col-12 col-lg-4" id="rightCol">
-      <div class="v2-card mb-3 v2-empty-card" id="discussionCard" style="position: sticky; top: 12px;">
+      <div class="v2-card mb-3 v2-empty-card" id="discussionCard" style="position: sticky; top: 12px; min-height: 500px;">
         <div class="v2-card-h">
           <div class="v2-title">讨论记录 <span class="v2-sub">（按议题）</span></div>
           <span class="v2-pill">右侧</span>
         </div>
-        <div class="v2-card-b" id="discussion">
-          <div class="v2-empty-hint small v2-muted">尚未生成讨论记录。开会后会在这里按“议题”逐条追加显示。</div>
+        <div class="v2-card-b" id="discussion" style="height: 100%; display: flex; flex-direction: column;">
+          <div class="empty-state">
+            <div class="empty-state-icon">
+              <i class="fas fa-comments"></i>
+            </div>
+            <div class="empty-state-title">尚未生成讨论记录</div>
+            <div class="empty-state-desc">在评审过程中产生的讨论内容将展示在这里</div>
+          </div>
         </div>
       </div>
     </div>
@@ -943,9 +986,11 @@
     const html =
       '<div class="v2-msg ' + cls + '">' +
         '<div class="av">' + escapeHtml(_discAvatarText(sp)) + '</div>' +
-        '<div class="v2-bubble">' +
+        '<div class="v2-bubble-wrap">' +
           '<div class="v2-meta"><span>' + escapeHtml(sp) + (rd ? (' · ' + escapeHtml(rd)) : '') + '</span><span>' + escapeHtml(ts) + '</span></div>' +
-          '<pre>' + escapeHtml(txt) + '</pre>' +
+          '<div class="v2-bubble">' +
+            '<pre>' + escapeHtml(txt) + '</pre>' +
+          '</div>' +
         '</div>' +
       '</div>';
     container.insertAdjacentHTML('beforeend', html);

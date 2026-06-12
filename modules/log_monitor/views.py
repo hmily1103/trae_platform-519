@@ -3,10 +3,11 @@ Log Monitor Flask Views
 提供日志监控的 Web API
 """
 import json
+import os
 import threading
 import time
 from datetime import datetime
-from flask import Blueprint, render_template, request, Response, stream_with_context
+from flask import Blueprint, render_template, request, Response, stream_with_context, send_file
 from utils.response import success_response, error_response, validate_required
 from utils.logger import setup_logger
 from core.runtime.manager import get_runtime_manager
@@ -15,6 +16,12 @@ from .core.adb_controller import AdbController
 from .core.log_analyzer import LogAnalyzer
 from .alert_engine import AlertEngine, AlertRule
 from .voice_tracker import VoiceCommandTracker
+from .voice_tracker_store import (
+    list_voice_sessions,
+    load_voice_session,
+    save_voice_session,
+)
+from .log_session_store import save_session_full_log, session_full_log_path
 from .agent import get_agent
 
 log_monitor_bp = Blueprint('log_monitor', __name__, template_folder='templates')
@@ -137,23 +144,56 @@ def api_disconnect_device():
 
 @log_monitor_bp.route('/api/voice_tracker/history', methods=['GET'])
 def api_voice_tracker_history():
-    """获取语音指令追踪历史"""
+    """获取语音指令追踪历史（运行中来自内存；结束后来自已保存会话文件）"""
     task_id = request.args.get('task_id')
     if not task_id:
         return error_response(message='缺少 task_id', status_code=400)
-    
+
     with MONITOR_TASKS_LOCK:
         task_info = MONITOR_TASKS.get(task_id)
-        if not task_info:
-            return error_response(message='任务不存在', status_code=404)
-        tracker = task_info.get('voice_tracker')
-        if not tracker:
-            return error_response(message='追踪器未初始化', status_code=500)
-        
-        # 返回按时间倒序排列的历史记录
-        history = list(tracker.get_history())
+        if task_info:
+            tracker = task_info.get('voice_tracker')
+            if not tracker:
+                return error_response(message='追踪器未初始化', status_code=500)
+            history = list(tracker.get_history())
+            history.reverse()
+            return success_response(data=history)
+
+    saved = load_voice_session(task_id)
+    if saved and saved.get('items') is not None:
+        history = list(saved['items'])
         history.reverse()
         return success_response(data=history)
+
+    return error_response(message='任务不存在或无已保存的语音记录', status_code=404)
+
+
+@log_monitor_bp.route('/api/voice_tracker/sessions', methods=['GET'])
+def api_voice_tracker_sessions():
+    """列出已保存的语音追踪会话（停止监控时写入）"""
+    try:
+        limit = int(request.args.get('limit', 50))
+    except ValueError:
+        limit = 50
+    rows = list_voice_sessions(limit=limit)
+    return success_response(data=rows)
+
+
+@log_monitor_bp.route('/api/session_logs/download', methods=['GET'])
+def api_session_logs_download():
+    """下载停止监控时保存的完整 logcat 文本（与面板是否渲染无关）。"""
+    task_id = request.args.get('task_id')
+    if not task_id:
+        return error_response(message='缺少 task_id', status_code=400)
+    path = session_full_log_path(task_id)
+    if not os.path.isfile(path):
+        return error_response(
+            message='未找到已保存的日志文件（请停止监控后再导出，或确认选择了正确的会话）',
+            error='not_found',
+            status_code=404,
+        )
+    safe_name = ''.join(c if c.isalnum() or c in '-_' else '_' for c in task_id) + '.log'
+    return send_file(path, as_attachment=True, download_name=f'log_monitor_{safe_name}', mimetype='text/plain')
 
 @log_monitor_bp.route('/api/start', methods=['POST'])
 def api_start_monitor():
@@ -298,6 +338,26 @@ def api_stop_monitor():
                     status_code=404
                 )
             
+            # 持久化完整 logcat 文本（面板未渲染/专注语音模式时仍可导出）
+            log_queue = task_info.get("log_queue") or []
+            log_queue_lock = task_info.get("log_queue_lock")
+            log_lines: list = []
+            if log_queue_lock:
+                with log_queue_lock:
+                    for item in log_queue:
+                        ln = item.get("log")
+                        if ln is not None:
+                            log_lines.append(str(ln))
+            else:
+                for item in log_queue:
+                    ln = item.get("log")
+                    if ln is not None:
+                        log_lines.append(str(ln))
+            try:
+                save_session_full_log(task_id, log_lines)
+            except Exception as e:
+                logger.warning(f"保存完整日志失败: {e}", exc_info=True)
+
             # 停止监控
             controller = task_info['controller']
             controller.stop_monitoring()
@@ -306,7 +366,16 @@ def api_stop_monitor():
             runtime_id = task_info.get('runtime_id')
             if runtime_id:
                 get_runtime_manager().update_status(runtime_id, RuntimeStatus.CANCELLED)
-            
+
+            # 持久化语音追踪记录（停止后仍可从「语音记录历史」查看）
+            voice_tracker = task_info.get('voice_tracker')
+            device_id = task_info.get('device_id', '')
+            if voice_tracker:
+                try:
+                    save_voice_session(task_id, device_id, list(voice_tracker.get_history()))
+                except Exception as e:
+                    logger.warning(f'保存语音追踪会话失败: {e}', exc_info=True)
+
             # 清理任务
             del MONITOR_TASKS[task_id]
         

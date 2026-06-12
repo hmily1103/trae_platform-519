@@ -109,10 +109,13 @@
                         <input type="file" id="logFileUpload" accept=".log,.txt,.out,.trace,*/*" class="d-none" onchange="handleLogFileUpload(this)">
                     </label>
                 </div>
-                <button class="btn btn-sm btn-outline-info me-2" onclick="exportCurrentLogs()" title="将当前面板上的日志导出为本地文件">
+                <button class="btn btn-sm btn-outline-info me-2" onclick="exportCurrentLogs()" title="优先导出当前面板；若已停止或专注语音模式导致面板为空，则下载服务端保存的完整 logcat">
                     <i class="fas fa-download"></i> 导出日志
                 </button>
-                <button class="btn btn-sm btn-outline-warning me-2" onclick="showVoiceTrackerModal()" title="查看语音指令状态追踪">
+                <select class="form-select form-select-sm bg-dark text-light border-secondary me-2" id="voiceSessionSelect" style="max-width: 280px;" title="停止监控后会自动保存本轮语音指令；选中后可点「语音追踪」回看">
+                    <option value="">语音记录历史...</option>
+                </select>
+                <button class="btn btn-sm btn-outline-warning me-2" onclick="showVoiceTrackerModal()" title="查看语音指令状态追踪（支持历史记录）">
                     <i class="fas fa-microphone"></i> 语音追踪
                 </button>
                 <button class="btn btn-sm btn-outline-light me-2" onclick="analyzeRecentLogsWithAI()" title="对最近日志进行智能摘要">
@@ -134,6 +137,8 @@
 {% block extra_js %}
 <script>
     let currentTaskId = null;
+    /** 最近一次停止的监控 task_id，用于面板为空时仍能导出服务端保存的完整日志 */
+    let lastStoppedLogTaskId = null;
     let currentEventSource = null;
     let currentAlertSource = null;
     let logCount = 0;
@@ -147,6 +152,7 @@
     $(document).ready(function() {
         refreshDevices();
         checkRunningTasks();
+        loadVoiceSessions();
         
         // 关键词过滤
         $('#filterKeyword').on('input', function() {
@@ -257,6 +263,7 @@
                 logCount = 0;
                 errorCount = 0;
                 recentLogBuffer = [];
+                lastStoppedLogTaskId = null;
                 updateStats();
                 
                 // 启动 SSE 连接
@@ -281,12 +288,15 @@
             });
             
             if (result.success || result.ok) {
-                toast.info('监控已停止');
+                toast.info('监控已停止（语音追踪记录已保存，可在上方下拉框查看）');
                 stopEventSource();
                 stopAlertSource();
                 $('#btnStartMonitor').show();
                 $('#btnStopMonitor').hide();
+                const stoppedTaskId = currentTaskId;
                 currentTaskId = null;
+                lastStoppedLogTaskId = stoppedTaskId;
+                loadVoiceSessions(stoppedTaskId);
             }
         } catch (error) {
             // 错误已自动处理
@@ -401,22 +411,47 @@
         $('#errorCount').text(`错误: ${errorCount}`);
     }
 
+    async function loadVoiceSessions(preferredTaskId) {
+        try {
+            const result = await ApiClient.get('/log_monitor/api/voice_tracker/sessions?limit=50', { showLoading: false });
+            const sel = $('#voiceSessionSelect');
+            sel.empty();
+            sel.append($('<option>', { value: '', text: '语音记录历史（停止监控后自动保存）' }));
+            const rows = result.data || [];
+            rows.forEach(function(r) {
+                const t = r.saved_at_iso || '';
+                const dev = r.device_id || '';
+                const n = (r.command_count != null) ? r.command_count : 0;
+                const label = t + ' · ' + dev + ' · ' + n + '条指令';
+                sel.append($('<option>', { value: r.task_id || '', text: label }));
+            });
+            if (preferredTaskId) {
+                sel.val(preferredTaskId);
+            }
+        } catch (e) {
+            console.error('loadVoiceSessions failed', e);
+        }
+    }
+
     let voiceTrackerInterval = null;
 
     function showVoiceTrackerModal() {
-        if (!currentTaskId) {
-            toast.warning('请先开始监控');
+        const voiceTrackerEffectiveTaskId = $('#voiceSessionSelect').val() || currentTaskId;
+        if (!voiceTrackerEffectiveTaskId) {
+            toast.warning('请先开始监控，或在「语音记录历史」中选择一条已保存的记录');
             return;
         }
-        
+        window.voiceTrackerEffectiveTaskId = voiceTrackerEffectiveTaskId;
+        const isLive = !!(currentTaskId && voiceTrackerEffectiveTaskId === currentTaskId);
+
         const modalId = 'voiceTrackerModal';
-        let existing = document.getElementById(modalId);
-        
-        if (!existing) {
-            const div = document.createElement('div');
-            div.className = 'modal fade';
-            div.id = modalId;
-            div.innerHTML = `
+        let modalEl = document.getElementById(modalId);
+
+        if (!modalEl) {
+            modalEl = document.createElement('div');
+            modalEl.className = 'modal fade';
+            modalEl.id = modalId;
+            modalEl.innerHTML = `
                 <div class="modal-dialog modal-fullscreen">
                     <div class="modal-content bg-dark text-light">
                         <div class="modal-header border-secondary bg-black">
@@ -429,7 +464,6 @@
                         </div>
                         <div class="modal-body p-0" style="background-color: #1e1e1e !important;">
                             <div class="row h-100 g-0">
-                                <!-- 左侧：指令流列表 -->
                                 <div class="col-md-4 col-lg-3 border-end border-secondary h-100 d-flex flex-column">
                                     <div class="p-2 bg-black border-bottom border-secondary text-muted small fw-bold">
                                         指令时间线
@@ -438,7 +472,6 @@
                                         <div class="text-center text-muted mt-5"><i class="fas fa-circle-notch fa-spin"></i> 加载中...</div>
                                     </div>
                                 </div>
-                                <!-- 右侧：详情视图 -->
                                 <div class="col-md-8 col-lg-9 h-100 d-flex flex-column bg-black">
                                     <div id="voiceCommandDetail" class="flex-grow-1 p-4 overflow-auto">
                                         <div class="text-center text-muted mt-5" style="padding-top: 100px;">
@@ -451,34 +484,42 @@
                         </div>
                     </div>
                 </div>`;
-            document.body.appendChild(div);
-            
-            const modal = new bootstrap.Modal(div);
-            
-            div.addEventListener('hidden.bs.modal', () => {
+            document.body.appendChild(modalEl);
+
+            modalEl.addEventListener('hidden.bs.modal', () => {
                 if (voiceTrackerInterval) clearInterval(voiceTrackerInterval);
-                div.remove();
+                voiceTrackerInterval = null;
+                modalEl.remove();
             });
-            
-            modal.show();
         }
-        
-        // 刷新数据的核心逻辑
+
+        const badge = modalEl.querySelector('#voiceTrackerStatus');
+        if (badge) {
+            if (isLive) {
+                badge.className = 'badge bg-success me-3';
+                badge.innerHTML = '<i class="fas fa-sync fa-spin"></i> 实时监听中';
+            } else {
+                badge.className = 'badge bg-secondary me-3';
+                badge.innerHTML = '<i class="fas fa-archive"></i> 历史快照';
+            }
+        }
+
         const refreshData = () => {
-            ApiClient.get(`/log_monitor/api/voice_tracker/history?task_id=${currentTaskId}`, { showLoading: false })
+            const tid = window.voiceTrackerEffectiveTaskId;
+            if (!tid) return;
+            ApiClient.get(`/log_monitor/api/voice_tracker/history?task_id=${encodeURIComponent(tid)}`, { showLoading: false })
                 .then(data => {
                     const history = data.data || [];
                     const listContainer = document.getElementById('voiceCommandList');
-                    if (!listContainer) return; // 弹窗可能已关闭
-                    
+                    if (!listContainer) return;
+
                     if (history.length === 0) {
                         listContainer.innerHTML = '<div class="text-center text-muted mt-5">暂无指令</div>';
                         return;
                     }
-                    
-                    // 存储到全局供点击查看详情时使用
+
                     window.currentVoiceHistory = history;
-                    
+
                     let html = '';
                     history.forEach((item, index) => {
                         let statusIcon = '';
@@ -486,13 +527,16 @@
                         if (item.status === 'executed') { statusIcon = '<i class="fas fa-check-circle"></i>'; colorClass = 'text-success'; }
                         else if (item.status === 'ignored') { statusIcon = '<i class="fas fa-times-circle"></i>'; colorClass = 'text-warning'; }
                         else { statusIcon = '<i class="fas fa-spinner fa-spin"></i>'; colorClass = 'text-secondary'; }
-                        
+
+                        const ts = item.timestamp || '';
+                        const tsShort = ts.indexOf(' ') >= 0 ? ts.split(' ')[1] : ts;
+
                         html += `
                         <div class="card mb-2 bg-dark border-secondary cursor-pointer voice-cmd-item" onclick="showVoiceDetail(${index})" style="cursor: pointer; transition: all 0.2s;">
                             <div class="card-body p-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <span class="fw-bold fs-6 ${colorClass}">${statusIcon} ${escapeHtml(item.command)}</span>
-                                    <small class="text-muted" style="font-size: 11px;">${item.timestamp.split(' ')[1]}</small>
+                                    <small class="text-muted" style="font-size: 11px;">${escapeHtml(tsShort)}</small>
                                 </div>
                                 <div class="text-truncate text-muted small" style="max-width: 100%;">
                                     ${item.response ? escapeHtml(item.response) : '...'}
@@ -500,18 +544,22 @@
                             </div>
                         </div>`;
                     });
-                    
+
                     listContainer.innerHTML = html;
                 })
-                .catch(err => console.error("Refresh voice tracker failed", err));
+                .catch(err => console.error('Refresh voice tracker failed', err));
         };
 
-        // 立即执行一次
         refreshData();
-        
-        // 开启轮询（每 2 秒刷新一次）
         if (voiceTrackerInterval) clearInterval(voiceTrackerInterval);
-        voiceTrackerInterval = setInterval(refreshData, 2000);
+        if (isLive) {
+            voiceTrackerInterval = setInterval(refreshData, 2000);
+        } else {
+            voiceTrackerInterval = null;
+        }
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
     }
     
     // 显示右侧详情
@@ -574,7 +622,7 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="bg-black p-3" style="font-family: 'Consolas', monospace; font-size: 13px; color: #a8b2b9; height: 350px; overflow-y: auto;">
-                        ${item.raw_logs.map(l => `<div class="mb-1 pb-1 border-bottom border-dark" style="word-break: break-all;">${escapeHtml(l)}</div>`).join('')}
+                        ${(item.raw_logs || []).map(l => `<div class="mb-1 pb-1 border-bottom border-dark" style="word-break: break-all;">${escapeHtml(l)}</div>`).join('')}
                     </div>
                 </div>
             </div>
@@ -583,24 +631,25 @@
 
     // 导出语音追踪历史为 JSON/文本
     window.exportVoiceTrackerHistory = function() {
-        if (!currentTaskId) {
-            toast.warning('没有运行中的监控任务');
+        const tid = window.voiceTrackerEffectiveTaskId || $('#voiceSessionSelect').val() || currentTaskId;
+        if (!tid) {
+            toast.warning('请先打开语音控制台，或选择一条历史记录');
             return;
         }
-        
-        ApiClient.get(`/log_monitor/api/voice_tracker/history?task_id=${currentTaskId}`)
+
+        ApiClient.get(`/log_monitor/api/voice_tracker/history?task_id=${encodeURIComponent(tid)}`)
             .then(data => {
                 const history = data.data || [];
                 if (history.length === 0) {
                     toast.warning('暂无追踪记录可导出');
                     return;
                 }
-                
+
                 // 构建纯文本报告
                 let textContent = "==== 语音指令状态追踪报告 ====\n";
                 textContent += `导出时间: ${new Date().toLocaleString()}\n`;
                 textContent += "================================\n\n";
-                
+
                 history.forEach(item => {
                     textContent += `[时间] ${item.timestamp}\n`;
                     textContent += `[指令] ${item.command}\n`;
@@ -608,12 +657,12 @@
                     textContent += `[反馈] ${item.response || '无'}\n`;
                     textContent += `[上下文] ${item.song ? `歌曲ID: ${item.song.id} (${item.song.category})` : '未知/未播放'}\n`;
                     textContent += `[链路日志]:\n`;
-                    item.raw_logs.forEach(log => {
+                    (item.raw_logs || []).forEach(log => {
                         textContent += `  ${log}\n`;
                     });
                     textContent += "\n--------------------------------\n\n";
                 });
-                
+
                 const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -624,7 +673,7 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                
+
                 toast.success('语音追踪报告已导出');
             })
             .catch(err => {
@@ -641,11 +690,11 @@
         updateStats();
     }
 
-    // 导出当前日志面板内容
-    function exportCurrentLogs() {
+    // 导出：面板有内容时导出 DOM；否则下载停止时落盘的完整日志（专注语音模式下面板可能为空）
+    async function exportCurrentLogs() {
         const logArea = document.getElementById('logArea');
         if (!logArea) return;
-        
+
         let logsText = '';
         const children = logArea.children;
         for (let i = 0; i < children.length; i++) {
@@ -654,12 +703,46 @@
                 logsText += text + '\n';
             }
         }
-        
-        if (!logsText) {
-            toast.warning('当前没有可导出的日志');
+
+        if (!logsText.trim()) {
+            const tid = $('#voiceSessionSelect').val() || lastStoppedLogTaskId || currentTaskId;
+            if (!tid) {
+                toast.warning('当前没有可导出的日志');
+                return;
+            }
+            const url = `/log_monitor/api/session_logs/download?task_id=${encodeURIComponent(tid)}`;
+            try {
+                const res = await fetch(url, { credentials: 'same-origin' });
+                if (!res.ok) {
+                    let msg = '未找到已保存的完整日志';
+                    try {
+                        const j = await res.json();
+                        if (j && j.message) msg = j.message;
+                    } catch (e) { /* ignore */ }
+                    if (currentTaskId === tid) {
+                        toast.warning('监控进行中时尚未生成落盘文件，请先停止监控后再导出完整日志；或关闭「专注语音模式」以在面板显示日志。');
+                    } else {
+                        toast.warning(msg);
+                    }
+                    return;
+                }
+                const blob = await res.blob();
+                const dl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = dl;
+                a.download = `log_monitor_${tid.replace(/[^a-zA-Z0-9_-]/g, '_')}.log`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(dl);
+                toast.success('已下载服务端保存的完整日志');
+            } catch (err) {
+                console.error(err);
+                toast.error('下载日志失败');
+            }
             return;
         }
-        
+
         const blob = new Blob([logsText], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -670,7 +753,7 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         toast.success('日志导出成功');
     }
 

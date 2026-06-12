@@ -177,6 +177,14 @@ except Exception as e:
     platform_logger.error(f'Error loading ApiStress module: {e}', exc_info=True)
 
 try:
+    from modules.stb_calculator.views import stb_calculator_bp
+    app.register_blueprint(stb_calculator_bp, url_prefix='/stb_calculator')
+    platform_logger.info('STBCalculator module loaded successfully')
+except Exception as e:
+    MODULE_LOAD_FAILURES['stb_calculator'] = str(e)
+    platform_logger.error(f'Error loading STBCalculator module: {e}', exc_info=True)
+
+try:
     from modules.precision_test import precision_test_bp
     app.register_blueprint(precision_test_bp)
     platform_logger.info('PrecisionTest module loaded successfully')
@@ -259,7 +267,7 @@ def api_dashboard_stats():
         feature_bps = {'clean_ad', 'sanfang', 'reboot', 'monkey', 'player_stress',
                        'log_monitor', 'performance_monitor', 'ui_automation', 'unified',
                        'server_stress', 'api_stress', 'song_order', 'runtime_center', 'test_case', 'remote_control',
-                       'combined_test'}
+                       'combined_test', 'stb_calculator'}
         stats['modules'] = sum(1 for bp in app.blueprints if bp in feature_bps)
     except Exception:
         stats['modules'] = 14

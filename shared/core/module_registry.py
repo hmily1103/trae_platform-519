@@ -50,6 +50,8 @@ MODULE_META = {
     "runtime_center": ("运行中心", "/runtime_center", []),
     "test_case": ("用例管理", "/test_case", []),
     "remote_control": ("远程控制", "/remote_control", []),
+    "stb_calculator": ("带机量计算器", "/stb_calculator", []),
+    "precision_test": ("精准回归", "/precision_test", []),
 }
 
 

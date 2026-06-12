@@ -86,6 +86,13 @@
           <div class="text-muted">加载中...</div>
         </div>
       </div>
+
+      <div class="card mt-3 d-none" id="card_log_monitor_bundle">
+        <div class="card-header bg-light">
+          <span class="fw-semibold"><i class="fas fa-microphone-alt me-2"></i>语音与日志监控（完整导出）</span>
+        </div>
+        <div class="card-body small" id="d_log_monitor_bundle"></div>
+      </div>
     </div>
   </div>
 
@@ -215,6 +222,14 @@ const DetailUI = (() => {
       return;
     }
     const html = arts.map(a => {
+      if (a.type === 'file_ref' && a.href){
+        const modName = MODULE_NAMES[a.module] || a.module || '';
+        const title = [modName, a.name || a.filename].filter(Boolean).join(' · ');
+        return `<div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color: rgba(0,0,0,.06);">
+          <span class="text-muted small">${escapeHtml(title)}</span>
+          <a class="btn btn-sm btn-outline-primary" href="${a.href}" download>下载</a>
+        </div>`;
+      }
       if (a.type === 'unified_report' && a.path){
         const modName = MODULE_NAMES[a.module] || a.module;
         return `<div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color: rgba(0,0,0,.06);">
@@ -262,7 +277,7 @@ const DetailUI = (() => {
       body = `<div class="small">${row('会话', task.session_id || task.task_id || '-')}</div>`;
     } else if (moduleKey === 'log_monitor'){
       const task = v.task || {};
-      body = `<div class="small">${row('设备', task.device_id || '-')}</div>`;
+      body = `<div class="small">${row('设备', task.device_id || '-')}${row('任务 ID', task.task_id || '-')}</div>`;
     } else if (moduleKey === 'server_stress'){
       const job = v.job || {};
       body = `<div class="small">${row('服务器', job.server_id || '-')}</div>`;
@@ -281,6 +296,36 @@ const DetailUI = (() => {
         ${body}
       </div>
     </div>`;
+  }
+
+  function renderLogMonitorBundle(r){
+    const card = document.getElementById('card_log_monitor_bundle');
+    const el = document.getElementById('d_log_monitor_bundle');
+    if (!card || !el) return;
+    const b = (r.details || {}).log_monitor_bundle;
+    if (!b || !b.files){
+      card.classList.add('d-none');
+      el.innerHTML = '';
+      return;
+    }
+    card.classList.remove('d-none');
+    const v = b.voice || {};
+    const top = [
+      row('日志行数（完整导出）', b.log_line_count != null ? b.log_line_count : '-'),
+      row('语音指令统计', `共 ${v.total ?? 0} 条 · 已执行 ${v.executed ?? 0} · 已忽略 ${v.ignored ?? 0} · 识别待闭环 ${v.pending_detected ?? 0}`),
+      row('告警条数', (b.alerts && b.alerts.total != null) ? b.alerts.total : '-'),
+    ].join('');
+    const files = Object.values(b.files || {});
+    const fileRows = files.map(f => {
+      return `<div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color: rgba(0,0,0,.06);">
+        <div>
+          <div class="fw-medium">${escapeHtml(f.label || '')}</div>
+          <div class="text-muted small">${escapeHtml(f.filename || '')}${f.bytes != null ? ' · ' + f.bytes + ' 字节' : ''}</div>
+        </div>
+        <a class="btn btn-sm btn-primary" href="${f.href}" download>下载</a>
+      </div>`;
+    }).join('');
+    el.innerHTML = '<p class="text-muted small mb-2">停止一键任务时已落盘<strong>完整</strong> logcat、语音追踪（含每条指令 <code>raw_logs</code>）与告警明细，未做截断。</p>' + top + '<div class="mt-3 fw-semibold">文件下载</div>' + fileRows;
   }
 
   function renderDetails(r){
@@ -327,6 +372,7 @@ const DetailUI = (() => {
       renderArtifacts(r);
       renderRecommendations(r);
       renderDetails(r);
+      renderLogMonitorBundle(r);
       renderRawJson(r);
       updateCrashInterpretVisibility(r);
     }catch{

@@ -20,6 +20,23 @@ from typing import Any, Dict, List, Optional
 _SAFE_UNIFIED_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,256}$")
 
 
+def _dedupe_artifacts(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    seen = set()
+    out: List[Dict[str, Any]] = []
+    for a in items:
+        key = (
+            a.get("type"),
+            a.get("href") or a.get("path") or "",
+            a.get("filename") or "",
+            a.get("name") or "",
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(a)
+    return out
+
+
 def is_safe_unified_id(unified_id: Any) -> bool:
     """校验 unified_id 不含路径成分，避免路径穿越。"""
     if not unified_id or not isinstance(unified_id, str):
@@ -293,6 +310,52 @@ class UnifiedReportStore:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
             except Exception:
                 return False
+        return True
+
+    def extend_report(
+        self,
+        unified_id: str,
+        *,
+        details_update: Optional[Dict[str, Any]] = None,
+        artifacts_extend: Optional[List[Dict[str, Any]]] = None,
+    ) -> bool:
+        """向已有报告追加 details 字段并合并 artifacts（用于编排任务导出日志等）。"""
+        if not is_safe_unified_id(unified_id):
+            return False
+        if not details_update and not artifacts_extend:
+            return False
+        detail_path = os.path.join(self.base_dir, f"{unified_id}.json")
+        with self._lock:
+            try:
+                with open(detail_path, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except Exception:
+                return False
+            if details_update:
+                d = payload.get("details") or {}
+                for k, v in details_update.items():
+                    d[k] = v
+                payload["details"] = d
+            if artifacts_extend:
+                arts = list(payload.get("artifacts") or [])
+                arts.extend(artifacts_extend)
+                payload["artifacts"] = _dedupe_artifacts(arts)
+            payload["updated_at"] = self._now()
+            try:
+                with open(detail_path, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, ensure_ascii=False, indent=2)
+            except Exception:
+                return False
+
+            idx = self._read_index()
+            reports: List[Dict[str, Any]] = idx.get("reports") or []
+            for i, r in enumerate(reports):
+                if r.get("unified_id") == unified_id:
+                    reports[i] = {**r, "updated_at": payload["updated_at"]}
+                    break
+            reports.sort(key=lambda x: x.get("updated_at", 0), reverse=True)
+            idx["reports"] = reports
+            self._write_index(idx)
         return True
 
 

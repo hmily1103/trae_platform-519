@@ -14,7 +14,9 @@ from .adb_manager import AdbManager
 from .monitor import PerformanceMonitor
 from .player_controller import PlayerController
 from .report_generator import ReportGenerator
+from .root_cause_analyzer import RootCauseAnalyzer
 from .image_analyzer import ScreenAnalyzer
+from .tv_playback_watcher import TvPlaybackWatcher
 from core.runtime import get_runtime_manager, RuntimeStatus
 
 from concurrent.futures import ThreadPoolExecutor
@@ -32,15 +34,27 @@ class TestRunner:
         
         log("🔧 正在初始化测试组件...")
         self.config = config
+        self.running = False
+        self.stop_flag = False
+        self._stop_event = threading.Event()
         log("  - 初始化 ADB 管理器...")
         self.adb = AdbManager(device_id=config.get('device_id'))
+        self.adb.set_cancel_event(self._stop_event)
+        self.device_ip = self.adb.get_device_ip()
+        self.firmware_incremental = self.adb.get_firmware_incremental()
         self.log_monitor = log_monitor # 传入 LogMonitor 实例
         self.package_name = config['target_app']['package_name']
         self.activity_name = config['target_app'].get('main_activity')
         self.http_config = config.get('http_vod', {})
         
         log("  - 初始化性能监控器...")
-        self.monitor = PerformanceMonitor(self.adb, self.package_name)
+        self.monitor = PerformanceMonitor(
+            self.adb,
+            self.package_name,
+            monitor_config=config.get("monitor", {}),
+        )
+        self.root_cause_analyzer = RootCauseAnalyzer(package_name=self.package_name)
+        self.monitor.root_cause_analyzer = self.root_cause_analyzer
         log("  - 初始化播放器控制器...")
         self.controller = PlayerController(self.adb, self.package_name, self.activity_name, self.http_config)
         log("  - 初始化报告生成器...")
@@ -53,16 +67,28 @@ class TestRunner:
         monitor_config = config.get('monitor', {})
         self.enable_screenshot = monitor_config.get('enable_screenshot', True)  # 默认启用
         self.enable_fps = monitor_config.get('enable_fps', True)  # 默认启用
+        self.screen_check_interval_seconds = float(
+            monitor_config.get("screen_check_interval_seconds", 5)
+        )
+        self.tv_freeze_threshold_seconds = float(
+            monitor_config.get("tv_freeze_threshold_seconds", 3)
+        )
         
         # 应用到monitor
         if hasattr(self.monitor, '_disable_fps'):
             self.monitor._disable_fps = not self.enable_fps
         
-        self.running = False
-        self.stop_flag = False
         self.output_dir = config['report']['output_dir']
         self.last_csv_file = None
         self.last_summary_file = None
+        self.tv_playback_watcher = TvPlaybackWatcher(
+            self.adb,
+            self.monitor,
+            self.output_dir,
+            config=monitor_config,
+            event_callback=lambda event: self.monitor.report_event("TV_STALL", event),
+            log_callback=self.log,
+        )
         
         # 异步屏幕检测
         self.screen_check_executor = ThreadPoolExecutor(max_workers=1)
@@ -94,16 +120,34 @@ class TestRunner:
         except Exception:
             return []
 
+        lines = output.splitlines()
+        frame_completed_index = None
+        data_start = 0
+        for index, line in enumerate(lines):
+            if "IntendedVsync" in line and "FrameCompleted" in line:
+                columns = [part.strip() for part in line.split(",")]
+                try:
+                    frame_completed_index = columns.index("FrameCompleted")
+                    data_start = index + 1
+                except ValueError:
+                    frame_completed_index = None
+                break
+
+        if frame_completed_index is None:
+            return []
+
         timestamps = []
-        for line in output.splitlines():
+        for line in lines[data_start:]:
             line = line.strip()
             if not line or line.startswith('---'):
                 continue
-            parts = line.split(',')
-            if len(parts) < 1:
+            parts = [part.strip() for part in line.split(',')]
+            if len(parts) <= frame_completed_index:
                 continue
             try:
-                ts_ns = int(parts[0])
+                ts_ns = int(parts[frame_completed_index])
+                if ts_ns <= 0:
+                    continue
                 ts_ms = ts_ns / 1_000_000
                 timestamps.append(ts_ms)
             except ValueError:
@@ -285,14 +329,7 @@ class TestRunner:
             score += stutter_score
             details.append(f"日志卡顿({log_stutter_count}次)")
 
-        ui_jank_percent = metrics.get("ui_jank_percent", 0)
-        if ui_jank_percent > 15:
-            jank_score = min(
-                weights["ui_jank"], max(0, ui_jank_percent - 15) * 2
-            )
-            if jank_score > 0:
-                score += jank_score
-                details.append(f"UI渲染丢帧({ui_jank_percent:.1f}%)")
+        # 点歌屏 UI Jank 仅作参考，不计入电视端播放卡顿风险分。
 
         if score >= 80:
             level = "严重卡顿"
@@ -420,10 +457,20 @@ class TestRunner:
     def stop(self):
         """外部调用停止"""
         self.stop_flag = True
-        if self.screen_check_executor:
-            self.screen_check_executor.shutdown(wait=False)
+        self._stop_event.set()
+        self.log("收到停止请求，正在结束监控线程和生成报告...")
+        if self.log_monitor:
+            try:
+                self.log_monitor.stop()
+            except Exception:
+                pass
+        if self.tv_playback_watcher:
+            self.tv_playback_watcher.stop(wait=False)
+        if self.screen_check_future and not self.screen_check_future.done():
+            self.screen_check_future.cancel()
 
     def run(self):
+        self.running = True
         self.log(f"=== Android 播放器专项压测工具 v2.3 ===")
         
         # Create Runtime
@@ -523,6 +570,8 @@ class TestRunner:
             return
         self.monitor.start_new_session("Initial Session") # V2.1: 启动第一个 Session
         self.monitor.report_event("ACTION", "PLAY") # 记录播放开始时间
+        if self.enable_fps:
+            self.tv_playback_watcher.start()
         
         last_action_time = time.time()
         start_time_str = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -532,7 +581,7 @@ class TestRunner:
         self.log(f"开始压测，模式: {mode}，时长: {duration_minutes}分钟")
         
         # 初始化CSV
-        with open(self.last_csv_file, 'w', newline='') as f:
+        with open(self.last_csv_file, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
             # 双语表头
             headers = [
@@ -540,7 +589,8 @@ class TestRunner:
                 'PID(进程ID)', 
                 'Status(状态)', 
                 'PSS_MB(内存MB)', 
-                'CPU_Percent(CPU%)', 
+                'Player_CPU_Percent(播放器CPU%)',
+                'System_CPU_Percent(整机CPU%)',
                 'MPP_Active(硬解路数)', 
                 'MPP_Sessions(硬解总数)', 
                 'Restart_Count(重启次数)', 
@@ -551,7 +601,19 @@ class TestRunner:
                 'Event(事件)', 
                 'Screenshot_D0(截图_触摸屏)', 
                 'Screenshot_D1(截图_电视)',
-                'Top_Consumers(高占用进程-用于排除工具干扰)'
+                'Top_Consumers(高占用进程-用于排除工具干扰)',
+                'Root_Cause_Type(根因类型)',
+                'Suspect_Process(嫌疑进程)',
+                'Decode_Slowdown(解码降速)',
+                'Max_Temperature_C(最高温度)',
+                'Min_CPU_Frequency_Ratio(最低频率比例)',
+                'Thermal_Throttling(热降频)',
+                'Expected_Stream_FPS(期望流帧率)',
+                'Decode_FPS_Estimate(解码估算帧率)',
+                'Decode_Drop_Estimate(估算丢帧数)',
+                'Decode_Drop_Ratio(估算丢帧比例)',
+                'Video_FPS_Source(FPS数据来源)',
+                'TV_Surface_Name(电视视频Surface)',
             ]
             writer.writerow(headers)
 
@@ -651,24 +713,36 @@ class TestRunner:
                                         snapshot = self.monitor.history[-1] if self.monitor.history else {}
                                         audio_active = snapshot.get('audio_active', False)
                                         
-                                        if is_frozen and audio_active:
-                                            # 连续3秒画面静止 = 严重卡顿
+                                        ignore_video = snapshot.get('ignore_video_metrics', False)
+
+                                        if is_frozen and audio_active and not ignore_video:
                                             if len(self.tv_screenshot_history) >= 3:
                                                 time_span = self.tv_screenshot_history[-1]['time'] - self.tv_screenshot_history[0]['time']
-                                                if time_span >= 3.0:
+                                                if time_span >= self.tv_freeze_threshold_seconds:
                                                     display_id_str = f"Display {tv_display_id}" if tv_display_id else "电视端"
-                                                    self.log(f"  [TV Freeze Detected] {display_id_str}画面冻结超过3秒！")
+                                                    self.log(f"  [TV Freeze Detected] {display_id_str}画面连续静止约{time_span:.1f}秒！")
                                                     self.monitor.report_event("TV_FREEZE", f"{display_id_str}画面静止{time_span:.1f}秒")
                                                     event_log += f" [TV_FREEZE:{time_span:.1f}s]"
+                                                    self.tv_screenshot_history = []
                                     except Exception as e:
                                         # 对比失败，忽略
                                         pass
                             
                         # 告警检测
                         alert_msg = ""
-                        if status_d0 not in ["NORMAL", "UNKNOWN", "CAPTURE_FAILED"]:
+                        # Capture/analysis failures are monitoring coverage gaps,
+                        # not product screen anomalies.
+                        non_product_statuses = [
+                            "NORMAL",
+                            "UNKNOWN",
+                            "CAPTURE_FAILED",
+                            "NO_SIGNAL",
+                            "ANALYSIS_ERROR",
+                            "ERROR",
+                        ]
+                        if status_d0 not in non_product_statuses:
                                 alert_msg += f" D0:{status_d0}"
-                        if status_d1 not in ["NORMAL", "UNKNOWN", "CAPTURE_FAILED", "NO_SIGNAL"]:
+                        if status_d1 not in non_product_statuses:
                                 alert_msg += f" D1:{status_d1}"
 
                         if alert_msg:
@@ -691,7 +765,7 @@ class TestRunner:
 
                 # V2.3.1: 零干扰模式 - 如果禁用截图，跳过屏幕检测
                 if self.enable_screenshot:
-                    if current_time - self.last_screen_check_time >= 30:
+                    if current_time - self.last_screen_check_time >= self.screen_check_interval_seconds:
                         self.last_screen_check_time = current_time
                         
                         if self.screen_check_future is None:
@@ -811,10 +885,13 @@ class TestRunner:
                      pass 
                 
                 # C. 输出日志
+                fps_val = snapshot.get('video_fps', 0) or 0
+                fps_str = f"{float(fps_val):.2f}" if float(fps_val) > 0 else "N/A"
                 log_str = (f"[{snapshot['timestamp']}] PID:{snapshot['pid']} "
                           f"PSS:{snapshot['pss_mb']}MB CPU:{snapshot['cpu_percent']}% "
                           f"Restarts:{snapshot['restart_count']} "
-                          f"State:{snapshot.get('play_state', 'N/A')}")
+                          f"State:{snapshot.get('play_state', 'N/A')} "
+                          f"FPS:{fps_str}")
                 
                 # 显示卡顿信息
                 jank = snapshot.get('gfx_jank_count', 0)
@@ -831,14 +908,20 @@ class TestRunner:
                 
                 # D. 写入报告
                 try:
-                    with open(self.last_csv_file, 'a', newline='') as f:
+                    with open(
+                        self.last_csv_file,
+                        'a',
+                        newline='',
+                        encoding='utf-8-sig',
+                    ) as f:
                         writer = csv.writer(f)
                         writer.writerow([
                             snapshot['timestamp'],
                             snapshot['pid'],
                             snapshot['status'],
                             snapshot['pss_mb'],
-                            snapshot['cpu_percent'],
+                            snapshot.get('player_cpu_percent', snapshot.get('cpu_percent', 0)),
+                            snapshot.get('system_cpu_percent', 0),
                             snapshot.get('mpp_active', 0), # MPP Active Instances
                             snapshot.get('mpp_sessions', 0), # MPP Total Sessions
                             snapshot['restart_count'],
@@ -849,13 +932,25 @@ class TestRunner:
                             event_log,
                             current_screenshot_d0 if self.enable_screenshot else "-",
                             current_screenshot_d1 if self.enable_screenshot else "-",
-                            snapshot.get('top_consumers', '')
+                            snapshot.get('top_consumers', ''),
+                            snapshot.get('root_cause_type', ''),
+                            snapshot.get('suspect_process', ''),
+                            snapshot.get('decode_slowdown_detected', False),
+                            snapshot.get('max_temperature_c', 0),
+                            snapshot.get('min_cpu_frequency_ratio', 0),
+                            snapshot.get('thermal_throttling', False),
+                            snapshot.get('expected_stream_fps', 0),
+                            snapshot.get('decode_fps_estimate', 0),
+                            snapshot.get('decode_drop_estimate', 0),
+                            snapshot.get('decode_drop_ratio', 0),
+                            snapshot.get('video_fps_source', ''),
+                            snapshot.get('tv_surface_name', ''),
                         ])
                 except Exception as e:
                     self.log(f"Error writing CSV: {e}")
                     sys.stdout.flush()
 
-                time.sleep(monitor_interval)
+                self._stop_event.wait(monitor_interval)
                 
         except KeyboardInterrupt:
             exit_status = RuntimeStatus.CANCELLED
@@ -869,6 +964,13 @@ class TestRunner:
             traceback.print_exc()
             sys.stdout.flush()
         finally:
+            if self.tv_playback_watcher:
+                self.tv_playback_watcher.stop()
+            if self.screen_check_executor:
+                # Python 3.8 / futures backport does not support cancel_futures.
+                if self.screen_check_future and not self.screen_check_future.done():
+                    self.screen_check_future.cancel()
+                self.screen_check_executor.shutdown(wait=False)
             if self.stop_flag and exit_status != RuntimeStatus.FAILED:
                 exit_status = RuntimeStatus.CANCELLED
 
@@ -876,6 +978,7 @@ class TestRunner:
             self.end_timestamp = time.time()
             self._generate_summary_report(start_time_str)
             self.log("压测结束")
+            self.running = False
             
             if self.runtime_id:
                 get_runtime_manager().update_status(
@@ -890,6 +993,18 @@ class TestRunner:
     def _generate_summary_report(self, time_str):
         summary = self.monitor.get_summary()
         self.last_summary_file = os.path.join(self.output_dir, f"summary_{time_str}.txt")
+        device_id = self.config.get('device_id') or ""
+        root_cause_analysis = {}
+        if getattr(self, "root_cause_analyzer", None):
+            try:
+                root_cause_analysis = self.root_cause_analyzer.get_summary()
+            except Exception:
+                root_cause_analysis = {}
+        summary["root_cause_analysis"] = root_cause_analysis
+        test_mode = self.config.get("test_strategy", {}).get("mode", "monitor_only")
+        summary["test_mode"] = test_mode
+        summary["device_ip"] = self.device_ip
+        summary["firmware_incremental"] = self.firmware_incremental
         
         # 获取退化分析结果
         degradation = summary.get('degradation_analysis', {})
@@ -931,28 +1046,53 @@ class TestRunner:
         one_sentence_summary = self.monitor.evaluator.get_one_sentence_summary(
             duration_str, 
             self.song_count, 
-            score_result
+            score_result,
+            root_cause_info=root_cause_analysis
         )
+        if test_mode == "monitor_only":
+            one_sentence_summary = one_sentence_summary.replace(
+                f"共播放 {self.song_count} 首歌曲。",
+                "采用纯监控模式，不统计歌曲播放次数。",
+            )
 
         with open(self.last_summary_file, 'w', encoding='utf-8') as f:
             f.write("=== Android 播放器压测报告 (V2标准) ===\n")
             f.write(f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"测试包名: {self.package_name}\n")
+            f.write(f"测试设备: {device_id if device_id else 'N/A'}\n")
+            f.write(f"机顶盒 IP: {self.device_ip or '未获取'}\n")
+            f.write(f"固件版本: {self.firmware_incremental or '未获取'}\n")
             f.write("-" * 30 + "\n")
             
             # === 新增：评分结论 ===
             f.write("【测试结论 (Decision)】\n")
             f.write(f"{one_sentence_summary}\n")
+            if duration_sec < 3600:
+                f.write(
+                    "[覆盖度提示] 本轮不足1小时，可验证基础流畅度；"
+                    "内存积累、后台CPU竞争和热降频建议至少运行1小时。\n"
+                )
             f.write("-" * 30 + "\n")
             
             f.write(f"稳定性评分: {score_result['score']} / 100 (等级: {score_result['grade']})\n")
             f.write(
-                f"人眼感知卡顿评分: {perceptual_result['score']} / 100 (等级: {perceptual_result['level']})\n"
+                f"电视端卡顿风险分: {perceptual_result['score']} / 100 "
+                f"(分数越低越流畅，等级: {perceptual_result['level']})\n"
             )
             f.write(f"感知建议: {perceptual_result['recommendation']}\n")
             
-            release_status = "✅ 建议上线" if score_result['ready_to_release'] else "❌ 不建议上线 (存在阻断性问题)"
+            if score_result.get("ready_to_release"):
+                release_status = "✅ 建议上线"
+            elif score_result.get("assessment") == "inconclusive":
+                release_status = "⚠️ 证据不足，暂不作上线结论"
+            else:
+                release_status = "❌ 不建议上线 (存在阻断性问题)"
             f.write(f"准入结论: {release_status}\n")
+            blockers = score_result.get("release_blockers", []) or []
+            if blockers:
+                f.write("发布阻断/覆盖缺口:\n")
+                for blocker in blockers:
+                    f.write(f"  - {blocker}\n")
             
             if score_result['deductions']:
                 f.write("扣分项:\n")
@@ -963,7 +1103,10 @@ class TestRunner:
             
             f.write("【测试执行统计】\n")
             f.write(f"1. 实际运行时长: {duration_str}\n")
-            f.write(f"2. 歌曲切换/点播次数: {self.song_count} 首\n")
+            if test_mode == "monitor_only":
+                f.write("2. 播放统计: 纯监控模式，不主动点歌或统计歌曲成功率\n")
+            else:
+                f.write(f"2. 歌曲切换/点播次数: {self.song_count} 首\n")
             
             # V2.1 Session Stats
             session_stats = summary.get("session_stats", {})
@@ -971,7 +1114,12 @@ class TestRunner:
             success_sessions = session_stats.get("success", 0)
             success_rate = (success_sessions / total_sessions * 100) if total_sessions > 0 else 0
             
-            f.write(f"3. 播放成功率: {success_rate:.1f}% ({success_sessions}/{total_sessions})\n")
+            if test_mode == "monitor_only":
+                f.write("3. 播放成功率: 不适用（纯监控模式）\n")
+            elif total_sessions > 0:
+                f.write(f"3. 播放成功率: {success_rate:.1f}% ({success_sessions}/{total_sessions})\n")
+            else:
+                f.write("3. 播放成功率: 无有效播放会话\n")
             f.write(f"4. 性能采样点数: {summary.get('duration_samples', 0)}\n")
             
             f.write("-" * 30 + "\n")
@@ -1027,9 +1175,81 @@ class TestRunner:
             
             f.write(f"3. 峰值内存(PSS): {summary.get('max_pss_mb', 0)} MB\n")
             f.write(f"4. 平均内存(PSS): {summary.get('avg_pss_mb', 0)} MB\n")
+            f.write(
+                f"5. 播放器平均CPU / 整机平均CPU / 整机峰值CPU: "
+                f"{summary.get('avg_player_cpu_percent', 0)}% / "
+                f"{summary.get('avg_system_cpu_percent', 0)}% / "
+                f"{summary.get('max_system_cpu_percent', 0)}%\n"
+            )
+            if summary.get("thermal_available_count", 0) > 0:
+                f.write(
+                    f"6. 最高温度 / 最低CPU频率比例 / 热降频采样: "
+                    f"{summary.get('max_temperature_c', 0)}°C / "
+                    f"{float(summary.get('min_cpu_frequency_ratio', 0) or 0) * 100:.1f}% / "
+                    f"{summary.get('thermal_throttling_count', 0)} 次\n"
+                )
+            else:
+                f.write("6. 温度与CPU频率: 设备节点不支持或无读取权限，未采集\n")
+            f.write(
+                f"7. 解码吞吐明显下降: "
+                f"{summary.get('decode_slowdown_count', 0)} 次\n"
+            )
+            f.write("-" * 30 + "\n")
+            f.write("【根因分析 (V3.0)】\n")
+            if root_cause_analysis:
+                f.write(f"1. 异常触发快照: {root_cause_analysis.get('total_stutter_events', 0)} 次\n")
+                f.write(f"2. 根因/风险候选: {root_cause_analysis.get('identified_causes', 0)} 次\n")
+                f.write(
+                    f"   已确认播放退化: {root_cause_analysis.get('confirmed_playback_causes', 0)} 次 | "
+                    f"资源风险: {root_cause_analysis.get('resource_risk_events', 0)} 次 | "
+                    f"日志信号: {root_cause_analysis.get('log_signal_events', 0)} 次\n"
+                )
+                top_cause = (root_cause_analysis.get('most_confident_cause') or {}) if isinstance(root_cause_analysis, dict) else {}
+                if top_cause:
+                    evidence = top_cause.get("evidence", {}) or {}
+                    if evidence.get("signal_only"):
+                        label = "首要日志信号"
+                    elif evidence.get("resource_only"):
+                        label = "首要资源风险候选"
+                    else:
+                        label = "首要风险候选"
+                    f.write(f"3. {label}: {top_cause.get('root_cause_type', '')} | {top_cause.get('suspect_process', '')} (风险评分: {top_cause.get('confidence', 0)})\n")
+                process_risks = root_cause_analysis.get(
+                    "process_risk_summary",
+                    [],
+                ) or []
+                if process_risks:
+                    f.write("4. 重复/高负载进程聚合榜:\n")
+                    for index, item in enumerate(process_risks[:8], 1):
+                        f.write(
+                            f"   {index}) {item.get('process', '')} | "
+                            f"最多 {item.get('max_instance_count', 1)} 个实例 | "
+                            f"命中 {item.get('event_count', 0)} 个采样 | "
+                            f"合计CPU均值/峰值 "
+                            f"{item.get('avg_cpu_percent', 0)}%/"
+                            f"{item.get('peak_cpu_percent', 0)}% | "
+                            f"整机峰值 {item.get('max_system_cpu_percent', 0)}%\n"
+                        )
+            else:
+                f.write("1. 根因分析数据不足\n")
             f.write("-" * 30 + "\n")
             
             f.write("【流畅度分析 (V2.3 - 零干扰监控版)】\n")
+            surface_locked = bool(summary.get("tv_surface_locked", False))
+            display_state = (
+                "Surface已锁定"
+                if surface_locked
+                else (
+                    "仅Display已识别"
+                    if summary.get("tv_display_verified", False)
+                    else "未验证"
+                )
+            )
+            f.write(
+                f"电视端 Display: {summary.get('tv_display_id', 'N/A')} | "
+                f"验证状态: {display_state} "
+                f"({summary.get('tv_display_verification_reason', 'unknown')})\n"
+            )
             
             # 零干扰模式说明
             monitor_config = self.config.get('monitor', {})
@@ -1045,7 +1265,18 @@ class TestRunner:
             max_video_fps = summary.get('max_video_fps', 0)
             min_video_fps = summary.get('min_video_fps', 0)
             
-            f.write(f"1. 视频画面帧率 (Video FPS - 真实播放流畅度):\n")
+            fps_sources = summary.get("video_fps_source_counts", {}) or {}
+            direct_fps = any(
+                str(source).startswith("surfaceflinger")
+                for source in fps_sources
+            )
+            fps_label = (
+                "电视画面直接帧率"
+                if direct_fps and surface_locked
+                else "解码吞吐估算帧率"
+            )
+            f.write(f"1. 视频帧率 ({fps_label}):\n")
+            f.write(f"   数据来源分布: {fps_sources or {'none': 0}}\n")
             if video_fps > 0:
                 f.write(f"   平均帧率: {video_fps} FPS\n")
                 if max_video_fps > 0 and min_video_fps > 0:
@@ -1061,7 +1292,10 @@ class TestRunner:
                 elif video_fps < 27:
                     f.write("   >> [注意] 视频帧率略低于标准（24/25/30fps），可能存在微卡顿。\n")
                 else:
-                    f.write("   >> [良好] 视频帧率正常。\n")
+                    if direct_fps and surface_locked:
+                        f.write("   >> [良好] 电视画面直接帧率正常。\n")
+                    else:
+                        f.write("   >> [参考] 解码吞吐整体正常，但不能替代电视画面直接卡顿证据。\n")
             else:
                 f.write("   (未能获取到视频帧率数据)\n")
                 if not enable_fps:
@@ -1075,14 +1309,42 @@ class TestRunner:
                      f.write("   建议：请参考下方日志卡顿分析作为替代指标\n")
 
             # 2. Log Stutter
-            f.write(f"2. 卡顿日志 (Log Stutter - 关键指标):\n")
+            f.write(f"2. 卡顿相关日志信号 (Log Signal - 辅助指标):\n")
             f.write(f"   累计 {summary.get('final_log_stutter_count', 0)} 次\n")
             f.write("   (检测关键字: droppedFrames, underrun, buffer starvation)\n")
+            f.write("   (说明: 日志命中不等于一次肉眼可见卡顿，需结合Surface帧停滞、解码下降或CPU证据确认)\n")
 
             # 3. UI Jank (Reference Only - 点歌屏)
             f.write(f"3. 点歌屏界面交互流畅度 (UI Jank - 仅供参考):\n")
-            f.write(f"   总计 {summary.get('total_gfx_jank', 0)} / {summary.get('total_frames_delta', 0)} 帧 (丢帧率: {summary.get('avg_jank_percent', 0)}%)\n")
-            f.write(f"   (说明: 此指标仅反映点歌屏UI线程负载，不影响电视端视频质量。若全屏播放且无操作，高丢帧率通常为误报)\n")
+            total_gfx_jank = int(summary.get("total_gfx_jank", 0) or 0)
+            total_frames_delta = int(summary.get("total_frames_delta", 0) or 0)
+            avg_jank_percent = float(summary.get("avg_jank_percent", 0) or 0.0)
+            f.write(
+                f"   原始数据 {total_gfx_jank} / {total_frames_delta} 帧 "
+                f"(比例: {avg_jank_percent}%)\n"
+            )
+            if (
+                total_frames_delta > 0
+                and avg_jank_percent >= 99.0
+                and video_fps >= 24
+                and summary.get("final_log_stutter_count", 0) == 0
+            ):
+                f.write(
+                    "   >> [已忽略] gfxinfo疑似累计口径异常；"
+                    "电视FPS正常且无卡顿日志，不作为电视端卡顿证据。\n"
+                )
+            else:
+                f.write(
+                    "   (说明: 此指标不参与电视端流畅度评分，"
+                    "仅用于点歌屏交互问题排查)\n"
+                )
+
+            # 4. Decode Drop (MPP Estimate - TV)
+            f.write("4. 电视端解码丢帧 (MPP估算 - 关键指标):\n")
+            decode_drop_total = summary.get('decode_drop_estimate_total', 0)
+            decode_expected = summary.get('decode_expected_frames_estimate', 0)
+            decode_ratio = float(summary.get('decode_drop_ratio', 0) or 0.0)
+            f.write(f"   估算丢帧 {decode_drop_total} / {decode_expected} (丢帧率: {(decode_ratio * 100):.2f}%)\n")
             
             # V2.3.1: 零干扰模式说明
             monitor_config = self.config.get('monitor', {})
@@ -1138,15 +1400,6 @@ class TestRunner:
                  for det in perceptual_details:
                      f.write(f"      - {det}\n")
 
-            elif avg_jank > 20.0 and log_stutter == 0 and video_fps >= 24:
-                f.write("\n   >> [智能分析]: 检测到\"点歌屏UI渲染丢帧\" (UI Jank)，电视端视频整体流畅。\n")
-                f.write("      (依据: 点歌屏GFX丢帧高但视频帧率正常，且日志无异常)\n")
-                f.write("      >> 说明: 此指标主要反映点歌屏UI线程负载，对电视端视频影响有限。\n")
-            elif avg_jank > 20.0 and log_stutter == 0 and video_fps == 0:
-                f.write("\n   >> [智能分析]: 检测到\"点歌屏UI渲染丢帧\" (UI Jank)，视频流畅度无法确定。\n")
-                f.write("      (依据: 点歌屏GFX丢帧高且日志无异常，但未采集视频帧率)\n")
-                f.write("      >> 说明: 当前监控模式未采集视频FPS，无法排除电视端存在轻微卡顿的可能。\n")
-                f.write("      >> 建议: 下次可使用\"标准模式\"或\"深度压测\"以获取真实视频帧率。\n")
             elif video_fps == 0 and log_stutter == 0:
                 f.write("\n   >> [智能分析]: 数据不足 (Insufficient Data)。\n")
                 f.write("      >> 未获取到有效视频帧率，且日志中无卡顿记录。\n")
@@ -1156,6 +1409,33 @@ class TestRunner:
                 f.write("         3. adb shell dumpsys gfxinfo 是否有权限/数据？\n")
             else:
                 f.write("\n   >> [智能分析]: 播放流畅度整体良好。\n")
+
+            tv_stall_events = summary.get("tv_stall_events", [])
+            f.write("\n5. Display 1 高频卡顿事件:\n")
+            if tv_stall_events:
+                f.write(f"   共检测到 {len(tv_stall_events)} 次完整卡顿事件\n")
+                for event in tv_stall_events[-10:]:
+                    contention = event.get("cpu_contention") or {}
+                    candidate = contention.get("top_candidate") or {}
+                    cpu_detail = ""
+                    if candidate:
+                        cpu_detail = (
+                            f" | CPU嫌疑进程 {candidate.get('process', '')} "
+                            f"{candidate.get('baseline_cpu_percent', 0)}%"
+                            f"→{candidate.get('peak_cpu_percent', 0)}%"
+                            f"→{candidate.get('after_cpu_percent', 0)}% "
+                            f"(置信度 {candidate.get('confidence', 0)}%)"
+                        )
+                    f.write(
+                        "   - "
+                        f"{event.get('start_time', '')} | "
+                        f"持续 {event.get('duration_ms', 0)}ms | "
+                        f"最大帧间隔 {event.get('max_frame_gap_ms', 0)}ms | "
+                        f"证据目录 {event.get('evidence_dir', '')}"
+                        f"{cpu_detail}\n"
+                    )
+            else:
+                f.write("   未检测到已完成的 Display 1 卡顿事件\n")
 
             f.write("-" * 30 + "\n")
             f.write("【长时间运行退化分析】\n")
@@ -1188,6 +1468,9 @@ class TestRunner:
         json_report = {
             "meta": {
                 "package_name": self.package_name,
+                "device_id": device_id,
+                "device_ip": self.device_ip,
+                "firmware_incremental": self.firmware_incremental,
                 "start_time": time_str,
                 "end_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "duration_sec": duration_sec
@@ -1208,6 +1491,12 @@ class TestRunner:
         html_summary["duration_str"] = duration_str
         html_summary["song_count"] = self.song_count
         html_summary["error_stats"] = error_stats
+        html_summary["device_id"] = device_id
+        html_summary["device_ip"] = self.device_ip
+        html_summary["firmware_incremental"] = self.firmware_incremental
+        html_summary["package_name"] = self.package_name
+        html_summary["test_mode"] = test_mode
+        html_summary["duration_sec"] = duration_sec
         
         # 计算成功率
         session_stats = summary.get("session_stats", {})
@@ -1216,6 +1505,6 @@ class TestRunner:
         success_rate = (success_sessions / total_sessions * 100) if total_sessions > 0 else 0
         html_summary["success_rate"] = success_rate
         
-        html_path = self.report_generator.generate_report(html_summary, self.monitor.history, time_str)
+        html_path = self.report_generator.generate_report(html_summary, self.monitor.history, time_str, root_cause_data=root_cause_analysis)
             
         self.log(f"报告已生成: \nTXT: {self.last_summary_file}\nJSON: {json_path}\nHTML: {html_path}")

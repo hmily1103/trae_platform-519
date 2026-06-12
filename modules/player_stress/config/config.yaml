@@ -23,6 +23,21 @@ test_strategy:
 monitor:
   # 采样间隔 (秒)
   interval_seconds: 1
+  # Display 0 是点歌屏，Display 1 是电视端
+  tv_display_id: 1
+  auto_detect_tv_display: true
+  allow_display0_fallback: false
+  # 电视画面冻结检测采样与判定
+  screen_check_interval_seconds: 5
+  tv_freeze_threshold_seconds: 3
+  # 独立的电视端 Surface 高频监控
+  tv_poll_interval_seconds: 0.5
+  tv_stall_frame_gap_threshold_ms: 250
+  tv_stall_start_confirmations: 3
+  tv_stall_recovery_confirmations: 2
+  tv_evidence_screenshot_interval_seconds: 2
+  tv_cpu_baseline_interval_seconds: 2
+  tv_cpu_during_interval_seconds: 1
   # 内存阈值报警 (MB) - 仅作记录参考
   memory_warning_threshold: 500
 
