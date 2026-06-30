@@ -19,6 +19,7 @@ class TvPlaybackWatcher:
         config: Optional[Dict] = None,
         event_callback: Optional[Callable[[Dict], None]] = None,
         log_callback: Optional[Callable[[str], None]] = None,
+        log_monitor=None,
     ):
         config = config or {}
         self.adb = adb
@@ -49,8 +50,25 @@ class TvPlaybackWatcher:
             0.5,
             float(config.get("tv_cpu_during_interval_seconds", 1.0)),
         )
+        self.confirm_gap_ms = max(
+            self.stall_threshold_ms,
+            float(config.get("tv_stall_confirm_frame_gap_threshold_ms", 1200.0)),
+        )
+        self.confirm_duration_ms = max(
+            500.0,
+            float(config.get("tv_stall_confirm_duration_ms", 1500.0)),
+        )
+        self.max_risk_duration_ms = max(
+            self.confirm_duration_ms,
+            float(config.get("tv_stall_risk_auto_finish_ms", 12000.0)),
+        )
+        self.log_window_seconds = max(
+            3.0,
+            float(config.get("tv_event_log_window_seconds", 10.0)),
+        )
         self.event_callback = event_callback
         self.log_callback = log_callback
+        self.log_monitor = log_monitor
         self.evidence_root = os.path.join(output_dir, "tv_stall_events")
         os.makedirs(self.evidence_root, exist_ok=True)
 
@@ -131,6 +149,7 @@ class TvPlaybackWatcher:
                 self._start_event(now, sample, reason)
             elif self._active_event:
                 self._update_event(sample, reason, now)
+                self._maybe_force_finish_risk_event(now, sample)
             return
 
         self._bad_samples = 0
@@ -142,6 +161,23 @@ class TvPlaybackWatcher:
         if self._healthy_samples >= self.recovery_confirmations:
             recovery = "metrics_ignored" if ignored else "playback_recovered"
             self._finish_event(now, recovery)
+
+    def _maybe_force_finish_risk_event(self, now: float, sample: Optional[Dict] = None):
+        event = self._active_event
+        if not event or bool(event.get("confirmed", False)):
+            return
+
+        duration_ms = int(
+            max(0.0, now - float(event.get("start_timestamp", now) or now)) * 1000
+        )
+        if duration_ms < self.max_risk_duration_ms:
+            return
+
+        self._refresh_event_assessment(sample, now)
+        if bool(event.get("confirmed", False)):
+            return
+
+        self._finish_event(now, "risk_timeout_no_corroboration")
 
     def _start_event(self, now: float, sample: Dict, reason: str):
         event_id = datetime.fromtimestamp(now).strftime("%Y%m%d_%H%M%S_%f")
@@ -171,7 +207,9 @@ class TvPlaybackWatcher:
         self._capture_screenshot(os.path.join(event_dir, "during.png"))
         self._write_cpu_before_files()
         self._capture_cpu_during(now, force=True)
+        self._refresh_event_assessment(sample, now)
         self._write_event_json()
+        self._write_time_window_evidence(now)
         self._log(f"[TV Stall] started: {reason}")
 
     def _update_event(self, sample: Dict, reason: str, now: float):
@@ -187,7 +225,9 @@ class TvPlaybackWatcher:
             current_min = float(event.get("min_fps", 0) or 0.0)
             event["min_fps"] = fps if current_min <= 0 else min(current_min, fps)
         self._capture_cpu_during(now)
+        self._refresh_event_assessment(sample, now)
         self._write_event_json()
+        self._write_time_window_evidence(now)
 
     def _finish_event(self, now: float, recovery_reason: str):
         event = self._active_event
@@ -205,12 +245,109 @@ class TvPlaybackWatcher:
             (event["cpu_after"] or {}).get("raw_top", ""),
         )
         event["cpu_contention"] = self._analyze_cpu_contention(event)
+        self._refresh_event_assessment(None, now)
+        event["type"] = "TV_STALL" if bool(event.get("confirmed", False)) else "TV_STALL_RISK"
+        self._write_time_window_evidence(now, force=True)
+        self._write_event_summary()
         self._write_event_json()
         if self.event_callback:
             self.event_callback(dict(event))
         self._log(f"[TV Stall] ended after {event['duration_ms']}ms")
         self._active_event = None
         self._healthy_samples = 0
+
+    def _latest_monitor_snapshot(self) -> Dict:
+        history = getattr(self.monitor, "history", None) or []
+        if not history:
+            return {}
+        latest = history[-1]
+        return latest if isinstance(latest, dict) else {}
+
+    def _refresh_event_assessment(
+        self,
+        sample: Optional[Dict],
+        now: float,
+    ):
+        event = self._active_event
+        if not event:
+            return
+        latest = self._latest_monitor_snapshot()
+        sample = sample or {}
+        duration_ms = int(max(0.0, now - float(event.get("start_timestamp", now) or now)) * 1000)
+        event["duration_ms"] = duration_ms
+
+        max_gap_ms = float(
+            sample.get("max_frame_gap_ms", event.get("max_frame_gap_ms", 0)) or 0.0
+        )
+        video_fps = float(sample.get("fps", latest.get("video_fps", 0)) or 0.0)
+        frame_advanced = bool(sample.get("frame_advanced", True))
+        expected_fps = float(
+            latest.get("expected_stream_fps", sample.get("expected_stream_fps", 30.0)) or 30.0
+        )
+        system_cpu = float(latest.get("system_cpu_percent", 0) or 0.0)
+        player_cpu = float(
+            latest.get("player_cpu_percent", latest.get("cpu_percent", 0)) or 0.0
+        )
+        decode_drop_ratio = float(latest.get("decode_drop_ratio", 0) or 0.0)
+        decode_reliable = bool(latest.get("mpp_work_count_reliable", False))
+        decoder_confirmed = bool(latest.get("decoder_stuck_confirmed", False))
+        log_signal = int(latest.get("log_stutter_delta", 0) or 0) > 0
+        cpu_pressure = bool(latest.get("system_cpu_pressure", False)) or (
+            system_cpu >= 85.0 and player_cpu <= 15.0
+        )
+        fps_low = bool(video_fps > 0 and video_fps < max(24.0, expected_fps * 0.85))
+        severe_gap = bool(max_gap_ms >= self.confirm_gap_ms)
+        surface_not_advancing = (
+            str(sample.get("reason", event.get("reason", "")) or "") == "surface_not_advancing"
+            or not frame_advanced
+        )
+        decode_drop_confirmed = bool(decode_reliable and decode_drop_ratio >= 0.15)
+
+        corroborations = []
+        if decoder_confirmed:
+            corroborations.append("decoder_confirmed")
+        if cpu_pressure:
+            corroborations.append("cpu_pressure")
+        if log_signal:
+            corroborations.append("log_signal")
+        if fps_low:
+            corroborations.append("fps_low")
+        if decode_drop_confirmed:
+            corroborations.append("decode_drop")
+
+        confirmed = bool(
+            decoder_confirmed
+            or (
+                duration_ms >= self.confirm_duration_ms
+                and (
+                    (surface_not_advancing and len(corroborations) >= 1)
+                    or (severe_gap and len(corroborations) >= 2)
+                )
+            )
+        )
+        confidence_level = "confirmed" if confirmed else "risk"
+        if confirmed:
+            assessment_reason = "已形成多源证据闭环，可按确认级电视端卡顿处理"
+        elif severe_gap or surface_not_advancing:
+            assessment_reason = "仅检测到帧间隔/Surface 异常，缺少解码、日志或CPU共振证据，先按风险提示"
+        else:
+            assessment_reason = "检测到轻微播放波动，暂不建议按肉眼卡顿处理"
+
+        event["confirmed"] = confirmed
+        event["confidence_level"] = confidence_level
+        event["assessment_reason"] = assessment_reason
+        event["corroboration_count"] = len(corroborations)
+        event["corroboration_signals"] = corroborations
+        event["evidence_flags"] = {
+            "severe_frame_gap": severe_gap,
+            "surface_not_advancing": surface_not_advancing,
+            "decoder_confirmed": decoder_confirmed,
+            "cpu_pressure": cpu_pressure,
+            "fps_low": fps_low,
+            "decode_drop_confirmed": decode_drop_confirmed,
+            "log_signal": log_signal,
+            "mpp_reliable": decode_reliable,
+        }
 
     def _capture_cpu_on_schedule(self, now: float):
         if self._active_event:
@@ -398,6 +535,74 @@ class TvPlaybackWatcher:
         path = os.path.join(self._active_event["evidence_dir"], "event.json")
         with open(path, "w", encoding="utf-8") as file:
             json.dump(self._active_event, file, ensure_ascii=False, indent=2)
+
+    def _write_time_window_evidence(self, now: float, force: bool = False):
+        if not self._active_event or not self.log_monitor:
+            return
+        event = self._active_event
+        last_written = float(event.get("_last_log_window_write_time", 0.0) or 0.0)
+        if not force and last_written > 0 and now - last_written < 1.5:
+            return
+
+        start_ts = float(event.get("start_timestamp", now) or now) - self.log_window_seconds
+        end_ts = now + self.log_window_seconds
+        window_logs = []
+        decoder_logs = []
+        try:
+            if hasattr(self.log_monitor, "get_time_window_logs"):
+                window_logs = list(self.log_monitor.get_time_window_logs(start_ts, end_ts))
+            if hasattr(self.log_monitor, "get_time_window_decoder_events"):
+                decoder_logs = list(self.log_monitor.get_time_window_decoder_events(start_ts, end_ts))
+        except Exception as exc:
+            self._log(f"[TV Stall] collect time-window logs failed: {exc}")
+            return
+
+        window_summary = {
+            "window_start": datetime.fromtimestamp(start_ts).isoformat(timespec="seconds"),
+            "window_end": datetime.fromtimestamp(end_ts).isoformat(timespec="seconds"),
+            "captured_at": datetime.fromtimestamp(now).isoformat(timespec="seconds"),
+            "log_line_count": len(window_logs),
+            "decoder_event_count": len(decoder_logs),
+        }
+        self._write_json_file("time_window_summary.json", window_summary)
+        self._write_json_file("decoder_window.json", decoder_logs)
+        self._write_text_file(
+            "time_window_logcat.txt",
+            "\n".join(
+                f"[{item.get('wall_time', '')}] {item.get('line', '')}".rstrip()
+                for item in window_logs
+            ),
+        )
+        self._write_text_file(
+            "decoder_window.txt",
+            "\n".join(
+                f"[{datetime.fromtimestamp(float(item.get('time', 0) or 0.0)).strftime('%Y-%m-%d %H:%M:%S')}] "
+                f"{item.get('pattern', '')} | {item.get('line', '')}".rstrip()
+                for item in decoder_logs
+            ),
+        )
+        event["_last_log_window_write_time"] = now
+
+    def _write_event_summary(self):
+        if not self._active_event:
+            return
+        event = self._active_event
+        cpu_candidate = ((event.get("cpu_contention") or {}).get("top_candidate") or {})
+        summary_lines = [
+            f"事件类型: {event.get('type', 'TV_STALL')}",
+            f"开始时间: {event.get('start_time', '')}",
+            f"结束时间: {event.get('end_time', '')}",
+            f"事件持续: {event.get('duration_ms', 0)} ms",
+            f"当前判断: {'已确认' if bool(event.get('confirmed', False)) else '风险提示'}",
+            f"判定依据: {event.get('assessment_reason', '') or event.get('reason', '')}",
+            f"最大帧间隔: {float(event.get('max_frame_gap_ms', 0) or 0.0):.1f} ms",
+            f"最低 FPS: {float(event.get('min_fps', 0) or 0.0):.1f}",
+            f"相关信号: {', '.join(event.get('corroboration_signals', []) or []) or '-'}",
+            f"CPU 嫌疑进程: {cpu_candidate.get('process', '-')}",
+            f"CPU 峰值: {cpu_candidate.get('peak_cpu_percent', '-')}",
+            f"建议查看: time_window_logcat.txt / decoder_window.txt / top_before.txt / top_after.txt",
+        ]
+        self._write_text_file("event_summary.txt", "\n".join(summary_lines))
 
     def _write_json_file(self, filename: str, data):
         if not self._active_event:

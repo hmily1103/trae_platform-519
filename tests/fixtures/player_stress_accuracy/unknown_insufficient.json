@@ -1,0 +1,54 @@
+{
+  "name": "unknown_insufficient",
+  "package_name": "com.thunder.ktv:media",
+  "baseline": [
+    {
+      "timestamp": "2026-06-25 13:00:00",
+      "cpu_percent": 5.0,
+      "player_cpu_percent": 5.0,
+      "system_cpu_percent": 25.0,
+      "pss_mb": 58.0,
+      "video_fps": 30.0,
+      "decode_drop_ratio": 0.0,
+      "gfx_jank_percent": 1.0,
+      "top_consumers": "mediaserver(5.0%) | surfaceflinger(4.0%)"
+    }
+  ],
+  "events": [
+    {
+      "top_consumers_raw": "mediaserver(10.0%) | com.thunder.ktv(5.0%)",
+      "snapshot": {
+        "timestamp": "2026-06-25 13:10:00",
+        "cpu_percent": 5.0,
+        "player_cpu_percent": 5.0,
+        "system_cpu_percent": 45.0,
+        "video_fps": 29.5,
+        "video_fps_source": "surfaceflinger_surface_display_1",
+        "expected_stream_fps": 30.0,
+        "mpp_active": 0,
+        "mpp_work_count_delta": 1,
+        "decoder_stuck": false,
+        "decoder_stuck_confirmed": false,
+        "decode_fps_estimate": 29.2,
+        "decode_slowdown_detected": false,
+        "decode_drop_ratio": 0.0,
+        "gfx_jank_percent": 1.5,
+        "tv_stutter_detected": false,
+        "pss_mb": 59.0,
+        "log_stutter_count": 0,
+        "log_stutter_delta": 0,
+        "audio_active": false,
+        "system_cpu_pressure": false,
+        "thermal_throttling": false,
+        "tv_surface_name": ""
+      }
+    }
+  ],
+  "expected": {
+    "most_confident_cause": "UNKNOWN",
+    "suspect_process": "",
+    "evidence_level": "insufficient",
+    "evidence_strength_level": "insufficient",
+    "confidence_max": 25.0
+  }
+}

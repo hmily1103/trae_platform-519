@@ -8,7 +8,7 @@ import threading
 import time
 from datetime import datetime
 from collections import deque
-from flask import Blueprint, render_template, request, jsonify, current_app
+from flask import Blueprint, render_template, request, jsonify, current_app, send_from_directory
 from utils.response import success_response, error_response, validate_required
 from utils.logger import setup_logger
 from utils.report_paths import get_module_report_dir
@@ -40,7 +40,185 @@ TEST_RUN_STATE = {
     "completion_reason": "",
     "report_file": "",
     "summary_file": "",
+    "report_csv_file": "",
+    "summary_txt_file": "",
+    "summary_json_file": "",
+    "report_meta": {},
 }
+
+REPORT_META_CACHE = {}
+
+
+def _existing_file_or_empty(path: str) -> str:
+    try:
+        return path if path and os.path.isfile(path) else ""
+    except Exception:
+        return ""
+
+
+def _safe_file_token(value: str) -> str:
+    token = re.sub(r'[^A-Za-z0-9._-]+', '_', str(value or '').strip())
+    return token.strip('._') or 'device'
+
+
+def _safe_event_token(value: str) -> str:
+    token = re.sub(r'[^A-Za-z0-9_-]+', '', str(value or '').strip())
+    return token or ''
+
+
+def _current_evidence_root() -> str:
+    try:
+        watcher = getattr(TEST_INSTANCE, 'tv_playback_watcher', None)
+        root = getattr(watcher, 'evidence_root', '') if watcher else ''
+        if root and os.path.isdir(root):
+            return root
+    except Exception:
+        pass
+    fallback = os.path.join(get_module_report_dir('player_stress'), 'tv_stall_events')
+    return fallback
+
+
+def _resolve_tv_event_evidence_dir(event_token: str) -> str:
+    event_token = _safe_event_token(event_token)
+    if not event_token:
+        return ''
+    roots = []
+    current_root = _current_evidence_root()
+    if current_root:
+        roots.append(current_root)
+    fallback = os.path.join(get_module_report_dir('player_stress'), 'tv_stall_events')
+    if fallback not in roots:
+        roots.append(fallback)
+    for root in roots:
+        candidate = os.path.join(root, event_token)
+        try:
+            if os.path.isdir(candidate):
+                return candidate
+        except Exception:
+            continue
+    return ''
+
+
+def _build_tv_event_evidence_manifest(event_dir: str, event_token: str) -> dict:
+    if not event_dir or not os.path.isdir(event_dir):
+        return {}
+    event_json_data = {}
+    files = []
+    for name in sorted(os.listdir(event_dir)):
+        file_path = os.path.join(event_dir, name)
+        if not os.path.isfile(file_path):
+            continue
+        ext = os.path.splitext(name)[1].lower()
+        is_image = ext in {'.png', '.jpg', '.jpeg', '.webp'}
+        is_text = ext in {'.txt', '.json', '.jsonl', '.log'}
+        preview_text = ''
+        if is_text:
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    preview_text = f.read(1200)
+            except Exception:
+                preview_text = ''
+        if name == 'event.json':
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    event_json_data = json.load(f)
+            except Exception:
+                event_json_data = {}
+        files.append({
+            'name': name,
+            'size': os.path.getsize(file_path),
+            'is_image': is_image,
+            'is_text': is_text,
+            'preview_text': preview_text,
+            'url': f'/player_stress/evidence/{event_token}/{name}',
+        })
+    key_files = {item['name']: item['url'] for item in files}
+    diagnosis = _build_tv_event_evidence_diagnosis(event_json_data)
+    return {
+        'event_token': event_token,
+        'event_dir': event_dir,
+        'files': files,
+        'screenshots': [item for item in files if item['is_image']],
+        'downloads': files,
+        'diagnosis': diagnosis,
+        'event_json_url': key_files.get('event.json', ''),
+        'event_summary_url': key_files.get('event_summary.txt', ''),
+        'time_window_logcat_url': key_files.get('time_window_logcat.txt', ''),
+        'time_window_summary_url': key_files.get('time_window_summary.json', ''),
+        'decoder_window_url': key_files.get('decoder_window.txt', ''),
+        'top_before_url': key_files.get('top_before.txt', ''),
+        'top_after_url': key_files.get('top_after.txt', ''),
+        'cpu_during_url': key_files.get('cpu_during.jsonl', ''),
+    }
+
+
+def _build_tv_event_evidence_diagnosis(event_data: dict) -> dict:
+    event_data = event_data if isinstance(event_data, dict) else {}
+    reason = str(event_data.get('reason', '') or '')
+    confirmed = bool(event_data.get('confirmed', False))
+    confidence = str(event_data.get('confidence_level', 'risk') or 'risk')
+    assessment_reason = str(event_data.get('assessment_reason', '') or '')
+    signals = list(event_data.get('corroboration_signals', []) or [])
+    cpu_contention = event_data.get('cpu_contention') or {}
+    cpu_candidate = cpu_contention.get('top_candidate') or {}
+    cpu_detected = bool(cpu_contention.get('detected'))
+    max_gap_ms = float(event_data.get('max_frame_gap_ms', 0) or 0.0)
+    min_fps = float(event_data.get('min_fps', 0) or 0.0)
+
+    if cpu_detected:
+        process_name = str(cpu_candidate.get('process', '') or '高负载进程')
+        statement = f"这条事件更像系统/固件侧 CPU 资源竞争，优先排查 {process_name}。"
+        basis = (
+            f"卡顿期间命中 CPU 争抢信号，嫌疑进程 {process_name}，"
+            f"最大帧间隔 {max_gap_ms:.0f} ms。"
+        )
+        next_action = f"先看 {process_name} 的拉起/保活逻辑，再结合 top_before/top_after.txt 确认是否重复抢占 CPU。"
+        owner = "系统/固件侧"
+    elif (
+        'decoder_confirmed' in signals
+        or 'decode_drop' in signals
+        or 'decoder' in reason.lower()
+    ):
+        statement = "这条事件更像播放器/解码链路停顿，优先排查硬件解码器、码流和驱动。"
+        basis = (
+            f"事件带有解码侧互证信号（{', '.join(signals) if signals else 'decoder'}），"
+            f"最低 FPS {min_fps:.1f}。"
+        )
+        next_action = "先看 event.json 与解码器相关日志，再核对码率、分辨率和芯片解码能力上限。"
+        owner = "播放器/解码侧"
+    elif confirmed:
+        statement = "这条事件已确认是电视端卡顿，但当前还不能单独锁定到系统侧或播放器侧。"
+        basis = f"事件已达确认级，最大帧间隔 {max_gap_ms:.0f} ms，最低 FPS {min_fps:.1f}。"
+        next_action = "先看 event.json、截图和 cpu_during.jsonl，把时间线与播放器异常、系统负载一起交叉确认。"
+        owner = "待继续定责"
+    else:
+        statement = "这条事件目前更像风险提示，还不是一锤定音的问题结论。"
+        basis = assessment_reason or "当前仅有局部异常信号，互证还不够完整。"
+        next_action = "继续复测并补齐 Surface、FPS、日志和 CPU 证据后再定责。"
+        owner = "待补证据"
+
+    return {
+        'statement': statement,
+        'basis': basis,
+        'next_action': next_action,
+        'owner': owner,
+        'confidence': confidence,
+        'confirmed': confirmed,
+    }
+
+
+def _pick_existing_report_files(runner) -> dict:
+    html_file = _existing_file_or_empty(getattr(runner, "last_html_file", "") or "")
+    csv_file = _existing_file_or_empty(getattr(runner, "last_csv_file", "") or "")
+    summary_json_file = _existing_file_or_empty(getattr(runner, "last_summary_json_file", "") or "")
+    summary_txt_file = _existing_file_or_empty(getattr(runner, "last_summary_file", "") or "")
+    return {
+        "report_file": html_file or csv_file,
+        "summary_file": summary_json_file or summary_txt_file,
+        "report_csv_file": csv_file,
+        "summary_txt_file": summary_txt_file,
+        "summary_json_file": summary_json_file,
+    }
 
 def logger_callback(msg):
     """线程安全的日志回调函数"""
@@ -51,6 +229,146 @@ def logger_callback(msg):
             logger.info("[LOG] %s", msg_str)
     except Exception as e:
         logger.exception("logger_callback 失败: %s", e)
+
+
+def _load_report_meta_from_summary_json(summary_json_path: str) -> dict:
+    if not summary_json_path:
+        return {}
+    try:
+        with open(summary_json_path, 'r', encoding='utf-8', errors='replace') as f:
+            summary_json = json.load(f)
+        if not isinstance(summary_json, dict):
+            return {}
+        meta = summary_json.get('meta') if isinstance(summary_json.get('meta'), dict) else {}
+        decision = summary_json.get('decision') if isinstance(summary_json.get('decision'), dict) else {}
+        stats = summary_json.get('stats') if isinstance(summary_json.get('stats'), dict) else {}
+        metrics = decision.get('metrics') if isinstance(decision.get('metrics'), dict) else {}
+        perceptual = metrics.get('perceptual_stutter') if isinstance(metrics.get('perceptual_stutter'), dict) else {}
+        root_cause_analysis = stats.get('root_cause_analysis') if isinstance(stats.get('root_cause_analysis'), dict) else {}
+        most_confident = root_cause_analysis.get('most_confident_cause') if isinstance(root_cause_analysis.get('most_confident_cause'), dict) else {}
+        return {
+            'device_id': meta.get('device_id', ''),
+            'device_ip': meta.get('device_ip', ''),
+            'firmware_incremental': meta.get('firmware_incremental', ''),
+            'package_name': meta.get('package_name', ''),
+            'start_time': meta.get('start_time', ''),
+            'end_time': meta.get('end_time', ''),
+            'duration_sec': meta.get('duration_sec', 0),
+            'score': decision.get('score', None),
+            'grade': decision.get('grade', ''),
+            'tv_perceptual_score': perceptual.get('score', None),
+            'log_stutter_count': stats.get('final_log_stutter_count', None),
+            'root_cause_top': most_confident.get('root_cause_type', ''),
+        }
+    except Exception as e:
+        logger.warning(f'读取 summary JSON 失败: {summary_json_path} | {e}')
+        return {}
+
+
+def _load_report_meta_from_summary_txt(summary_txt_path: str) -> dict:
+    if not summary_txt_path:
+        return {}
+    try:
+        with open(summary_txt_path, 'r', encoding='utf-8', errors='ignore') as f:
+            head_lines = []
+            for _ in range(120):
+                line = f.readline()
+                if not line:
+                    break
+                head_lines.append(line.rstrip('\n'))
+        head = "\n".join(head_lines)
+
+        device_id = ""
+        device_ip = ""
+        firmware_incremental = ""
+        package_name = ""
+        start_time = ""
+        end_time = ""
+        duration_sec = 0
+        score = None
+        grade = ""
+        tv_perceptual_score = None
+        log_stutter_count = None
+        root_cause_top = ""
+
+        m = re.search(r'测试设备:\s*(.+)', head)
+        if m:
+            device_id = m.group(1).strip()
+        m = re.search(r'机顶盒\s*IP:\s*(.+)', head)
+        if m:
+            device_ip = m.group(1).strip()
+        m = re.search(r'固件版本:\s*(.+)', head)
+        if m:
+            firmware_incremental = m.group(1).strip()
+        m = re.search(r'测试包名:\s*(.+)', head)
+        if m:
+            package_name = m.group(1).strip()
+        m = re.search(r'生成时间:\s*(.+)', head)
+        if m:
+            end_time = m.group(1).strip()
+        m = re.search(r'实际运行时长:\s*([0-9]+)小时\s*([0-9]+)分钟\s*([0-9]+)秒', head)
+        if m:
+            h = int(m.group(1) or 0)
+            mi = int(m.group(2) or 0)
+            s = int(m.group(3) or 0)
+            duration_sec = (h * 3600) + (mi * 60) + s
+        m = re.search(r'稳定性评分:\s*([0-9]+)\s*/\s*100\s*\\(等级:\s*([A-Z])\\)', head)
+        if m:
+            score = int(m.group(1))
+            grade = m.group(2)
+        m = re.search(r'首要根因:\s*([A-Z0-9_]+)', head)
+        if m:
+            root_cause_top = m.group(1).strip()
+        m = re.search(r'卡顿事件:\s*([0-9]+)\s*次', head)
+        if m:
+            log_stutter_count = int(m.group(1))
+        m = re.search(r'Perceptual Score:\s*([0-9]+)', head)
+        if m:
+            tv_perceptual_score = int(m.group(1))
+
+        return {
+            'device_id': device_id,
+            'device_ip': device_ip,
+            'firmware_incremental': firmware_incremental,
+            'package_name': package_name,
+            'start_time': start_time,
+            'end_time': end_time,
+            'duration_sec': duration_sec,
+            'score': score,
+            'grade': grade,
+            'tv_perceptual_score': tv_perceptual_score,
+            'log_stutter_count': log_stutter_count,
+            'root_cause_top': root_cause_top,
+        }
+    except Exception as e:
+        logger.warning(f'读取 summary TXT 失败: {summary_txt_path} | {e}')
+        return {}
+
+
+def _load_report_meta_cached(summary_txt_path: str, summary_json_path: str) -> dict:
+    meta = {}
+    try:
+        cache_key = ""
+        mtime = None
+        if summary_txt_path and os.path.isfile(summary_txt_path):
+            cache_key = summary_txt_path
+            mtime = os.path.getmtime(summary_txt_path)
+        elif summary_json_path and os.path.isfile(summary_json_path):
+            cache_key = summary_json_path
+            mtime = os.path.getmtime(summary_json_path)
+        if cache_key and mtime is not None:
+            cached = REPORT_META_CACHE.get(cache_key)
+            if cached and cached.get('mtime') == mtime:
+                return cached.get('meta') or {}
+        if summary_txt_path:
+            meta = _load_report_meta_from_summary_txt(summary_txt_path)
+        if not meta and summary_json_path:
+            meta = _load_report_meta_from_summary_json(summary_json_path)
+        if cache_key and mtime is not None:
+            REPORT_META_CACHE[cache_key] = {'mtime': mtime, 'meta': meta}
+    except Exception:
+        pass
+    return meta or {}
 
 def run_test_background(config):
     """后台运行测试的线程函数"""
@@ -102,9 +420,13 @@ def run_test_background(config):
         logger_callback(f"[{datetime.now().strftime('%H:%M:%S')}] 🏁 测试线程已完成")
         finished_at = time.time()
         with TEST_STATE_LOCK:
-            if failed:
+            report_files = _pick_existing_report_files(runner)
+            runner_failure = (
+                getattr(runner, "failure_reason", "") if runner else ""
+            )
+            if failed or runner_failure:
                 status = "failed"
-                reason = "运行异常"
+                reason = runner_failure or "运行异常"
             elif runner and getattr(runner, "stop_flag", False):
                 status = "stopped"
                 reason = "用户手动停止"
@@ -115,8 +437,15 @@ def run_test_background(config):
                 "status": status,
                 "finished_at": finished_at,
                 "completion_reason": reason,
-                "report_file": getattr(runner, "last_csv_file", "") or "",
-                "summary_file": getattr(runner, "last_summary_file", "") or "",
+                "report_file": report_files["report_file"],
+                "summary_file": report_files["summary_file"],
+                "report_csv_file": report_files["report_csv_file"],
+                "summary_txt_file": report_files["summary_txt_file"],
+                "summary_json_file": report_files["summary_json_file"],
+                "report_meta": _load_report_meta_cached(
+                    report_files["summary_txt_file"],
+                    report_files["summary_json_file"],
+                ),
             })
         logger.debug("run_test_background: 线程已完成")
 
@@ -724,6 +1053,65 @@ def api_fps_probe():
         logger.error("fps_probe 失败: %s", e, exc_info=True)
         return error_response(message='fps_probe 失败', error=str(e), status_code=500)
 
+
+@stress_bp.route('/api/display_snapshot', methods=['GET'])
+def api_display_snapshot():
+    try:
+        device_id = request.args.get('device_id', None)
+        if device_id:
+            device_id = str(device_id).strip()
+
+        display_id = request.args.get('display_id', '1')
+        try:
+            display_id = int(display_id)
+        except (TypeError, ValueError):
+            return error_response(
+                message='display_id 格式错误',
+                error='invalid display_id',
+                status_code=400,
+            )
+
+        if not device_id:
+            devices = AdbManager.list_devices()
+            if len(devices) == 1:
+                device_id = devices[0]
+            else:
+                return error_response(
+                    message='缺少 device_id',
+                    error='device_id is required',
+                    status_code=400,
+                )
+
+        adb = AdbManager(device_id=device_id)
+        report_dir = get_module_report_dir('player_stress')
+        os.makedirs(report_dir, exist_ok=True)
+
+        filename = f"display_probe_{_safe_file_token(device_id)}_d{display_id}.png"
+        local_path = os.path.join(report_dir, filename)
+        adb.take_screenshot(local_path, display_id=display_id)
+
+        if not os.path.isfile(local_path) or os.path.getsize(local_path) <= 0:
+            return error_response(
+                message='截图失败，请确认设备在线且支持该 Display',
+                error='snapshot capture failed',
+                status_code=500,
+            )
+
+        return success_response(data={
+            'device_id': device_id,
+            'display_id': display_id,
+            'filename': filename,
+            'captured_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'image_url': f'/player_stress/reports/{filename}?t={int(time.time())}',
+        })
+    except Exception as e:
+        logger.error("display_snapshot 失败: %s", e, exc_info=True)
+        return error_response(
+            message='抓取截图失败',
+            error=str(e),
+            status_code=500,
+        )
+
 @stress_bp.route('/api/start', methods=['POST'])
 def api_start_test():
     global TEST_THREAD, TEST_INSTANCE, TEST_RUN_STATE
@@ -873,6 +1261,10 @@ def api_start_test():
                     "completion_reason": "",
                     "report_file": "",
                     "summary_file": "",
+                    "report_csv_file": "",
+                    "summary_txt_file": "",
+                    "summary_json_file": "",
+                    "report_meta": {},
                 }
             
             # Clear previous logs and add initial log IMMEDIATELY
@@ -1051,6 +1443,48 @@ def api_stop_test():
 def api_status():
     try:
         global TEST_THREAD, TEST_INSTANCE, LOG_BUFFER, LOG_LOCK, TEST_RUN_STATE
+        include_logs = request.args.get('include_logs', '1') != '0'
+
+        def _compact_history_snapshot(snapshot):
+            snapshot = snapshot if isinstance(snapshot, dict) else {}
+            return {
+                'timestamp': snapshot.get('timestamp', ''),
+                'video_fps': snapshot.get('video_fps', 0),
+                'mpp_work_count': snapshot.get('mpp_work_count', 0),
+                'player_cpu_percent': snapshot.get(
+                    'player_cpu_percent',
+                    snapshot.get('cpu_percent', 0),
+                ),
+                'system_cpu_percent': snapshot.get('system_cpu_percent', 0),
+                'decode_fps_estimate': snapshot.get('decode_fps_estimate', 0),
+                'decode_drop_ratio': snapshot.get('decode_drop_ratio', 0),
+                'decoder_stuck': snapshot.get('decoder_stuck', False),
+                'decoder_stuck_confirmed': snapshot.get('decoder_stuck_confirmed', False),
+                'tv_stutter_detected': snapshot.get('tv_stutter_detected', False),
+                'video_fps_source': snapshot.get('video_fps_source', ''),
+                'tv_surface_name': snapshot.get('tv_surface_name', ''),
+            }
+
+        def _compact_root_cause_evidence(evidence):
+            evidence = evidence if isinstance(evidence, dict) else {}
+            return {
+                'stutter_cpu': evidence.get('stutter_cpu', 0),
+                'instance_count': evidence.get('instance_count', 0),
+                'reason': evidence.get('reason', ''),
+            }
+
+        def _compact_responsibility_summary(summary):
+            summary = summary if isinstance(summary, dict) else {}
+            evidence_items = summary.get('evidence_items', [])
+            return {
+                'category': summary.get('category', ''),
+                'owner': summary.get('owner', ''),
+                'suspect_process': summary.get('suspect_process', ''),
+                'confidence': summary.get('confidence', ''),
+                'key_basis': summary.get('key_basis', ''),
+                'evidence_items': list(evidence_items[:3]) if isinstance(evidence_items, list) else [],
+            }
+
         is_running = TEST_THREAD is not None and TEST_THREAD.is_alive()
         with TEST_STATE_LOCK:
             run_state = dict(TEST_RUN_STATE)
@@ -1079,16 +1513,19 @@ def api_status():
         )
         if run_state.get("status") == "completed":
             progress_percent = 100.0
+        report_meta = dict(run_state.get("report_meta") or {})
         run_state.update({
             "elapsed_seconds": elapsed_seconds,
             "remaining_seconds": remaining_seconds,
             "progress_percent": round(progress_percent, 1),
+            "report_meta": report_meta,
         })
         
         # Get logs - 简单直接
         logs = []
-        with LOG_LOCK:
-            logs = [str(item) for item in LOG_BUFFER]
+        if include_logs:
+            with LOG_LOCK:
+                logs = [str(item) for item in list(LOG_BUFFER)[-120:]]
         
         # Get performance metrics
         metrics = None
@@ -1101,11 +1538,57 @@ def api_status():
         }
         tv_monitor = {
             'watcher_running': False,
+            'display_id': None,
+            'surface_name': '',
             'active_event': None,
             'recent_events': [],
         }
         if TEST_INSTANCE and hasattr(TEST_INSTANCE, 'monitor'):
             monitor = TEST_INSTANCE.monitor
+            pid_loss_events = [
+                event for event in getattr(monitor, 'pid_events', [])
+                if event.get('type') == 'PID_LOST'
+            ]
+            base_process_failure_summary = {}
+            if hasattr(monitor, '_build_process_failure_summary'):
+                try:
+                    base_process_failure_summary = monitor._build_process_failure_summary()
+                except Exception:
+                    base_process_failure_summary = {}
+            error_stats = {"crash_count": 0, "anr_count": 0, "error_events": []}
+            if getattr(TEST_INSTANCE, 'log_monitor', None):
+                try:
+                    error_stats = TEST_INSTANCE.log_monitor.get_error_stats()
+                except Exception:
+                    error_stats = {"crash_count": 0, "anr_count": 0, "error_events": []}
+            live_summary_stub = {
+                "restart_count": int(getattr(monitor, 'restart_count', 0) or 0),
+                "pid_loss_count": len(pid_loss_events),
+                "process_failure_summary": base_process_failure_summary,
+            }
+            live_process_failure_summary = {}
+            live_process_failure_actions = []
+            live_tv_process_correlation_summary = {}
+            if hasattr(TEST_INSTANCE, '_build_process_failure_summary'):
+                try:
+                    live_process_failure_summary = TEST_INSTANCE._build_process_failure_summary(
+                        live_summary_stub,
+                        error_stats,
+                    )
+                    live_summary_stub["process_failure_summary"] = live_process_failure_summary
+                    live_process_failure_actions = TEST_INSTANCE._build_process_failure_actions(
+                        live_summary_stub
+                    )
+                    live_summary_stub["tv_stall_events"] = list(getattr(monitor, 'tv_stall_events', []))
+                    live_summary_stub["pid_events"] = list(getattr(monitor, 'pid_events', []))
+                    live_tv_process_correlation_summary = TEST_INSTANCE._build_tv_process_correlation_summary(
+                        live_summary_stub,
+                        error_stats,
+                    )
+                except Exception:
+                    live_process_failure_summary = base_process_failure_summary or {}
+                    live_process_failure_actions = []
+                    live_tv_process_correlation_summary = {}
             device_info = {
                 'device_id': str(
                     getattr(TEST_INSTANCE, 'config', {}).get('device_id', '')
@@ -1117,6 +1600,9 @@ def api_status():
                 'firmware_incremental': str(
                     getattr(TEST_INSTANCE, 'firmware_incremental', '') or ''
                 ),
+                'platform_identity': str(
+                    getattr(TEST_INSTANCE, 'platform_identity', '') or ''
+                ),
             }
             watcher = getattr(TEST_INSTANCE, 'tv_playback_watcher', None)
             if watcher:
@@ -1127,8 +1613,41 @@ def api_status():
                         return None
                     contention = event.get('cpu_contention') or {}
                     candidate = contention.get('top_candidate') or {}
+                    reason = str(event.get('reason', '') or '')
+                    signals = list(event.get('corroboration_signals', []) or [])
+                    confirmed = bool(event.get('confirmed', False))
+                    if bool(contention.get('detected')):
+                        attribution = {
+                            'category': '系统/固件侧',
+                            'owner': str(candidate.get('process', '') or 'CPU 资源竞争'),
+                            'confidence': 'high' if confirmed else 'medium',
+                        }
+                    elif (
+                        'decoder' in reason.lower()
+                        or 'decoder_confirmed' in signals
+                        or 'decode_drop' in signals
+                    ):
+                        attribution = {
+                            'category': '播放器/解码侧',
+                            'owner': '硬件解码链路',
+                            'confidence': 'high' if confirmed else 'medium',
+                        }
+                    elif confirmed:
+                        attribution = {
+                            'category': '电视端已确认卡顿',
+                            'owner': '待继续定责',
+                            'confidence': 'medium',
+                        }
+                    else:
+                        attribution = {
+                            'category': '风险提示',
+                            'owner': '待补证据',
+                            'confidence': 'low',
+                        }
                     return {
                         'event_id': event.get('event_id'),
+                        'event_token': _safe_event_token(event.get('event_id')),
+                        'type': event.get('type', 'TV_STALL'),
                         'start_time': event.get('start_time'),
                         'end_time': event.get('end_time'),
                         'duration_ms': event.get('duration_ms', 0),
@@ -1137,6 +1656,12 @@ def api_status():
                         'max_frame_gap_ms': event.get('max_frame_gap_ms', 0),
                         'min_fps': event.get('min_fps', 0),
                         'evidence_dir': event.get('evidence_dir', ''),
+                        'confirmed': bool(event.get('confirmed', False)),
+                        'confidence_level': event.get('confidence_level', 'risk'),
+                        'assessment_reason': event.get('assessment_reason', ''),
+                        'corroboration_count': int(event.get('corroboration_count', 0) or 0),
+                        'corroboration_signals': list(event.get('corroboration_signals', []) or []),
+                        'attribution': attribution,
                         'cpu_contention_detected': bool(contention.get('detected')),
                         'cpu_candidate': {
                             'process': candidate.get('process', ''),
@@ -1148,11 +1673,19 @@ def api_status():
                     }
 
                 tv_monitor['watcher_running'] = bool(watcher.running)
+                tv_monitor['display_id'] = getattr(watcher, 'display_id', None)
+                tv_monitor['surface_name'] = getattr(monitor, '_last_tv_surface_name', '')
                 tv_monitor['active_event'] = event_summary(active_event)
-                recent = list(getattr(monitor, 'tv_stall_events', []))[-5:]
+                recent_confirmed = list(getattr(monitor, 'tv_stall_events', []))[-3:]
+                recent_risk = list(getattr(monitor, 'tv_stall_risk_events', []))[-3:]
                 tv_monitor['recent_events'] = [
                     summary for summary in
-                    (event_summary(event) for event in reversed(recent))
+                    (event_summary(event) for event in reversed(recent_confirmed))
+                    if summary
+                ]
+                tv_monitor['recent_risk_events'] = [
+                    summary for summary in
+                    (event_summary(event) for event in reversed(recent_risk))
                     if summary
                 ]
             # 从 config 获取当前模式（用于前端提示）
@@ -1166,10 +1699,12 @@ def api_status():
                 # Extract key metrics
                 metrics = {
                     'video_fps': latest_snapshot.get('video_fps', 0),
+                    'video_fps_collected': latest_snapshot.get('video_fps_collected', False),
                     'video_fps_source': latest_snapshot.get('video_fps_source', ''),
                     'tv_display_id': latest_snapshot.get('tv_display_id'),
                     'tv_display_verified': latest_snapshot.get('tv_display_verified', False),
                     'tv_display_verification_reason': latest_snapshot.get('tv_display_verification_reason', ''),
+                    'tv_display_recommendation': latest_snapshot.get('tv_display_recommendation', {}),
                     'tv_surface_name': latest_snapshot.get('tv_surface_name', ''),
                     'expected_stream_fps': latest_snapshot.get('expected_stream_fps', 0),
                     'mpp_work_count': latest_snapshot.get('mpp_work_count', 0),
@@ -1182,11 +1717,13 @@ def api_status():
                     'decode_slowdown_detected': latest_snapshot.get('decode_slowdown_detected', False),
                     'decode_drop_estimate': latest_snapshot.get('decode_drop_estimate', 0),
                     'decode_drop_ratio': latest_snapshot.get('decode_drop_ratio', 0),
+                    'fps_unavailable_reason': latest_snapshot.get('fps_unavailable_reason', ''),
                     'ignore_video_metrics': latest_snapshot.get('ignore_video_metrics', False),
                     'ignore_video_reason': latest_snapshot.get('ignore_video_reason', ''),
                     'tv_stall_count': len(getattr(monitor, 'tv_stall_events', [])),
+                    'tv_stall_risk_count': len(getattr(monitor, 'tv_stall_risk_events', [])),
                     'cpu_percent': latest_snapshot.get(
-                        'system_cpu_percent',
+                        'player_cpu_percent',
                         latest_snapshot.get('cpu_percent', 0),
                     ),
                     'player_cpu_percent': latest_snapshot.get(
@@ -1198,8 +1735,15 @@ def api_status():
                     'root_cause_type': latest_snapshot.get('root_cause_type', ''),
                     'suspect_process': latest_snapshot.get('suspect_process', ''),
                     'root_cause_confidence': latest_snapshot.get('root_cause_confidence', 0),
-                    'root_cause_evidence': latest_snapshot.get('root_cause_evidence', {}),
-                    'top_consumers': latest_snapshot.get('top_consumers', ''),
+                    'root_cause_evidence': _compact_root_cause_evidence(
+                        latest_snapshot.get('root_cause_evidence', {})
+                    ),
+                    'decoder_stuck_confirmed': latest_snapshot.get('decoder_stuck_confirmed', False),
+                    'decoder_stuck_risk': latest_snapshot.get('decoder_stuck_risk', False),
+                    'observer_pid': latest_snapshot.get('observer_pid', 0),
+                    'observer_cpu_percent': latest_snapshot.get('observer_cpu_percent', 0),
+                    'observer_memory_mb': latest_snapshot.get('observer_memory_mb', 0),
+                    'observer_sampling_mode': latest_snapshot.get('observer_sampling_mode', ''),
                     'max_temperature_c': latest_snapshot.get('max_temperature_c', 0),
                     'min_cpu_frequency_ratio': latest_snapshot.get('min_cpu_frequency_ratio', 0),
                     'thermal_throttling': latest_snapshot.get('thermal_throttling', False),
@@ -1208,10 +1752,102 @@ def api_status():
                     'log_stutter_count': latest_snapshot.get('log_stutter_count', 0),
                     'audio_active': latest_snapshot.get('audio_active', False),
                     'timestamp': latest_snapshot.get('timestamp', '')
+                    ,'target_process_available': latest_snapshot.get('target_process_available', True)
+                    ,'pid_missing_duration_sec': latest_snapshot.get('pid_missing_duration_sec', 0)
+                    ,'process_failure_summary': live_process_failure_summary
+                    ,'process_failure_actions': live_process_failure_actions
+                    ,'tv_process_correlation_summary': live_tv_process_correlation_summary
+                    ,'responsibility_summary': _compact_responsibility_summary(
+                        TEST_INSTANCE._build_responsibility_summary(
+                            {
+                                **live_summary_stub,
+                                "process_failure_summary": live_process_failure_summary,
+                                "tv_process_correlation_summary": live_tv_process_correlation_summary,
+                                "confirmed_decoder_stuck_count": latest_snapshot.get('confirmed_decoder_stuck_count', 0),
+                                "avg_system_cpu_percent": latest_snapshot.get('system_cpu_percent', 0),
+                                "max_system_cpu_percent": latest_snapshot.get('system_cpu_percent', 0),
+                                "avg_player_cpu_percent": latest_snapshot.get(
+                                    'player_cpu_percent',
+                                    latest_snapshot.get('cpu_percent', 0),
+                                ),
+                                "tv_surface_locked": bool(latest_snapshot.get('tv_surface_name', '')),
+                                "avg_video_fps": latest_snapshot.get('video_fps', 0),
+                                "decode_drop_ratio": latest_snapshot.get('decode_drop_ratio', 0),
+                            },
+                            getattr(TEST_INSTANCE, 'last_summary_data', {}).get('root_cause_analysis', {}) or {},
+                        )
+                        if hasattr(TEST_INSTANCE, '_build_responsibility_summary') else {}
+                    )
+                    ,'dev_priority_summary': (
+                        TEST_INSTANCE._build_dev_priority_summary(
+                            {
+                                **live_summary_stub,
+                                "process_failure_summary": live_process_failure_summary,
+                                "tv_process_correlation_summary": live_tv_process_correlation_summary,
+                                "decoder_stuck_summary": getattr(TEST_INSTANCE, 'last_summary_data', {}).get('decoder_stuck_summary', {}) or {},
+                                "confirmed_decoder_stuck_count": latest_snapshot.get('confirmed_decoder_stuck_count', 0),
+                                "avg_system_cpu_percent": latest_snapshot.get('system_cpu_percent', 0),
+                                "max_system_cpu_percent": latest_snapshot.get('system_cpu_percent', 0),
+                                "avg_player_cpu_percent": latest_snapshot.get(
+                                    'player_cpu_percent',
+                                    latest_snapshot.get('cpu_percent', 0),
+                                ),
+                                "tv_surface_locked": bool(latest_snapshot.get('tv_surface_name', '')),
+                                "avg_video_fps": latest_snapshot.get('video_fps', 0),
+                                "decode_drop_ratio": latest_snapshot.get('decode_drop_ratio', 0),
+                            },
+                            getattr(TEST_INSTANCE, 'last_summary_data', {}).get('root_cause_analysis', {}) or {},
+                        )
+                        if hasattr(TEST_INSTANCE, '_build_dev_priority_summary') else {}
+                    )
+                    ,'platform_support_summary': (
+                        TEST_INSTANCE._build_platform_support_summary(
+                            {
+                                **live_summary_stub,
+                                "platform_identity": str(getattr(TEST_INSTANCE, 'platform_identity', '') or ''),
+                                "firmware_incremental": str(getattr(TEST_INSTANCE, 'firmware_incremental', '') or ''),
+                                "confirmed_decoder_stuck_count": latest_snapshot.get('confirmed_decoder_stuck_count', 0),
+                                "decoder_stuck_risk_count": 1 if latest_snapshot.get('decoder_stuck_risk', False) else 0,
+                                "tv_display_verified": bool(latest_snapshot.get('tv_display_verified', False)),
+                                "tv_display_id": latest_snapshot.get('tv_display_id', 0),
+                                "tv_surface_locked": bool(latest_snapshot.get('tv_surface_name', '')),
+                                "avg_video_fps": latest_snapshot.get('video_fps', 0),
+                                "video_fps_unavailable_reason": latest_snapshot.get('fps_unavailable_reason', ''),
+                                "tv_display_recommendation": latest_snapshot.get('tv_display_recommendation', {}),
+                            }
+                        )
+                        if hasattr(TEST_INSTANCE, '_build_platform_support_summary') else {}
+                    )
+                    ,'evidence_strength': (
+                        (
+                            (
+                                getattr(TEST_INSTANCE, 'last_summary_data', {}).get('root_cause_analysis', {}) or {}
+                            ).get('final_diagnosis', {}) or {}
+                        ).get('evidence_strength', {})
+                    )
+                    ,'observer_overhead_summary': {
+                        'pid': latest_snapshot.get('observer_pid', 0),
+                        'avg_cpu_percent': latest_snapshot.get('observer_cpu_percent', 0),
+                        'peak_cpu_percent': latest_snapshot.get('observer_cpu_percent', 0),
+                        'avg_memory_mb': latest_snapshot.get('observer_memory_mb', 0),
+                        'peak_memory_mb': latest_snapshot.get('observer_memory_mb', 0),
+                        'sampling_mode': latest_snapshot.get('observer_sampling_mode', 'unknown'),
+                    }
                 }
                 
-                # Get recent history for charts (last 50 points)
-                history = monitor.history[-50:] if len(monitor.history) > 50 else monitor.history
+                # Get recent history for charts (last 20 points), but keep API payload compact.
+                recent_history = monitor.history[-20:] if len(monitor.history) > 20 else monitor.history
+                history = [
+                    _compact_history_snapshot(item)
+                    for item in recent_history
+                ]
+        elif report_meta:
+            device_info = {
+                'device_id': str(report_meta.get('device_id', '') or ''),
+                'device_ip': str(report_meta.get('device_ip', '') or ''),
+                'firmware_incremental': str(report_meta.get('firmware_incremental', '') or ''),
+                'platform_identity': str(report_meta.get('platform_identity', '') or ''),
+            }
         else:
             # Debug: log why metrics are not available
             if not TEST_INSTANCE:
@@ -1234,6 +1870,10 @@ def api_status():
             'tv_monitor': tv_monitor,
             'run_state': run_state,
             'device_info': device_info,
+            'server_info': {
+                'pid': os.getpid(),
+                'started_at': run_state.get('started_at') if is_running else None,
+            },
         })
     except Exception as e:
         logger.error(f'获取测试状态失败: {e}', exc_info=True)
@@ -1243,9 +1883,32 @@ def api_status():
             status_code=500
         )
 
+@stress_bp.route('/api/logs', methods=['GET'])
+def api_logs():
+    try:
+        global LOG_BUFFER, LOG_LOCK
+        limit = int(request.args.get('limit', 120) or 120)
+        limit = max(20, min(limit, 300))
+        with LOG_LOCK:
+            logs = [str(item) for item in list(LOG_BUFFER)[-limit:]]
+        return success_response(data={
+            'logs': logs,
+            'count': len(logs),
+        })
+    except Exception as e:
+        logger.error(f'鑾峰彇瀹炴椂鏃ュ織澶辫触: {e}', exc_info=True)
+        return error_response(
+            message='鑾峰彇瀹炴椂鏃ュ織澶辫触',
+            error=str(e),
+            status_code=500
+        )
+
 @stress_bp.route('/api/reports', methods=['GET'])
 def api_reports():
     try:
+        limit = int(request.args.get('limit', 20) or 20)
+        limit = max(1, min(limit, 200))
+
         report_dir = get_module_report_dir('player_stress')
         if not os.path.exists(report_dir):
             return success_response(data={'reports': []})
@@ -1254,10 +1917,10 @@ def api_reports():
         filename_pattern = re.compile(r'^(report|summary)_(\d{8}_\d{6})\.(csv|html|txt|json)$')
 
         try:
-            for filename in os.listdir(report_dir):
-                file_path = os.path.join(report_dir, filename)
-                if not os.path.isfile(file_path):
+            for item in os.scandir(report_dir):
+                if not item.is_file():
                     continue
+                filename = item.name
                 match = filename_pattern.match(filename)
                 if not match:
                     continue
@@ -1271,7 +1934,6 @@ def api_reports():
                         'html': '',
                         'txt': '',
                         'json': '',
-                        'meta': {},
                     }
                     entries_by_prefix[prefix] = entry
 
@@ -1285,31 +1947,35 @@ def api_reports():
                         entry['txt'] = filename
                     elif ext == 'json':
                         entry['json'] = filename
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f:
-                                summary_json = json.load(f)
-                            meta = summary_json.get('meta') if isinstance(summary_json, dict) else None
-                            decision = summary_json.get('decision') if isinstance(summary_json, dict) else None
-                            stats = summary_json.get('stats') if isinstance(summary_json, dict) else None
-                            entry['meta'] = {
-                                'device_id': (meta or {}).get('device_id', ''),
-                                'device_ip': (meta or {}).get('device_ip', ''),
-                                'firmware_incremental': (meta or {}).get('firmware_incremental', ''),
-                                'package_name': (meta or {}).get('package_name', ''),
-                                'end_time': (meta or {}).get('end_time', ''),
-                                'duration_sec': (meta or {}).get('duration_sec', 0),
-                                'score': (decision or {}).get('score', None),
-                                'grade': (decision or {}).get('grade', ''),
-                                'tv_perceptual_score': ((decision or {}).get('metrics') or {}).get('perceptual_stutter', {}).get('score', None),
-                                'log_stutter_count': (stats or {}).get('final_log_stutter_count', None),
-                                'root_cause_top': (((stats or {}).get('root_cause_analysis') or {}).get('most_confident_cause') or {}).get('root_cause_type', ''),
-                            }
-                        except Exception as e:
-                            logger.warning(f'读取 summary JSON 失败: {filename} | {e}')
         except Exception as e:
             logger.warning(f'读取报告目录失败: {e}')
 
-        entries = sorted(entries_by_prefix.values(), key=lambda item: item.get('prefix', ''), reverse=True)
+        prefixes = sorted(entries_by_prefix.keys(), reverse=True)[:limit]
+        entries = []
+        for prefix in prefixes:
+            entry = entries_by_prefix.get(prefix) or {}
+            downloadable = []
+            for key in ('html', 'txt', 'json', 'csv'):
+                if entry.get(key):
+                    downloadable.append({
+                        'kind': key,
+                        'filename': entry[key],
+                    })
+            summary_json_filename = entry.get('json') or ''
+            summary_txt_filename = entry.get('txt') or ''
+            summary_json_path = os.path.join(report_dir, summary_json_filename) if summary_json_filename else ''
+            summary_txt_path = os.path.join(report_dir, summary_txt_filename) if summary_txt_filename else ''
+            entry_out = {
+                'prefix': prefix,
+                'csv': entry.get('csv', ''),
+                'html': entry.get('html', ''),
+                'txt': entry.get('txt', ''),
+                'json': entry.get('json', ''),
+                'downloadable': downloadable,
+                'meta': _load_report_meta_cached(summary_txt_path, summary_json_path),
+            }
+            entries.append(entry_out)
+
         return success_response(data={'reports': entries})
     except Exception as e:
         logger.error(f'获取报告列表失败: {e}', exc_info=True)
@@ -1321,9 +1987,34 @@ def api_reports():
 
 @stress_bp.route('/reports/<path:filename>')
 def view_report(filename):
-    from flask import send_from_directory
-    import os
     if not filename or ".." in filename or "/" in filename.replace("\\", "/") or filename != os.path.basename(filename):
         return error_response(message="Invalid filename", status_code=400)
     report_dir = get_module_report_dir('player_stress')
     return send_from_directory(report_dir, os.path.basename(filename))
+
+
+@stress_bp.route('/api/tv_event_evidence/<event_token>', methods=['GET'])
+def api_tv_event_evidence(event_token):
+    event_token = _safe_event_token(event_token)
+    if not event_token:
+        return error_response(message='invalid event token', status_code=400)
+    event_dir = _resolve_tv_event_evidence_dir(event_token)
+    if not event_dir:
+        return error_response(message='evidence not found', status_code=404)
+    manifest = _build_tv_event_evidence_manifest(event_dir, event_token)
+    return success_response(data=manifest)
+
+
+@stress_bp.route('/evidence/<event_token>/<path:filename>')
+def view_tv_event_evidence_file(event_token, filename):
+    event_token = _safe_event_token(event_token)
+    safe_name = os.path.basename(filename or '')
+    if not event_token or not safe_name or safe_name != filename:
+        return error_response(message='invalid evidence path', status_code=400)
+    event_dir = _resolve_tv_event_evidence_dir(event_token)
+    if not event_dir:
+        return error_response(message='evidence not found', status_code=404)
+    file_path = os.path.join(event_dir, safe_name)
+    if not os.path.isfile(file_path):
+        return error_response(message='file not found', status_code=404)
+    return send_from_directory(event_dir, safe_name)

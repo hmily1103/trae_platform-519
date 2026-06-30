@@ -4,7 +4,7 @@ import time
 class PlayStateEvaluator:
     """
     V2 裁决模块 (Referee)
-    职责: 收敛事实 -> 给出最终判定
+    职责: 收集事实并给出最终判定
     """
     
     # States
@@ -160,6 +160,7 @@ class PlayStateEvaluator:
         # 1. PID / Crash (Zero Tolerance)
         total_restarts = sum(1 for r in self.session_results if r["pid_restart"])
         total_crashes = sum(1 for r in self.session_results if r["crash_anr"])
+        pid_loss_count = int(summary_stats.get("pid_loss_count", 0) or 0)
         
         if total_restarts > 0:
             ded = 41
@@ -170,6 +171,12 @@ class PlayStateEvaluator:
             ded = 41
             score -= ded
             deductions.append(f"崩溃/ANR {total_crashes} 次 (-{ded}) [零容忍]")
+        if pid_loss_count > 0 and total_restarts == 0:
+            ded = 41
+            score -= ded
+            deductions.append(
+                f"目标播放器进程丢失 {pid_loss_count} 次 (-{ded}) [零容忍]"
+            )
             
         # 2. Success Rate
         total_sessions = len(self.session_results)
@@ -242,7 +249,7 @@ class PlayStateEvaluator:
             elif cause_type == "DECODER_STUCK":
                 ded = 25
                 score -= ded
-                deductions.append(f"硬件解码器卡死 (-{ded})")
+                deductions.append(f"硬件解码输出停顿 (-{ded})")
             elif cause_type == "MEMORY_PRESSURE":
                 ded = 10
                 score -= ded
@@ -264,14 +271,34 @@ class PlayStateEvaluator:
         decoder_stuck_count = int(
             summary_stats.get("decoder_stuck_count", 0) or 0
         )
+        confirmed_decoder_stuck_count = int(
+            summary_stats.get("confirmed_decoder_stuck_count", 0) or 0
+        )
+        decoder_stuck_risk_count = int(
+            summary_stats.get("decoder_stuck_risk_count", 0) or 0
+        )
         surface_locked = bool(summary_stats.get("tv_surface_locked", False))
+        valid_sample_ratio = float(
+            summary_stats.get("valid_sample_ratio", 1.0) or 0.0
+        )
+        target_process_lost = bool(
+            summary_stats.get("target_process_lost", False)
+        )
         release_blockers = []
+        if target_process_lost or pid_loss_count > 0:
+            release_blockers.append(
+                f"目标播放器进程丢失 {max(1, pid_loss_count)} 次，测试链路中断"
+            )
+        if valid_sample_ratio < 0.8:
+            release_blockers.append(
+                f"有效监控覆盖率仅 {valid_sample_ratio * 100:.1f}%"
+            )
         if cpu_overloaded:
             release_blockers.append("整机CPU持续高负载")
         if tv_stall_count > 0:
             release_blockers.append(f"确认电视端卡顿 {tv_stall_count} 次")
-        if decoder_stuck_count > 0:
-            release_blockers.append(f"解码器卡死 {decoder_stuck_count} 次")
+        if confirmed_decoder_stuck_count > 0:
+            release_blockers.append(f"解码输出停顿 {confirmed_decoder_stuck_count} 次")
         if not surface_locked:
             release_blockers.append("未锁定电视端视频Surface，证据覆盖不足")
 
@@ -281,7 +308,16 @@ class PlayStateEvaluator:
             and total_crashes == 0
             and not release_blockers
         )
-
+        hard_failure = bool(
+            target_process_lost
+            or pid_loss_count > 0
+            or total_restarts > 0
+            or total_crashes > 0
+            or cpu_overloaded
+            or tv_stall_count > 0
+            or confirmed_decoder_stuck_count > 0
+            or score < 60
+        )
         return {
             "score": score,
             "grade": grade,
@@ -291,12 +327,18 @@ class PlayStateEvaluator:
             "assessment": (
                 "pass"
                 if ready_to_release
-                else ("inconclusive" if not surface_locked else "fail")
+                else (
+                    "fail"
+                    if hard_failure
+                    else ("inconclusive" if not surface_locked else "fail")
+                )
             ),
             "counts": {
                 "restart": total_restarts,
                 "crash": total_crashes,
-                "screen_anomaly": self.screen_anomaly_count
+                "screen_anomaly": self.screen_anomaly_count,
+                "pid_loss": pid_loss_count,
+                "decoder_stuck_risk": decoder_stuck_risk_count,
             }
         }
 
@@ -309,9 +351,10 @@ class PlayStateEvaluator:
         issues = []
         if counts.get('crash', 0) > 0: issues.append(f"{counts['crash']}次崩溃")
         if counts.get('restart', 0) > 0: issues.append(f"{counts['restart']}次重启")
+        if counts.get('pid_loss', 0) > 0: issues.append(f"{counts['pid_loss']}次进程丢失")
         if counts.get('screen_anomaly', 0) > 0: issues.append(f"{counts['screen_anomaly']}次屏幕异常")
         
-        issue_str = f"发生 {'、'.join(issues)}，" if issues else "运行稳定，"
+        issue_str = f"发生{'、'.join(issues)}，" if issues else "运行稳定，"
         blockers = list(score_result.get("release_blockers", []) or [])
         assessment = str(score_result.get("assessment", "") or "")
         if ready:
@@ -323,36 +366,21 @@ class PlayStateEvaluator:
 
         root_cause_str = ""
         if isinstance(root_cause_info, dict):
-            top_cause = root_cause_info.get("most_confident_cause") or {}
-            evidence = (
-                top_cause.get("evidence", {})
-                if isinstance(top_cause, dict) else {}
-            ) or {}
-            if (
-                isinstance(top_cause, dict)
-                and top_cause.get("root_cause_type")
-                and not evidence.get("signal_only", False)
-                and not evidence.get("resource_only", False)
-                and float(top_cause.get("confidence", 0) or 0) >= 60
-            ):
-                cause_type = str(top_cause.get("root_cause_type", "") or "")
-                suspect = str(top_cause.get("suspect_process", "") or "")
-                type_cn = {
-                    "CPU_CONTENTION": "CPU竞争",
-                    "DECODER_STUCK": "解码器卡死",
-                    "MEMORY_PRESSURE": "内存压力",
-                    "LOW_FPS_DEGRADATION": "持续低帧",
-                    "AV_SYNC_ISSUE": "音画同步/缓冲",
-                }.get(cause_type, cause_type)
-                if suspect:
-                    root_cause_str = f"主要根因为{type_cn}（{suspect}），"
-                else:
-                    root_cause_str = f"主要根因为{type_cn}，"
+            diagnosis = root_cause_info.get("final_diagnosis") or {}
+            if isinstance(diagnosis, dict):
+                title = str(diagnosis.get("title", "") or "")
+                evidence_level = str(
+                    diagnosis.get("evidence_level", "") or ""
+                )
+                if title and evidence_level in ("confirmed", "strong"):
+                    root_cause_str = f"{title}。"
         
         blocker_str = (
             f"阻断项：{'；'.join(blockers)}。"
             if blockers else ""
         )
-        return (f"本次压测持续 {duration_str}，共播放 {song_count} 首歌曲。"
-                f"稳定性评分 {score} ({grade})。"
-                f"{root_cause_str}{issue_str}{blocker_str}{recommendation}。")
+        return (
+            f"本次压测持续 {duration_str}，共播放 {song_count} 首歌曲。"
+            f"稳定性评分 {score} ({grade})。"
+            f"{root_cause_str}{issue_str}{blocker_str}{recommendation}。"
+        )

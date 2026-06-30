@@ -100,6 +100,7 @@ class RkMonitor:
             return {}
 
         stats = self._parse_mpp_stats(raw_text)
+        stats["stats_source"] = str(self.active_path or "")
         
         # V2.3: 检测解码器是否卡死（total_work_count 停止增长）
         current_time = time.time()
@@ -115,7 +116,8 @@ class RkMonitor:
             # 优化：阈值从 2s 降至 1s，以捕捉肉眼可见的短时卡顿
             is_task_count_mode = "rkvdec/task_count" in str(self.active_path) or "vdpu/task_count" in str(self.active_path)
             
-            if (not is_task_count_mode and  # task_count 模式下不报卡死，除非有更可靠的依据
+            if (stats.get("work_count_reliable", False) and
+                not is_task_count_mode and  # task_count 模式下不报卡死，除非有更可靠的依据
                 time_delta >= 1.0 and 
                 work_count_delta == 0 and 
                 stats.get("active_instances", 0) > 0):
@@ -151,7 +153,8 @@ class RkMonitor:
             "active_instances": 0,
             "session_count": 0,
             "total_work_count": 0,
-            "error_found": False
+            "error_found": False,
+            "work_count_reliable": False
         }
         
         if not raw_text or "Error" in raw_text:
@@ -170,6 +173,7 @@ class RkMonitor:
         work_match = re.search(r'(total_usage|work_count)\s*[:=]\s*(\d+)', raw_text)
         if work_match:
             stats["total_work_count"] = int(work_match.group(2))
+            stats["work_count_reliable"] = True
 
         # 2. 尝试解析 procfs sessions-summary 格式
         # 通常包含 "session" 字样，每一行一个 session?
@@ -195,6 +199,7 @@ class RkMonitor:
             # 但为了支持卡死检测，我们假设只要能读到计数，就有潜在的活跃实例
             # 注意：这在暂停播放时可能会误报卡死，但在压测场景下通常一直在播放
             stats["active_instances"] = 1
+            stats["work_count_reliable"] = False
 
         # 简单判断是否有错误标志
         if "error" in raw_text.lower() or "timeout" in raw_text.lower():

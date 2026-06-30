@@ -222,6 +222,28 @@
         background: #fff;
     }
 
+    .display-snapshot-card {
+        margin-top: .75rem;
+        padding: .75rem;
+        border: 1px dashed #d7ddf8;
+        border-radius: 11px;
+        background: #fff;
+    }
+
+    .display-snapshot-preview {
+        margin-top: .75rem;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #edf0f4;
+        background: #f8fafc;
+    }
+
+    .display-snapshot-preview img {
+        width: 100%;
+        display: block;
+        background: #fff;
+    }
+
     .player-advanced {
         margin-top: .75rem;
     }
@@ -382,6 +404,12 @@
         border: 1px solid #e2e8f0 !important;
         border-radius: 14px;
         box-shadow: 0 8px 22px rgba(15, 23, 42, .04) !important;
+    }
+
+    .tv-detail-card.is-hot {
+        border-color: rgba(245, 158, 11, .55) !important;
+        background: linear-gradient(180deg, rgba(255, 251, 235, .92), #ffffff 55%);
+        box-shadow: 0 10px 26px rgba(245, 158, 11, .16) !important;
     }
 
     .metric-label {
@@ -661,6 +689,21 @@
                                                     <option value="2">Display 2 (电视屏2)</option>
                                                 </select>
                                                 <div class="form-text small fst-italic">建议只选电视屏 (Display 1/2)</div>
+                                                <div class="display-snapshot-card">
+                                                    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                                                        <div>
+                                                            <div class="small fw-semibold text-dark">单张截图确认</div>
+                                                            <div class="small text-muted">按当前选中的第一个 Display 抓一张图，用来确认是不是我们要测的那块屏。</div>
+                                                        </div>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary" id="captureDisplayBtn" onclick="captureDisplaySnapshot()">
+                                                            <i class="bi bi-camera me-1"></i>抓取截图
+                                                        </button>
+                                                    </div>
+                                                    <div class="small text-muted mt-2" id="displaySnapshotStatus">还没有抓图</div>
+                                                    <div class="display-snapshot-preview d-none" id="displaySnapshotPreview">
+                                                        <img id="displaySnapshotImage" alt="Display snapshot preview">
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -760,19 +803,24 @@
                             </div>
                             <div class="device-info-strip">
                                 <div class="device-info-item">
-                                    <div class="metric-label">本轮报告</div>
+                                    <div class="metric-label">HTML 报告</div>
                                     <div class="device-info-value"><a id="monitor-report-link" href="#" target="_blank">-</a></div>
                                 </div>
                                 <div class="device-info-item">
-                                    <div class="metric-label">本轮摘要</div>
-                                    <div class="device-info-value"><a id="monitor-summary-link" href="#" target="_blank">-</a></div>
+                                    <div class="metric-label">TXT 摘要</div>
+                                    <div class="device-info-value"><a id="monitor-summary-txt-link" href="#" target="_blank">-</a></div>
+                                </div>
+                                <div class="device-info-item">
+                                    <div class="metric-label">CSV 明细</div>
+                                    <div class="device-info-value"><a id="monitor-report-csv-link" href="#" target="_blank">-</a></div>
                                 </div>
                             </div>
+                            <div class="small text-muted mt-2" id="monitor-report-meta">报告元数据将随本轮运行自动更新</div>
                         </div>
 
                         <div class="row g-3 mb-4">
                             <div class="col-lg-4">
-                                <div class="card border-0 shadow-sm h-100 tv-detail-card">
+                                <div class="card border-0 shadow-sm h-100 tv-detail-card" id="cpu-cause-card">
                                     <div class="card-body">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
                                             <h6 class="fw-bold mb-0"><i class="bi bi-display me-2 text-primary"></i>电视端身份</h6>
@@ -799,7 +847,7 @@
                                                 <div class="metric-value-sm" id="tv-stall-count">0</div>
                                             </div>
                                             <div class="col-6">
-                                                <div class="metric-label">当前持续</div>
+                                                <div class="metric-label">当前事件持续</div>
                                                 <div class="metric-value-sm" id="tv-active-duration">-</div>
                                             </div>
                                             <div class="col-12">
@@ -837,6 +885,7 @@
                                         <div>
                                             <h6 class="text-muted text-uppercase small fw-bold mb-1">视频 FPS</h6>
                                             <h3 class="fw-bold mb-0 text-dark" id="metric-video-fps">-</h3>
+                                            <div class="small text-muted mt-1" id="metric-video-fps-reason">等待数据</div>
                                         </div>
                                     </div>
                                 </div>
@@ -881,32 +930,69 @@
                                 </div>
                             </div>
                         </div>
-
                         <!-- Status Row -->
                         <div class="row g-3 mb-4">
-                            <div class="col-md-3">
+                            <div class="col-md-6 col-xl">
                                 <div class="card border-0 shadow-sm h-100">
                                     <div class="card-body d-flex justify-content-between align-items-center">
                                         <div>
                                             <h6 class="text-muted small fw-bold mb-1">解码器计数</h6>
                                             <h4 class="mb-0" id="metric-work-count">-</h4>
+                                            <div class="small text-muted mt-2" id="metric-work-count-detail">等待数据</div>
                                         </div>
                                         <i class="bi bi-123 text-secondary fs-4"></i>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-6 col-xl">
                                 <div class="card border-0 shadow-sm h-100">
                                     <div class="card-body d-flex justify-content-between align-items-center">
                                         <div>
-                                            <h6 class="text-muted small fw-bold mb-1">解码器状态</h6>
+                                            <h6 class="text-muted small fw-bold mb-1">解码状态</h6>
                                             <div id="metric-decoder-status"><span class="badge bg-secondary">-</span></div>
                                         </div>
                                         <i class="bi bi-gpu-card text-secondary fs-4"></i>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-6 col-xl">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-muted small fw-bold mb-1">播放器异常</h6>
+                                            <div id="metric-process-failure"><span class="badge bg-secondary">-</span></div>
+                                            <div class="small text-muted mt-2" id="metric-process-failure-detail">等待监控</div>
+                                        </div>
+                                        <i class="bi bi-heartbreak text-secondary fs-4"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-xl">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-muted small fw-bold mb-1">责任判定</h6>
+                                            <div id="metric-responsibility"><span class="badge bg-secondary">-</span></div>
+                                            <div class="small text-muted mt-2" id="metric-responsibility-detail">等待责任判定</div>
+                                            <div class="small text-muted mt-1" id="metric-responsibility-basis">-</div>
+                                        </div>
+                                        <i class="bi bi-diagram-3 text-secondary fs-4"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-xl">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-muted small fw-bold mb-1">证据强度</h6>
+                                            <div id="metric-evidence-strength"><span class="badge bg-secondary">-</span></div>
+                                            <div class="small text-muted mt-2" id="metric-evidence-strength-detail">等待证据强度</div>
+                                        </div>
+                                        <i class="bi bi-patch-check text-secondary fs-4"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-xl">
                                 <div class="card border-0 shadow-sm h-100">
                                     <div class="card-body d-flex justify-content-between align-items-center">
                                         <div>
@@ -917,16 +1003,107 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-6 col-xl">
                                 <div class="card border-0 shadow-sm h-100">
                                     <div class="card-body d-flex justify-content-between align-items-center">
                                         <div>
                                             <h6 class="text-muted small fw-bold mb-1">解码丢帧</h6>
                                             <div id="metric-decode-drop"><span class="badge bg-secondary">-</span></div>
+                                            <div class="small text-muted mt-2" id="metric-decode-drop-detail">等待数据</div>
                                         </div>
                                         <i class="bi bi-exclamation-triangle text-secondary fs-4"></i>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0 fw-bold"><i class="bi bi-link-45deg me-2 text-primary"></i>责任关联时间线</h5>
+                                <span class="small text-muted">卡顿是否与 Crash / ANR / PID 异常时间重合</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <div class="small text-muted">关联窗口</div>
+                                        <div class="fw-semibold" id="metric-correlation-window">-</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="small text-muted">卡顿总数</div>
+                                        <div class="fw-semibold" id="metric-correlation-stalls">-</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="small text-muted">异常总数</div>
+                                        <div class="fw-semibold" id="metric-correlation-failures">-</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="small text-muted">时间重合率</div>
+                                        <div class="fw-semibold" id="metric-correlation-ratio">-</div>
+                                    </div>
+                                </div>
+                                <div class="mt-3" id="metric-correlation-badge"><span class="badge bg-secondary">-</span></div>
+                                <div class="small text-muted mt-2" id="metric-correlation-conclusion">等待分析</div>
+                                <div class="small text-muted mt-2" id="metric-correlation-pairs">-</div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0 fw-bold"><i class="bi bi-cpu me-2 text-warning"></i>平台支持等级</h5>
+                                <span class="small text-muted">当前主板在本工具下能做到什么级别的证据判断</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="fw-semibold" id="metric-platform-target">-</div>
+                                <div class="small text-muted mt-1" id="metric-platform-grade">-</div>
+                                <div class="small text-muted mt-2" id="metric-platform-conclusion">-</div>
+                                <div class="mt-3">
+                                    <div class="small text-muted mb-1">当前能力</div>
+                                    <ul class="small mb-2" id="metric-platform-capabilities">
+                                        <li>-</li>
+                                    </ul>
+                                </div>
+                                <div class="small text-muted">当前边界</div>
+                                <ul class="small mt-1 mb-0" id="metric-platform-limitations">
+                                    <li>-</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0 fw-bold"><i class="bi bi-speedometer2 me-2 text-info"></i>工具自身开销</h5>
+                                <span class="small text-muted">监控工具自身 CPU / 内存占用，辅助判断是否存在带入误差</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="fw-semibold" id="metric-observer-pid">-</div>
+                                <div class="small text-muted mt-1" id="metric-observer-mode">-</div>
+                                <div class="small text-muted mt-2" id="metric-observer-conclusion">-</div>
+                                <div class="mt-3">
+                                    <div class="small text-muted mb-1">CPU 开销</div>
+                                    <div class="small" id="metric-observer-cpu">-</div>
+                                </div>
+                                <div class="small text-muted mt-2">内存开销</div>
+                                <div class="small mt-1" id="metric-observer-memory">-</div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2 text-success"></i>研发处理优先级</h5>
+                                <span class="small text-muted">拿到结论后先查谁、看什么、怎么复测</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="fw-semibold" id="metric-dev-priority-target">-</div>
+                                <div class="small text-muted mt-1" id="metric-dev-priority-owner">-</div>
+                                <div class="small text-muted mt-1" id="metric-dev-priority-strength">-</div>
+                                <div class="mt-3">
+                                    <div class="small text-muted mb-1">建议查看日志</div>
+                                    <ul class="small mb-2" id="metric-dev-priority-logs">
+                                        <li>-</li>
+                                    </ul>
+                                </div>
+                                <div class="small text-muted">复测建议</div>
+                                <div class="small mt-1" id="metric-dev-priority-retest">-</div>
                             </div>
                         </div>
 
@@ -1037,6 +1214,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
     let logInterval = null;
+    let isFetchingLogs = false;
+    let lastRenderedLogsText = '';
+    const LOG_POLL_INTERVAL_MS = 1500;
+    const STOPPING_POLL_INTERVAL_MS = 1000;
 
     async function refreshDevices() {
         const select = document.getElementById('deviceId');
@@ -1175,6 +1356,67 @@
             console.error('环境检查失败:', error);
         }
     }
+
+    function getPrimarySelectedDisplay() {
+        const targetSelect = document.getElementById('targetDisplays');
+        if (!targetSelect) return 1;
+        const selected = Array.from(targetSelect.selectedOptions || []).map(opt => opt.value);
+        if (selected.length > 0) {
+            const parsed = parseInt(selected[0], 10);
+            return Number.isNaN(parsed) ? 1 : parsed;
+        }
+        const fallback = targetSelect.value || '1';
+        const parsed = parseInt(fallback, 10);
+        return Number.isNaN(parsed) ? 1 : parsed;
+    }
+
+    async function captureDisplaySnapshot() {
+        const deviceId = document.getElementById('deviceId')?.value;
+        const button = document.getElementById('captureDisplayBtn');
+        const status = document.getElementById('displaySnapshotStatus');
+        const preview = document.getElementById('displaySnapshotPreview');
+        const image = document.getElementById('displaySnapshotImage');
+
+        if (!deviceId) {
+            toast.warning('请先选择设备');
+            return;
+        }
+
+        const displayId = getPrimarySelectedDisplay();
+
+        if (button) button.disabled = true;
+        if (status) status.textContent = `正在抓取 Display ${displayId} 截图...`;
+
+        try {
+            const data = await ApiClient.get(
+                `/player_stress/api/display_snapshot?device_id=${encodeURIComponent(deviceId)}&display_id=${displayId}`,
+                { showLoading: false }
+            );
+
+            if (!(data.success || data.ok)) {
+                throw new Error(data.message || data.error || '抓图失败');
+            }
+
+            const payload = data.data || {};
+            if (image && payload.image_url) {
+                image.src = payload.image_url;
+            }
+            if (preview) {
+                preview.classList.remove('d-none');
+            }
+            if (status) {
+                status.textContent = `已抓取 Display ${payload.display_id}，时间 ${payload.captured_at || '-'}`;
+            }
+            toast.success(`Display ${displayId} 截图已生成`);
+        } catch (error) {
+            if (status) {
+                status.textContent = `抓图失败：${error.message || '请检查设备状态'}`;
+            }
+            toast.error(error.message || '抓图失败');
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
     
     // 获取监控时长（分钟）
     function getDurationMinutes() {
@@ -1291,7 +1533,7 @@
                 
                 // 然后开始定期轮询（1.5秒以更快获取性能数据）
                 if(!logInterval) {
-                    logInterval = setInterval(fetchLogs, 1500);
+                    startPolling();
                     console.log('startTest: 已启动状态轮询，间隔1.5秒');
                 }
             } else {
@@ -1326,9 +1568,7 @@
                     const stopBtn = document.getElementById('stopBtn');
                     stopBtn.disabled = true;
                     stopBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>正在停止';
-                    if (!logInterval) {
-                        logInterval = setInterval(fetchLogs, 1000);
-                    }
+                    restartPolling(STOPPING_POLL_INTERVAL_MS);
                 }
                 fetchLogs();
             }
@@ -1349,7 +1589,7 @@
         
         if(running) {
             if(!logInterval) {
-                logInterval = setInterval(fetchLogs, 1500);
+                startPolling();
             }
         } else {
             if(logInterval) {
@@ -1362,33 +1602,71 @@
     let fpsChart = null;
     let workCountChart = null;
     let chartData = { fps: [], workCount: [], labels: [] };
+
+    function startPolling(intervalMs = LOG_POLL_INTERVAL_MS) {
+        if (logInterval) return;
+        logInterval = setInterval(fetchLogs, intervalMs);
+    }
+
+    function stopPolling() {
+        if (!logInterval) return;
+        clearInterval(logInterval);
+        logInterval = null;
+    }
+
+    function restartPolling(intervalMs = LOG_POLL_INTERVAL_MS) {
+        stopPolling();
+        startPolling(intervalMs);
+    }
     
-    async function fetchLogs() {
+    let lastLogsFetchAt = 0;
+    const LOG_REFRESH_INTERVAL_MS = 8000;
+
+    function isLogsPanelActive() {
+        const panel = document.getElementById('logs-panel');
+        return Boolean(panel && panel.classList.contains('active') && panel.classList.contains('show'));
+    }
+
+    async function fetchRealtimeLogs(force = false) {
+        const now = Date.now();
+        if (!force && !isLogsPanelActive() && (now - lastLogsFetchAt) < LOG_REFRESH_INTERVAL_MS) {
+            return;
+        }
         try {
-            const data = await ApiClient.get('/player_stress/api/status', {
+            const data = await ApiClient.get('/player_stress/api/logs?limit=120', {
                 showLoading: false
             });
-            
-            if(data.success || data.ok) {
-                const logs = data.data?.logs || data.logs || [];
-                console.log('fetchLogs: 收到日志数量:', logs.length, '前3条:', logs.slice(0, 3));
-                const content = document.getElementById('logContent');
-                if(content) {
-                    if(logs.length > 0) {
-                        content.innerText = logs.join('\n'); // Simple text dump
-                    } else {
-                        content.innerText = '等待日志...\n（如果测试已启动但长时间无日志，请检查设备连接）';
-                    }
-                } else {
-                    console.error('logContent 元素未找到');
+            if (!(data.success || data.ok)) return;
+            const logs = data.data?.logs || data.logs || [];
+            const content = document.getElementById('logContent');
+            if (content) {
+                const nextLogsText = logs.length > 0
+                    ? logs.join('\n')
+                    : '????...\n????????????????????????';
+                if (nextLogsText !== lastRenderedLogsText) {
+                    content.innerText = nextLogsText;
+                    lastRenderedLogsText = nextLogsText;
                 }
-                
-                if(document.getElementById('autoScroll').checked) {
-                    const container = document.getElementById('logContainer');
-                    container.scrollTop = container.scrollHeight;
-                }
-                
-                // Update metrics and charts (独立处理，确保有 history 就更新图表)
+            }
+            if (isLogsPanelActive() && document.getElementById('autoScroll').checked) {
+                const container = document.getElementById('logContainer');
+                if (container) container.scrollTop = container.scrollHeight;
+            }
+            lastLogsFetchAt = now;
+        } catch (error) {
+            console.error('fetchRealtimeLogs failed', error);
+        }
+    }
+
+    async function fetchLogs() {
+        if (isFetchingLogs) return;
+        isFetchingLogs = true;
+        try {
+            const data = await ApiClient.get('/player_stress/api/status?include_logs=0', {
+                showLoading: false
+            });
+
+            if (data.success || data.ok) {
                 const metrics = data.data?.metrics;
                 const history = data.data?.history || [];
                 const running = data.data?.running !== undefined ? data.data.running : data.running;
@@ -1396,110 +1674,373 @@
                 const tvMonitor = data.data?.tv_monitor || {};
                 const runState = data.data?.run_state || {};
                 const deviceInfo = data.data?.device_info || {};
-                
-                if(history.length > 0) {
-                    // 有历史数据时优先更新图表（即使 video_fps 全为 0 也显示趋势）
-                    updateCharts(history);
-                    document.querySelector('.chart-wait-hint')?.remove();
-                } else if(running) {
-                    const chartCard = document.querySelector('#fpsChart')?.closest('.card-body');
-                    if(chartCard && !chartCard.querySelector('.chart-wait-hint')) {
-                        const hint = document.createElement('div');
-                        hint.className = 'chart-wait-hint text-muted small mb-2';
-                        hint.textContent = perfMode === '极低功耗' ? '极低功耗模式不采集数据，请选择标准/深度模式' : '首帧数据约需 10–30 秒，请稍候…';
-                        chartCard.insertBefore(hint, chartCard.firstChild);
+
+                try {
+                    if (history.length > 0) {
+                        updateCharts(history);
+                        document.querySelector('.chart-wait-hint')?.remove();
+                    } else if (running) {
+                        const chartCard = document.querySelector('#fpsChart')?.closest('.card-body');
+                        if (chartCard && !chartCard.querySelector('.chart-wait-hint')) {
+                            const hint = document.createElement('div');
+                            hint.className = 'chart-wait-hint text-muted small mb-2';
+                            hint.textContent = perfMode === '????'
+                                ? '???????????????????????????'
+                                : '??????????? 10 ? 20 ??????';
+                            chartCard.insertBefore(hint, chartCard.firstChild);
+                        }
+                    } else {
+                        clearCharts();
                     }
-                } else {
-                    clearCharts();
+                } catch (error) {
+                    console.error('updateCharts stage failed', error);
                 }
-                
-                if(metrics && Object.keys(metrics).length > 0) {
-                    updateMetrics(metrics);
-                } else {
-                    resetLiveMetrics(Boolean(running), perfMode);
+
+                try {
+                    if (metrics && Object.keys(metrics).length > 0) {
+                        updateMetrics(metrics);
+                    } else {
+                        resetLiveMetrics(Boolean(running), perfMode);
+                    }
+                } catch (error) {
+                    console.error('updateMetrics stage failed', error);
                 }
-                updateTvMonitor(metrics || {}, tvMonitor, Boolean(running), perfMode, runState);
-                updateRunProgress(runState, Boolean(running));
-                updateDeviceInfo(deviceInfo);
-                
+
+                try {
+                    updateRunProgress(runState, Boolean(running));
+                } catch (error) {
+                    console.error('updateRunProgress stage failed', error);
+                }
+
+                try {
+                    updateDeviceInfo(deviceInfo);
+                } catch (error) {
+                    console.error('updateDeviceInfo stage failed', error);
+                }
+
+                try {
+                    updateTvMonitor(metrics || {}, tvMonitor, Boolean(running), perfMode, runState);
+                } catch (error) {
+                    console.error('updateTvMonitor stage failed', error);
+                }
+
                 const songCount = data.data?.song_count;
                 const songCountEl = document.getElementById('metric-song-count');
-                if(songCountEl) songCountEl.textContent = songCount !== undefined ? String(songCount) : '-';
-                
+                if (songCountEl) songCountEl.textContent = songCount !== undefined ? String(songCount) : '-';
+
                 updateUIState(running);
-                if(!running && logInterval) {
-                    // Stop polling if stopped
-                    clearInterval(logInterval);
-                    logInterval = null;
+                await fetchRealtimeLogs(false);
+                if (!running && logInterval) {
+                    stopPolling();
                 }
             }
         } catch (error) {
-            // 静默处理，避免频繁错误提示
+            console.error('fetchLogs failed', error);
+        } finally {
+            isFetchingLogs = false;
         }
     }
-    
+
+    function humanizeVideoFpsSource(source) {
+        const raw = String(source || '').trim();
+        if (!raw || raw === 'none') return '-';
+        const mapping = {
+            surfaceflinger_surface_display_1: '??? SurfaceFlinger?Display 1?',
+            surfaceflinger_surface_display_2: '??? SurfaceFlinger?Display 2?',
+            surfaceflinger_display_1_fallback: '??? SurfaceFlinger ?????Display 1?',
+            surfaceflinger_display_2_fallback: '??? SurfaceFlinger ?????Display 2?',
+            surfaceflinger_display_1: '??? Display ????Display 1?',
+            surfaceflinger_display_2: '??? Display ????Display 2?',
+            gfxinfo_display_0: '??? GfxInfo?Display 0?',
+            mpp_estimate: 'MPP ??????',
+        };
+        return mapping[raw] || raw;
+    }
     function updateMetrics(metrics) {
+
         // Video FPS
-        const fps = metrics.video_fps || 0;
+        const fps = Number(metrics.video_fps || 0);
+        const fpsCollected = Boolean(metrics.video_fps_collected) || String(metrics.video_fps_source || '') !== 'none';
         const fpsEl = document.getElementById('metric-video-fps');
-        fpsEl.textContent = fps > 0 ? fps.toFixed(1) : 'N/A';
-        fpsEl.title = fps > 0 ? '' : '若为极低功耗模式则不采集FPS';
-        
+        const fpsReasonEl = document.getElementById('metric-video-fps-reason');
+        const fpsUnavailableReason = String(metrics.fps_unavailable_reason || '').trim();
+        fpsEl.textContent = (fps > 0 || fpsCollected) ? fps.toFixed(1) : 'N/A';
+        fpsEl.title = (fps > 0 || fpsCollected) ? '' : (fpsUnavailableReason || 'No valid TV FPS data');
+        fpsEl.classList.toggle('text-danger', !(fps > 0) && Boolean(fpsUnavailableReason));
+        fpsEl.classList.toggle('text-dark', (fps > 0 || fpsCollected) || !fpsUnavailableReason);
+        if (fpsReasonEl) {
+            fpsReasonEl.textContent = (fps > 0 || fpsCollected)
+                ? `来源：${humanizeVideoFpsSource(metrics.video_fps_source || '-')}`
+                : `N/A 原因：${fpsUnavailableReason || '当前未采集到有效电视端 FPS 数据'}`;
+            fpsReasonEl.classList.toggle('text-danger', !(fps > 0 || fpsCollected) && Boolean(fpsUnavailableReason));
+            fpsReasonEl.classList.toggle('text-muted', (fps > 0 || fpsCollected) || !fpsUnavailableReason);
+        }
+
         // Work Count
         document.getElementById('metric-work-count').textContent = metrics.mpp_work_count || 0;
-        
+        const workCountDetailEl = document.getElementById('metric-work-count-detail');
+        if (workCountDetailEl) {
+            const sessions = Number(metrics.mpp_sessions || 0);
+            const workCount = Number(metrics.mpp_work_count || 0);
+            if (workCount > 0 || sessions > 0) {
+                workCountDetailEl.textContent = `活跃解码会话 ${sessions} | 当前 work_count ${workCount}`;
+            } else if (metrics.video_fps > 0) {
+                workCountDetailEl.textContent = '当前未识别到活跃解码会话，0 不一定代表解码异常';
+            } else {
+                workCountDetailEl.textContent = '当前未识别到活跃解码会话';
+            }
+        }
+
         // Decoder Status
         const decoderStatus = document.getElementById('metric-decoder-status');
-        if(metrics.decoder_stuck) {
+        if (metrics.decoder_stuck && metrics.decoder_stuck_confirmed) {
             const sec = metrics.decoder_stuck_duration_sec || 0;
-            decoderStatus.innerHTML = '<span class="badge bg-danger">⚠️ 卡死 ' + sec.toFixed(1) + 's</span>';
+            decoderStatus.innerHTML = '<span class="badge bg-danger">已确认停顿 ' + sec.toFixed(1) + 's</span>';
+        } else if (metrics.decoder_stuck) {
+            const sec = metrics.decoder_stuck_duration_sec || 0;
+            decoderStatus.innerHTML = '<span class="badge bg-warning text-dark">风险观察 ' + sec.toFixed(1) + 's</span>';
         } else {
-            decoderStatus.innerHTML = '<span class="badge bg-success">✅ 正常</span>';
+            decoderStatus.innerHTML = '<span class="badge bg-success">正常</span>';
         }
-        
+
         // TV Stutter
         const tvStutter = document.getElementById('metric-tv-stutter');
-        if(metrics.tv_stutter_detected) {
-            tvStutter.innerHTML = '<span class="badge bg-danger">🚨 检测到</span>';
+        if (metrics.tv_stutter_detected) {
+            tvStutter.innerHTML = '<span class="badge bg-danger">已检测到</span>';
         } else if (metrics.system_cpu_pressure) {
-            tvStutter.innerHTML = '<span class="badge bg-warning text-dark">资源争抢风险</span>';
+            tvStutter.innerHTML = '<span class="badge bg-warning text-dark">资源竞争风险</span>';
         } else {
-            tvStutter.innerHTML = '<span class="badge bg-success">✅ 正常</span>';
+            tvStutter.innerHTML = '<span class="badge bg-success">正常</span>';
         }
 
         const decodeDropEl = document.getElementById('metric-decode-drop');
+        const decodeDropDetailEl = document.getElementById('metric-decode-drop-detail');
+        const processFailureEl = document.getElementById('metric-process-failure');
+        const processFailureDetailEl = document.getElementById('metric-process-failure-detail');
+        const responsibilityEl = document.getElementById('metric-responsibility');
+        const responsibilityDetailEl = document.getElementById('metric-responsibility-detail');
+        const responsibilityBasisEl = document.getElementById('metric-responsibility-basis');
+        const evidenceStrengthEl = document.getElementById('metric-evidence-strength');
+        const evidenceStrengthDetailEl = document.getElementById('metric-evidence-strength-detail');
         if (decodeDropEl) {
             const drop = metrics.decode_drop_estimate || 0;
             const ratio = metrics.decode_drop_ratio || 0;
             if (!metrics.mpp_work_count && !metrics.mpp_work_count_delta && !metrics.decoder_stuck) {
                 decodeDropEl.innerHTML = '<span class="badge bg-secondary">未启用</span>';
-            } else if (metrics.decoder_stuck) {
-                decodeDropEl.innerHTML = '<span class="badge bg-danger">解码卡死</span>';
-            } else if (drop >= 3 || ratio >= 0.10) {
-                decodeDropEl.innerHTML = '<span class="badge bg-warning text-dark">疑似丢帧 ' + drop + ' (' + (ratio * 100).toFixed(1) + '%)</span>';
+                if (decodeDropDetailEl) decodeDropDetailEl.textContent = '当前没有可靠的 MPP work_count，解码丢帧不参与判定';
+        } else if (metrics.decoder_stuck && metrics.decoder_stuck_confirmed) {
+            decodeDropEl.innerHTML = '<span class="badge bg-danger">已停顿</span>';
+            if (decodeDropDetailEl) decodeDropDetailEl.textContent = '已检测到解码输出停顿，优先看解码器日志与时间窗证据';
+        } else if (metrics.decoder_stuck) {
+            decodeDropEl.innerHTML = '<span class="badge bg-warning text-dark">风险</span>';
+            if (decodeDropDetailEl) decodeDropDetailEl.textContent = '检测到解码异常风险，建议结合 decoder_window.txt 继续确认';
+        } else if (drop >= 3 || ratio >= 0.10) {
+                decodeDropEl.innerHTML = '<span class="badge bg-warning text-dark">丢帧 ' + drop + ' (' + (ratio * 100).toFixed(1) + '%)</span>';
+                if (decodeDropDetailEl) decodeDropDetailEl.textContent = '解码吞吐出现下降，建议对照视频 FPS 与解码日志';
             } else {
-                decodeDropEl.innerHTML = '<span class="badge bg-success">✅ 正常</span>';
+                decodeDropEl.innerHTML = '<span class="badge bg-success">正常</span>';
+                if (decodeDropDetailEl) decodeDropDetailEl.textContent = '当前未见明显解码丢帧迹象';
             }
         }
-        
+
+        if (processFailureEl && processFailureDetailEl) {
+            const failureSummary = metrics.process_failure_summary || {};
+            const total = Number(failureSummary.total_failure_count || 0);
+            const crash = Number(failureSummary.crash_count || 0);
+            const anr = Number(failureSummary.anr_count || 0);
+            const restart = Number(failureSummary.restart_count || 0);
+            const lost = Number(failureSummary.pid_loss_count || 0);
+            if (total > 0) {
+                processFailureEl.innerHTML = `<span class="badge bg-danger">异常 ${total} 次</span>`;
+                processFailureDetailEl.textContent = `Crash ${crash} / ANR ${anr} / 重启 ${restart} / 丢失 ${lost}`;
+            } else {
+                processFailureEl.innerHTML = '<span class="badge bg-success">正常</span>';
+                processFailureDetailEl.textContent = '未检测到挂掉、ANR、PID 重启或进程丢失';
+            }
+        }
+
+        if (responsibilityEl && responsibilityDetailEl) {
+            const responsibility = metrics.responsibility_summary || {};
+            const category = String(responsibility.category || '').trim();
+            const owner = String(responsibility.owner || '').trim();
+            const suspect = String(responsibility.suspect_process || '').trim();
+            const confidence = String(responsibility.confidence || '').trim();
+            const keyBasis = String(responsibility.key_basis || '').trim();
+            if (category) {
+                let badgeClass = 'bg-secondary';
+                if (category === '\u64ad\u653e\u5668\u81ea\u8eab\u5f02\u5e38\u4e3b\u5bfc' || category === '\u89e3\u7801\u94fe\u8def\u5f02\u5e38\u4e3b\u5bfc') {
+                    badgeClass = 'bg-danger';
+                } else if (category === '\u7cfb\u7edf/\u56fa\u4ef6 CPU \u7ade\u4e89\u4e3b\u5bfc' || category.includes('\u6682\u4e0d\u80fd\u5355\u72ec\u5b9a\u8d23')) {
+                    badgeClass = 'bg-warning text-dark';
+                } else if (category === '\u672a\u68c0\u6d4b\u5230\u7535\u89c6\u7aef\u5361\u987f') {
+                    badgeClass = 'bg-success';
+                }
+                responsibilityEl.innerHTML = `<span class="badge ${badgeClass}">${escapeHtml(category)}</span>`;
+                if (category === '\u672a\u68c0\u6d4b\u5230\u7535\u89c6\u7aef\u5361\u987f') {
+                    responsibilityDetailEl.textContent = '当前无需定责';
+                } else {
+                    responsibilityDetailEl.textContent = `${owner || '\u5f85\u786e\u8ba4'} | ${suspect || '\u65e0'} | 置信度 ${confidence || 'low'}`;
+                }
+                if (responsibilityBasisEl) responsibilityBasisEl.textContent = keyBasis ? `\u5173\u952e\u4f9d\u636e\uff1a${keyBasis}` : '\u5173\u952e\u4f9d\u636e\uff1a-';
+            } else {
+                responsibilityEl.innerHTML = '<span class="badge bg-secondary">等待分析</span>';
+                responsibilityDetailEl.textContent = '\u7b49\u5f85\u8d23\u4efb\u5224\u5b9a';
+                if (responsibilityBasisEl) responsibilityBasisEl.textContent = '\u5173\u952e\u4f9d\u636e\uff1a\u7b49\u5f85\u5206\u6790';
+            }
+        }
+
+        if (evidenceStrengthEl && evidenceStrengthDetailEl) {
+            const evidenceStrength = metrics.evidence_strength || {};
+            const label = String(evidenceStrength.label || '').trim();
+            const level = String(evidenceStrength.level || '').trim().toLowerCase();
+            const description = String(evidenceStrength.description || '').trim();
+            let badgeClass = 'bg-secondary';
+            if (level === 'confirmed') {
+                badgeClass = 'bg-danger';
+            } else if (level === 'strong') {
+                badgeClass = 'bg-warning text-dark';
+            } else if (level === 'risk') {
+                badgeClass = 'bg-info text-dark';
+            }
+            if (label) {
+                const evidenceLabelMap = {
+                    confirmed: '已确认',
+                    strong: '强证据',
+                    risk: '风险级',
+                    insufficient: '证据不足',
+                    none: '无'
+                };
+                const displayLabel = evidenceLabelMap[level] || label;
+                evidenceStrengthEl.innerHTML = `<span class="badge ${badgeClass}">${escapeHtml(displayLabel)}</span>`;
+                evidenceStrengthDetailEl.textContent = description || '证据强度已生成';
+            } else {
+                evidenceStrengthEl.innerHTML = '<span class="badge bg-secondary">等待分析</span>';
+                evidenceStrengthDetailEl.textContent = '等待根因诊断生成证据强度';
+            }
+        }
+
+        const correlation = metrics.tv_process_correlation_summary || {};
+        const correlationWindowEl = document.getElementById('metric-correlation-window');
+        const correlationStallsEl = document.getElementById('metric-correlation-stalls');
+        const correlationFailuresEl = document.getElementById('metric-correlation-failures');
+        const correlationRatioEl = document.getElementById('metric-correlation-ratio');
+        const correlationBadgeEl = document.getElementById('metric-correlation-badge');
+        const correlationConclusionEl = document.getElementById('metric-correlation-conclusion');
+        const correlationPairsEl = document.getElementById('metric-correlation-pairs');
+        if (correlationWindowEl) correlationWindowEl.textContent = `${Number(correlation.window_seconds || 30)}s`;
+        if (correlationStallsEl) correlationStallsEl.textContent = String(Number(correlation.total_tv_stall_count || 0));
+        if (correlationFailuresEl) correlationFailuresEl.textContent = String(Number(correlation.total_failure_event_count || 0));
+        if (correlationRatioEl) correlationRatioEl.textContent = `${(Number(correlation.correlated_ratio || 0) * 100).toFixed(1)}%`;
+        if (correlationBadgeEl && correlationConclusionEl && correlationPairsEl) {
+            const confidenceLevel = String(correlation.confidence_level || '').trim().toLowerCase();
+            let badgeClass = 'bg-secondary';
+            let badgeText = '等待分析';
+            if (confidenceLevel === 'strong') {
+                badgeClass = 'bg-danger';
+                badgeText = '强相关';
+            } else if (confidenceLevel === 'medium') {
+                badgeClass = 'bg-warning text-dark';
+                badgeText = '中等相关';
+            } else if (confidenceLevel === 'weak') {
+                badgeClass = 'bg-info text-dark';
+                badgeText = '弱相关';
+            } else if (confidenceLevel === 'none') {
+                badgeClass = 'bg-success';
+                badgeText = '未见关联';
+            }
+            correlationBadgeEl.innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
+            correlationConclusionEl.textContent = String(correlation.conclusion || '等待卡顿与播放器异常关联分析');
+            const pairs = Array.isArray(correlation.pair_details) ? correlation.pair_details.slice(0, 2) : [];
+            correlationPairsEl.textContent = pairs.length
+                ? pairs.map(item => `卡顿 ${item.stall_time || '-'} ↔ 异常 ${item.failure_type || '-'} ${item.failure_time || '-'}`).join('；')
+                : '本轮无卡顿与播放器异常重合样本';
+        }
+
+        const devPriority = metrics.dev_priority_summary || {};
+        const devTargetEl = document.getElementById('metric-dev-priority-target');
+        const devOwnerEl = document.getElementById('metric-dev-priority-owner');
+        const devStrengthEl = document.getElementById('metric-dev-priority-strength');
+        const devLogsEl = document.getElementById('metric-dev-priority-logs');
+        const devRetestEl = document.getElementById('metric-dev-priority-retest');
+        if (devTargetEl && devOwnerEl && devStrengthEl && devLogsEl && devRetestEl) {
+            devTargetEl.textContent = devPriority.target || '本轮暂无专项排查项';
+            devOwnerEl.textContent = `Owner: ${devPriority.owner || '无需归因'} | Cause: ${devPriority.cause_type || 'NONE'}`;
+            devStrengthEl.textContent = `Evidence: ${devPriority.strength || 'N/A'}`;
+            const logs = Array.isArray(devPriority.logs) ? devPriority.logs : [];
+            devLogsEl.innerHTML = logs.length
+                ? logs.map(item => `<li>${escapeHtml(item)}</li>`).join('')
+                : '<li>本轮未发现需要专项追查的日志方向</li>';
+            devRetestEl.textContent = devPriority.retest || '如需增强把握，建议延长监控时长后复测。';
+        }
+
+        const platformSupport = metrics.platform_support_summary || {};
+        const platformTargetEl = document.getElementById('metric-platform-target');
+        const platformGradeEl = document.getElementById('metric-platform-grade');
+        const platformConclusionEl = document.getElementById('metric-platform-conclusion');
+        const platformCapabilitiesEl = document.getElementById('metric-platform-capabilities');
+        const platformLimitationsEl = document.getElementById('metric-platform-limitations');
+        if (platformTargetEl && platformGradeEl && platformConclusionEl && platformCapabilitiesEl && platformLimitationsEl) {
+            platformTargetEl.textContent = platformSupport.platform_label || (deviceInfo.firmware_incremental || '未识别平台');
+            platformGradeEl.textContent = `支持等级: ${platformSupport.grade || 'C'} (${platformSupport.headline || '辅助级支持'})`;
+            platformConclusionEl.textContent = platformSupport.conclusion || '当前缺少平台支持等级结论';
+            const capabilities = Array.isArray(platformSupport.capabilities) ? platformSupport.capabilities : [];
+            const limitations = Array.isArray(platformSupport.limitations) ? platformSupport.limitations : [];
+            platformCapabilitiesEl.innerHTML = capabilities.length
+                ? capabilities.map(item => `<li>${escapeHtml(item)}</li>`).join('')
+                : '<li>当前仅保留基础资源与日志采样能力</li>';
+            platformLimitationsEl.innerHTML = limitations.length
+                ? limitations.map(item => `<li>${escapeHtml(item)}</li>`).join('')
+                : '<li>当前未见明显平台级证据缺口</li>';
+        }
+
+        const observer = metrics.observer_overhead_summary || {};
+        const observerPidEl = document.getElementById('metric-observer-pid');
+        const observerModeEl = document.getElementById('metric-observer-mode');
+        const observerConclusionEl = document.getElementById('metric-observer-conclusion');
+        const observerCpuEl = document.getElementById('metric-observer-cpu');
+        const observerMemoryEl = document.getElementById('metric-observer-memory');
+        if (observerPidEl && observerModeEl && observerConclusionEl && observerCpuEl && observerMemoryEl) {
+            const avgCpu = Number(observer.avg_cpu_percent || 0);
+            const peakCpu = Number(observer.peak_cpu_percent || 0);
+            const avgMem = Number(observer.avg_memory_mb || 0);
+            const peakMem = Number(observer.peak_memory_mb || 0);
+            let conclusion = '工具自身开销数据已采集。';
+            if (peakCpu <= 5) {
+                conclusion = '工具自身 CPU 开销较低，当前未见明显带入误差风险。';
+            } else if (peakCpu <= 15) {
+                conclusion = '工具自身开销可接受，但建议结合采样模式一起评估极限场景结果。';
+            } else {
+                conclusion = '工具自身 CPU 开销偏高，建议复核采样模式并确认是否对极限场景产生干扰。';
+            }
+            observerPidEl.textContent = `监控进程 PID: ${observer.pid || '-'}`;
+            observerModeEl.textContent = `采样模式: ${observer.sampling_mode || 'unknown'}`;
+            observerConclusionEl.textContent = conclusion;
+            observerCpuEl.textContent = `平均 / 峰值 CPU: ${avgCpu.toFixed(2)}% / ${peakCpu.toFixed(2)}%`;
+            observerMemoryEl.textContent = `平均 / 峰值内存: ${avgMem.toFixed(2)} MB / ${peakMem.toFixed(2)} MB`;
+        }
+
         // CPU
         document.getElementById('metric-cpu').textContent = (metrics.cpu_percent || 0).toFixed(1) + ' %';
-        
+
         // Memory
         document.getElementById('metric-memory').textContent = (metrics.pss_mb || 0).toFixed(0) + ' MB';
     }
 
     function resetLiveMetrics(running, perfMode) {
         const fpsEl = document.getElementById('metric-video-fps');
+        const fpsReasonEl = document.getElementById('metric-video-fps-reason');
         if (fpsEl) {
-            fpsEl.textContent = running
-                ? (perfMode === '极低功耗' ? '需标准/深度模式' : '等待数据...')
+            fpsEl.textContent = running ? '等待中...' : '-';
+            fpsEl.classList.remove('text-danger');
+            fpsEl.classList.add('text-dark');
+            fpsEl.title = running ? '首次获取 FPS 可能需要 10-30 秒' : '';
+        }
+        if (fpsReasonEl) {
+            fpsReasonEl.textContent = running
+                ? '等待电视端 FPS 数据...'
                 : '-';
-            fpsEl.title = running
-                ? (perfMode === '极低功耗'
-                    ? '极低功耗模式不采集FPS，请选择「标准模式」或「深度压测」'
-                    : '首帧数据约需10-30秒')
-                : '';
+            fpsReasonEl.classList.remove('text-danger');
+            fpsReasonEl.classList.add('text-muted');
         }
 
         const setText = (id, value) => {
@@ -1513,11 +2054,45 @@
         };
 
         setText('metric-work-count', '-');
+        setText('metric-work-count-detail', running ? '等待解码链路数据' : '-');
         setText('metric-cpu', '-');
         setText('metric-memory', '-');
-        setBadge('metric-decoder-status', running ? '等待数据' : '未运行');
-        setBadge('metric-tv-stutter', running ? '等待数据' : '未运行');
-        setBadge('metric-decode-drop', running ? '等待数据' : '未运行');
+        setText('metric-process-failure-detail', running ? '等待监控' : '-');
+        setBadge('metric-decoder-status', running ? '等待数据' : '未开始');
+        setBadge('metric-process-failure', running ? '等待数据' : '未开始');
+        setText('metric-responsibility-detail', running ? '等待责任判定' : '-');
+        setBadge('metric-responsibility', running ? '等待分析' : '未开始');
+        setText('metric-responsibility-basis', running ? '\u5173\u952e\u4f9d\u636e\uff1a\u7b49\u5f85\u5206\u6790' : '-');
+        setBadge('metric-evidence-strength', running ? '等待分析' : '未开始');
+        setText('metric-evidence-strength-detail', running ? '等待证据强度' : '-');
+        setBadge('metric-tv-stutter', running ? '等待数据' : '未开始');
+        setBadge('metric-decode-drop', running ? '等待数据' : '未开始');
+        setText('metric-decode-drop-detail', running ? '等待解码丢帧判定' : '-');
+        setText('metric-correlation-window', running ? '30s' : '-');
+        setText('metric-correlation-stalls', running ? '0' : '-');
+        setText('metric-correlation-failures', running ? '0' : '-');
+        setText('metric-correlation-ratio', running ? '0.0%' : '-');
+        setBadge('metric-correlation-badge', running ? '等待分析' : '未开始');
+        setText('metric-correlation-conclusion', running ? '等待卡顿与播放器异常关联分析' : '-');
+        setText('metric-correlation-pairs', running ? '本轮无卡顿与播放器异常重合样本' : '-');
+        setText('metric-platform-target', running ? '监控进行中，正在识别平台能力' : '-');
+        setText('metric-platform-grade', running ? '支持等级: collecting' : '-');
+        setText('metric-platform-conclusion', running ? '监控完成后会生成平台支持等级结论' : '-');
+        const platformCapabilities = document.getElementById('metric-platform-capabilities');
+        const platformLimitations = document.getElementById('metric-platform-limitations');
+        if (platformCapabilities) platformCapabilities.innerHTML = '<li>监控进行中，正在收集 Display / Surface / FPS 能力</li>';
+        if (platformLimitations) platformLimitations.innerHTML = '<li>监控完成后会明确当前平台的证据边界</li>';
+        setText('metric-observer-pid', running ? '监控进程 PID: collecting' : '-');
+        setText('metric-observer-mode', running ? '采样模式: collecting' : '-');
+        setText('metric-observer-conclusion', running ? '监控进行中，正在采集工具自身开销' : '-');
+        setText('metric-observer-cpu', running ? '平均 / 峰值 CPU: collecting' : '-');
+        setText('metric-observer-memory', running ? '平均 / 峰值内存: collecting' : '-');
+        setText('metric-dev-priority-target', running ? '监控进行中，待形成专项结论' : '-');
+        setText('metric-dev-priority-owner', running ? 'Owner: 待分析 | Cause: PENDING' : '-');
+        setText('metric-dev-priority-strength', running ? 'Evidence: collecting' : '-');
+        const devLogs = document.getElementById('metric-dev-priority-logs');
+        if (devLogs) devLogs.innerHTML = '<li>监控进行中，结论形成后会给出建议日志方向</li>';
+        setText('metric-dev-priority-retest', running ? '监控完成后会生成复测建议' : '-');
     }
 
     function escapeHtml(value) {
@@ -1545,6 +2120,16 @@
             .join(':');
     }
 
+    function formatDurationCompact(totalSeconds) {
+        const seconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const remain = seconds % 60;
+        if (hours > 0) return `${hours}h ${minutes}m ${remain}s`;
+        if (minutes > 0) return `${minutes}m ${remain}s`;
+        return `${remain}s`;
+    }
+
     function updateRunProgress(runState, running) {
         const status = runState.status || 'idle';
         const progress = Math.max(0, Math.min(100, Number(runState.progress_percent || 0)));
@@ -1554,7 +2139,14 @@
         const remaining = document.getElementById('run-remaining-time');
         const elapsed = document.getElementById('run-elapsed-time');
         const reportLink = document.getElementById('monitor-report-link');
-        const summaryLink = document.getElementById('monitor-summary-link');
+        const summaryTxtLink = document.getElementById('monitor-summary-txt-link');
+        const reportCsvLink = document.getElementById('monitor-report-csv-link');
+        const reportMeta = document.getElementById('monitor-report-meta');
+
+        if (!label || !percent || !bar || !remaining || !elapsed || !reportLink || !summaryTxtLink || !reportCsvLink || !reportMeta) {
+            console.error('updateRunProgress missing DOM nodes');
+            return;
+        }
 
         bar.style.width = `${progress}%`;
         percent.textContent = `${progress.toFixed(1)}%`;
@@ -1597,14 +2189,31 @@
             if (!basename) {
                 anchor.textContent = '-';
                 anchor.removeAttribute('href');
+                anchor.classList.add('disabled');
+                anchor.setAttribute('aria-disabled', 'true');
                 return;
             }
             anchor.textContent = basename;
             anchor.href = '/player_stress/reports/' + basename;
+            anchor.classList.remove('disabled');
+            anchor.removeAttribute('aria-disabled');
         };
 
         setReportAnchor(reportLink, runState.report_file);
-        setReportAnchor(summaryLink, runState.summary_file);
+        setReportAnchor(summaryTxtLink, runState.summary_txt_file || runState.summary_file);
+        setReportAnchor(reportCsvLink, runState.report_csv_file);
+
+        if (reportMeta) {
+            const meta = runState.report_meta || {};
+            const parts = [
+                meta.device_id || meta.device_ip || '',
+                meta.firmware_incremental || '',
+                meta.end_time || '',
+                meta.duration_sec ? formatDurationCompact(meta.duration_sec) : '',
+                meta.root_cause_top ? `根因:${meta.root_cause_top}` : '',
+            ].filter(Boolean);
+            reportMeta.textContent = parts.join(' | ') || '报告元数据将随本轮运行自动更新';
+        }
     }
 
     function updateDeviceInfo(deviceInfo) {
@@ -1612,10 +2221,14 @@
         const inferredIp = deviceId.includes(':')
             ? deviceId.substring(0, deviceId.lastIndexOf(':'))
             : deviceId;
-        document.getElementById('monitor-device-ip').textContent =
-            deviceInfo.device_ip || inferredIp || '未获取';
-        document.getElementById('monitor-firmware-version').textContent =
-            deviceInfo.firmware_incremental || '未获取';
+        const ipEl = document.getElementById('monitor-device-ip');
+        const firmwareEl = document.getElementById('monitor-firmware-version');
+        if (!ipEl || !firmwareEl) {
+            console.error('updateDeviceInfo missing DOM nodes');
+            return;
+        }
+        ipEl.textContent = deviceInfo.device_ip || inferredIp || '??';
+        firmwareEl.textContent = deviceInfo.firmware_incremental || '??';
     }
 
     function formatStallReason(reason) {
@@ -1629,8 +2242,16 @@
     function updateTvMonitor(metrics, tvMonitor, running, perfMode, runState = {}) {
         const activeEvent = tvMonitor.active_event || null;
         const recentEvents = Array.isArray(tvMonitor.recent_events) ? tvMonitor.recent_events : [];
+        const recentRiskEvents = Array.isArray(tvMonitor.recent_risk_events) ? tvMonitor.recent_risk_events : [];
         const watcherRunning = Boolean(tvMonitor.watcher_running);
+        const activeConfirmed = Boolean(activeEvent?.confirmed);
         const verified = Boolean(metrics.tv_display_verified);
+        const recommendation = metrics.tv_display_recommendation || {};
+        const recommendedDisplay = recommendation.display_id;
+        const displayLabel = `Display ${metrics.tv_display_id ?? recommendedDisplay ?? 1}`;
+        const recommendationText = recommendedDisplay !== undefined && recommendedDisplay !== null
+            ? `推荐 ${recommendedDisplay} (${recommendation.reason || 'auto'})`
+            : '暂无推荐';
         const resourcePressure = Boolean(
             metrics.system_cpu_pressure
             || metrics.root_cause_type === 'CPU_CONTENTION'
@@ -1641,6 +2262,11 @@
         const badge = document.getElementById('tv-monitor-badge');
         const status = document.getElementById('tv-overall-status');
         const detail = document.getElementById('tv-overall-detail');
+
+        if (!hero || !dot || !badge || !status || !detail) {
+            console.error('updateTvMonitor missing core DOM nodes');
+            return;
+        }
 
         hero.classList.remove('state-ok', 'state-warning', 'state-danger');
         dot.classList.remove('is-live', 'is-danger');
@@ -1672,9 +2298,16 @@
             badge.textContent = '异常结束';
         } else if (!running) {
             status.textContent = '监控尚未运行';
-            detail.textContent = '启动测试后，将自动锁定 Display 1 的视频播放 Surface。';
+            detail.textContent = `启动测试后，将自动锁定 ${recommendedDisplay ?? 1} 的视频播放 Surface。`;
             badge.className = 'badge rounded-pill bg-secondary px-3 py-2';
             badge.textContent = '未运行';
+        } else if (metrics.target_process_available === false) {
+            hero.classList.add('state-danger');
+            dot.classList.add('is-danger');
+            status.textContent = '目标播放器进程已丢失';
+            detail.textContent = `已连续无法找到目标进程 ${Number(metrics.pid_missing_duration_sec || 0).toFixed(0)} 秒，测试将自动终止并标记失败。`;
+            badge.className = 'badge rounded-pill bg-danger px-3 py-2';
+            badge.textContent = '进程丢失';
         } else if (!watcherRunning) {
             hero.classList.add('state-warning');
             dot.classList.add('is-live');
@@ -1683,13 +2316,18 @@
                 ? '极低功耗模式只采集基础数据，建议切换标准模式定位电视端卡顿。'
                 : '后台监控正在启动，请稍候刷新。';
             badge.className = 'badge rounded-pill bg-warning text-dark px-3 py-2';
-            badge.textContent = '需关注';
         } else if (activeEvent) {
-            hero.classList.add('state-danger');
+            hero.classList.add(activeConfirmed ? 'state-danger' : 'state-warning');
             dot.classList.add('is-danger');
-            status.textContent = '正在检测到电视端卡顿';
-            detail.textContent = formatStallReason(activeEvent.reason);
-            badge.className = 'badge rounded-pill bg-danger px-3 py-2';
+            status.textContent = activeConfirmed
+                ? '\u6b63\u5728\u68c0\u6d4b\u5230\u7535\u89c6\u7aef\u5361\u987f'
+                : '\u68c0\u6d4b\u5230\u7535\u89c6\u7aef\u5f02\u5e38\u6ce2\u52a8\uff08\u5f85\u786e\u8ba4\uff09';
+            detail.textContent = activeEvent.assessment_reason || formatStallReason(activeEvent.reason);
+            badge.className = activeConfirmed
+                ? 'badge rounded-pill bg-danger px-3 py-2'
+                : 'badge rounded-pill bg-warning text-dark px-3 py-2';
+            badge.textContent = activeConfirmed ? '\u5361\u987f\u4e2d' : '\u98ce\u9669\u4e2d';
+        } else if (resourcePressure) {
             badge.textContent = '卡顿中';
         } else if (resourcePressure) {
             hero.classList.add('state-warning');
@@ -1703,15 +2341,15 @@
         } else if (!verified) {
             hero.classList.add('state-warning');
             dot.classList.add('is-live');
-            status.textContent = 'Display 1 等待验证';
-            detail.textContent = '监控已运行，但尚未确认电视端视频 Surface，请检查播放是否已经开始。';
+            status.textContent = `${displayLabel} 等待验证`;
+            detail.textContent = `监控已运行，但尚未确认电视端视频 Surface，请检查播放是否已经开始。${recommendationText}`;
             badge.className = 'badge rounded-pill bg-warning text-dark px-3 py-2';
             badge.textContent = '待验证';
         } else {
             hero.classList.add('state-ok');
             dot.classList.add('is-live');
             status.textContent = '电视端播放正常';
-            detail.textContent = 'Display 1 已验证，高频卡顿检测与 CPU 证据采集正在运行。';
+            detail.textContent = `${displayLabel} 已验证，高频卡顿检测与 CPU 证据采集正在运行。${recommendationText}`;
             badge.className = 'badge rounded-pill bg-success px-3 py-2';
             badge.textContent = '监控中';
         }
@@ -1724,26 +2362,40 @@
         verifiedBadge.className = surfaceLocked
             ? 'badge bg-success'
             : (verified ? 'badge bg-warning text-dark' : 'badge bg-secondary');
-        document.getElementById('tv-display-id').textContent =
-            `Display ${metrics.tv_display_id ?? 1}`;
+        document.getElementById('tv-display-id').textContent = displayLabel;
         document.getElementById('tv-surface-name').textContent =
             metrics.tv_surface_name || '等待识别视频 Surface';
         document.getElementById('tv-fps-source').textContent =
-            `数据来源：${metrics.video_fps_source || '-'}`;
+            metrics.video_fps > 0
+                ? `来源：${metrics.video_fps_source || '-'} | ${recommendationText}`
+                : `FPS 状态：${metrics.fps_unavailable_reason || '当前未采集到有效电视端 FPS 数据'}`;
+
+        document.getElementById('tv-surface-name').textContent =
+            metrics.tv_surface_name || '等待识别视频 Surface';
+        document.getElementById('tv-fps-source').textContent =
+            metrics.video_fps > 0
+                ? `来源：${humanizeVideoFpsSource(metrics.video_fps_source || '-')} | ${recommendationText}`
+                : `FPS 状态：${metrics.fps_unavailable_reason || '当前未采集到有效电视端 FPS 数据'}`;
 
         const activeStart = activeEvent?.start_time
             ? new Date(activeEvent.start_time).getTime()
             : 0;
         const activeDuration = activeStart ? Math.max(0, Date.now() - activeStart) : 0;
         const activeBadge = document.getElementById('tv-active-stall-badge');
-        activeBadge.textContent = activeEvent ? '进行中' : '无卡顿';
-        activeBadge.className = activeEvent ? 'badge bg-danger' : 'badge bg-success';
+        activeBadge.textContent = activeEvent
+            ? (activeConfirmed ? '\u8fdb\u884c\u4e2d' : '\u98ce\u9669\u4e2d')
+            : '\u65e0\u5361\u987f';
+        activeBadge.className = activeEvent
+            ? (activeConfirmed ? 'badge bg-danger' : 'badge bg-warning text-dark')
+            : 'badge bg-success';
         document.getElementById('tv-stall-count').textContent =
             String(metrics.tv_stall_count ?? recentEvents.length);
         document.getElementById('tv-active-duration').textContent =
             activeEvent ? formatEventDuration(activeDuration) : '-';
         document.getElementById('tv-active-reason').textContent =
-            activeEvent ? formatStallReason(activeEvent.reason) : '当前未检测到卡顿';
+            activeEvent
+                ? (activeEvent.assessment_reason || formatStallReason(activeEvent.reason))
+                : '当前未检测到卡顿';
 
         const latestCpuEvent = recentEvents.find(event => event.cpu_candidate);
         const eventCpuCandidate = latestCpuEvent?.cpu_candidate || null;
@@ -1755,32 +2407,42 @@
             live: true
         } : null;
         const cpuCandidate = eventCpuCandidate || liveCpuCandidate;
+        const responsibility = metrics.responsibility_summary || {};
+        const responsibilityCategory = String(responsibility.category || '').trim();
+        const responsibilitySuspect = String(responsibility.suspect_process || '').trim();
+        const cpuCard = document.getElementById('cpu-cause-card');
         const cpuDetected = Boolean(
             latestCpuEvent?.cpu_contention_detected
             || metrics.root_cause_type === 'CPU_CONTENTION'
+            || responsibilityCategory === '\u7cfb\u7edf/\u56fa\u4ef6 CPU \u7ade\u4e89\u4e3b\u5bfc'
         );
         const cpuBadge = document.getElementById('cpu-cause-badge');
+        if (cpuCard) {
+            cpuCard.classList.toggle('is-hot', cpuDetected || Boolean(responsibilitySuspect));
+        }
         cpuBadge.textContent = historicalSnapshot
-            ? '历史快照'
-            : (cpuDetected ? '高风险候选' : (cpuCandidate ? '已分析' : '等待事件'));
+            ? '\u5386\u53f2\u5feb\u7167'
+            : (cpuDetected ? '\u9ad8\u98ce\u9669\u5019\u9009' : (cpuCandidate ? '\u5df2\u5206\u6790' : '\u7b49\u5f85\u4e8b\u4ef6'));
         cpuBadge.className = historicalSnapshot
             ? 'badge bg-secondary'
             : (cpuDetected ? 'badge bg-warning text-dark' : 'badge bg-secondary');
         document.getElementById('cpu-suspect-process').textContent =
-            cpuCandidate?.process || '暂无可疑进程';
-        document.getElementById('cpu-suspect-process').title = cpuCandidate?.process || '';
+            cpuCandidate?.process || responsibilitySuspect || '\u6682\u65e0\u53ef\u7591\u8fdb\u7a0b';
+        document.getElementById('cpu-suspect-process').title = cpuCandidate?.process || responsibilitySuspect || '';
         document.getElementById('cpu-suspect-flow').textContent = cpuCandidate
             ? (cpuCandidate.live
-                ? `${Number(cpuCandidate.instance_count || 1)} 个实例合计 CPU ${Number(cpuCandidate.peak_cpu_percent || 0).toFixed(1)}% · 整机 ${Number(metrics.system_cpu_percent || 0).toFixed(1)}%`
-                : `基线 ${Number(cpuCandidate.baseline_cpu_percent || 0).toFixed(1)}% → 卡顿 ${Number(cpuCandidate.peak_cpu_percent || 0).toFixed(1)}% → 恢复 ${Number(cpuCandidate.after_cpu_percent || 0).toFixed(1)}%`)
-            : '基线 - → 卡顿 - → 恢复 -';
+                ? `\u5171 ${Number(cpuCandidate.instance_count || 1)} \u4e2a\u5b9e\u4f8b | CPU ${Number(cpuCandidate.peak_cpu_percent || 0).toFixed(1)}% | \u6574\u673a ${Number(metrics.system_cpu_percent || 0).toFixed(1)}%`
+                : `\u57fa\u7ebf ${Number(cpuCandidate.baseline_cpu_percent || 0).toFixed(1)}% -> \u5361\u987f ${Number(cpuCandidate.peak_cpu_percent || 0).toFixed(1)}% -> \u6062\u590d ${Number(cpuCandidate.after_cpu_percent || 0).toFixed(1)}%`)
+            : '\u57fa\u7ebf - -> \u5361\u987f - -> \u6062\u590d -';
         document.getElementById('cpu-confidence').textContent = cpuCandidate
-            ? `风险评分：${Number(cpuCandidate.confidence || 0).toFixed(1)}%（相关性提示，非因果结论）`
-            : '卡顿结束后自动对比前、中、后三个阶段';
+            ? `\u98ce\u9669\u8bc4\u5206\uff1a${Number(cpuCandidate.confidence || 0).toFixed(1)}%\uff08\u76f8\u5173\u6027\u63d0\u793a\uff0c\u975e\u56e0\u679c\u7ed3\u8bba\uff09`
+            : (responsibilityCategory === '\u7cfb\u7edf/\u56fa\u4ef6 CPU \u7ade\u4e89\u4e3b\u5bfc'
+                ? `\u8d23\u4efb\u5361\u5df2\u5224\u5b9a\uff1a${responsibilityCategory}`
+                : '\u5361\u987f\u7ed3\u675f\u540e\u81ea\u52a8\u5bf9\u6bd4\u524d\u3001\u4e2d\u3001\u540e\u4e09\u4e2a\u9636\u6bb5');
 
         document.getElementById('tv-last-update').textContent =
             `最后更新：${new Date().toLocaleTimeString('zh-CN', {hour12: false})}`;
-        renderTvEvents(recentEvents);
+        renderTvEvents(recentEvents, recentRiskEvents);
     }
 
     function renderTvEvents(events) {
@@ -1796,6 +2458,11 @@
                 ? new Date(event.start_time).toLocaleTimeString('zh-CN', {hour12: false})
                 : '-';
             const evidencePath = event.evidence_dir || '';
+            const attribution = event.cpu_contention_detected
+                ? { label: '系统/固件侧', badge: 'bg-warning text-dark' }
+                : (String(event.reason || '').toLowerCase().includes('decoder')
+                    ? { label: '解码链路侧', badge: 'bg-danger' }
+                    : { label: '待补证据', badge: 'bg-secondary' });
             const cpuSummary = cpu
                 ? `${escapeHtml(cpu.process || '未知进程')}，峰值 ${Number(cpu.peak_cpu_percent || 0).toFixed(1)}%，置信度 ${Number(cpu.confidence || 0).toFixed(1)}%`
                 : '未发现明确 CPU 争抢进程';
@@ -1807,9 +2474,13 @@
                             <div class="fw-semibold text-dark">${escapeHtml(formatStallReason(event.reason))}</div>
                             <div class="small text-muted mt-1">${escapeHtml(startTime)} · 持续 ${escapeHtml(formatEventDuration(event.duration_ms))}</div>
                         </div>
-                        <span class="badge ${event.cpu_contention_detected ? 'bg-danger' : 'bg-secondary'}">
+                        <div class="d-flex gap-2">
+                            <span class="badge ${event.cpu_contention_detected ? 'bg-danger' : 'bg-secondary'}">
                             ${event.cpu_contention_detected ? '疑似 CPU 争抢' : '卡顿事件'}
                         </span>
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge ${attribution.badge}">责任归因：${escapeHtml(attribution.label)}</span>
                     </div>
                     <div class="row g-2 mt-2 small">
                         <div class="col-md-4"><span class="text-muted">最大帧间隔：</span>${Number(event.max_frame_gap_ms || 0).toFixed(0)} ms</div>
@@ -1933,7 +2604,7 @@
         list.innerHTML = '加载中...';
         
         try {
-            const data = await ApiClient.get('/player_stress/api/reports', {
+            const data = await ApiClient.get('/player_stress/api/reports?limit=20', {
                 showLoading: false
             });
             
@@ -1951,27 +2622,37 @@
                     });
                 } else {
                     reports.forEach(r => {
-                        const filename = r.html || r.txt || r.json || r.csv || '';
+                        const files = Array.isArray(r.downloadable) ? r.downloadable : [];
+                        const filename = (files[0] && files[0].filename) || r.html || r.txt || r.json || r.csv || '';
                         if (!filename) return;
                         const meta = r.meta || {};
                         const device = meta.device_id || meta.device_ip || '';
+                        const firmware = meta.firmware_incremental || '';
                         const pkg = meta.package_name || '';
                         const score = meta.score !== null && meta.score !== undefined ? `${meta.score}${meta.grade ? ' (' + meta.grade + ')' : ''}` : '';
                         const rootCause = meta.root_cause_top ? `根因:${meta.root_cause_top}` : '';
                         const logStutter = meta.log_stutter_count !== null && meta.log_stutter_count !== undefined ? `日志:${meta.log_stutter_count}` : '';
-                        const subtitleParts = [device, pkg, score, rootCause, logStutter].filter(Boolean);
+                        const endTime = meta.end_time || '';
+                        const duration = meta.duration_sec ? formatDurationCompact(meta.duration_sec) : '';
+                        const subtitleParts = [device, firmware, pkg, endTime, duration, score, rootCause, logStutter].filter(Boolean);
+                        const downloadLinks = files.length
+                            ? files.map(file => {
+                                const labelMap = { html: 'HTML', txt: 'TXT', json: 'JSON', csv: 'CSV' };
+                                const label = labelMap[file.kind] || String(file.kind || '').toUpperCase();
+                                return `<a class="badge bg-light text-dark text-decoration-none border" href="/player_stress/reports/${encodeURIComponent(file.filename)}" target="_blank">${label}</a>`;
+                            }).join(' ')
+                            : '<span class="badge bg-secondary">无可下载文件</span>';
 
-                        const item = document.createElement('a');
-                        item.className = 'list-group-item list-group-item-action';
-                        item.href = '/player_stress/reports/' + filename;
-                        item.target = '_blank';
+                        const item = document.createElement('div');
+                        item.className = 'list-group-item';
                         item.innerHTML = `
                             <div class="d-flex justify-content-between align-items-start gap-3">
                                 <div>
-                                    <div class="fw-semibold"><i class="bi bi-file-earmark-text me-2"></i>${r.prefix || filename}</div>
+                                    <div class="fw-semibold"><i class="bi bi-file-earmark-text me-2"></i>${escapeHtml(r.prefix || filename)}</div>
                                     <div class="small text-muted mt-1">${escapeHtml(subtitleParts.join(' | ') || filename)}</div>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">${downloadLinks}</div>
                                 </div>
-                                <div class="small text-muted">${escapeHtml(filename)}</div>
+                                <div class="small text-muted">${escapeHtml(files.map(f => f.filename).join(' / ') || filename)}</div>
                             </div>
                         `;
                         list.appendChild(item);
@@ -2054,6 +2735,12 @@
     const deviceSelect = document.getElementById('deviceId');
     if(deviceSelect) {
         deviceSelect.addEventListener('change', function() {
+            const status = document.getElementById('displaySnapshotStatus');
+            const preview = document.getElementById('displaySnapshotPreview');
+            const image = document.getElementById('displaySnapshotImage');
+            if (status) status.textContent = '还没有抓图';
+            if (preview) preview.classList.add('d-none');
+            if (image) image.removeAttribute('src');
             if(this.value) {
                 checkEnvironment();  // 设备变化时重新检查环境
             }
@@ -2067,7 +2754,7 @@
             const running = data.data?.running ?? data.running ?? false;
             if (running) {
                 updateUIState(true);
-                if (!logInterval) logInterval = setInterval(fetchLogs, 1500);
+                startPolling();
                 document.querySelector('#monitoring-tab')?.click();
                 fetchLogs();
                 toast.info('检测到正在运行的压测，已恢复监控');
@@ -2084,5 +2771,397 @@
     checkRunningTasks();
     fetchLogs();
     loadReports();
+
+    // Override legacy event rendering with structured attribution labels.
+    function renderTvEvents(events) {
+        const list = document.getElementById('tv-event-list');
+        if (!list) return;
+        if (!events.length) {
+            list.innerHTML = '<div class="tv-empty-state">暂无卡顿事件。检测到异常后，这里会展示时长、帧间隔、责任归因和证据目录。</div>';
+            return;
+        }
+
+        list.innerHTML = events.map(event => {
+            const cpu = event.cpu_candidate;
+            const startTime = event.start_time
+                ? new Date(event.start_time).toLocaleTimeString('zh-CN', { hour12: false })
+                : '-';
+            const evidencePath = event.evidence_dir || '';
+            const attribution = event.attribution || {};
+            const attributionLabel = attribution.category || '待补证据';
+            const attributionOwner = attribution.owner || '待确认';
+            const attributionConfidence = String(attribution.confidence || 'low');
+            const attributionBadge = attributionLabel.includes('系统')
+                ? 'bg-warning text-dark'
+                : (attributionLabel.includes('解码')
+                    ? 'bg-danger'
+                    : (attributionLabel.includes('确认') ? 'bg-success' : 'bg-secondary'));
+            const confidenceBadge = attributionConfidence === 'high'
+                ? 'bg-success'
+                : (attributionConfidence === 'medium' ? 'bg-warning text-dark' : 'bg-secondary');
+            const cpuSummary = cpu
+                ? `${escapeHtml(cpu.process || '未知进程')}，峰值 ${Number(cpu.peak_cpu_percent || 0).toFixed(1)}%，置信度 ${Number(cpu.confidence || 0).toFixed(1)}%`
+                : '未发现明确 CPU 争抢进程';
+            const confidenceText = event.confirmed ? '确认级' : '风险级';
+            const assessmentReason = event.assessment_reason || '等待更多互证信号';
+
+            return `
+                <div class="tv-event-item">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                        <div>
+                            <div class="fw-semibold text-dark">${escapeHtml(formatStallReason(event.reason))}</div>
+                            <div class="small text-muted mt-1">${escapeHtml(startTime)} | 持续 ${escapeHtml(formatEventDuration(event.duration_ms))}</div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <span class="badge ${event.cpu_contention_detected ? 'bg-danger' : 'bg-secondary'}">
+                                ${event.cpu_contention_detected ? '疑似 CPU 争抢' : '卡顿事件'}
+                            </span>
+                            <span class="badge ${confidenceBadge}">
+                                ${escapeHtml(confidenceText)}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <span class="badge ${attributionBadge}">责任归因：${escapeHtml(attributionLabel)}</span>
+                        <span class="badge bg-light text-dark border">优先对象：${escapeHtml(attributionOwner)}</span>
+                    </div>
+                    <div class="small text-muted mt-2">${escapeHtml(assessmentReason)}</div>
+                    <div class="row g-2 mt-2 small">
+                        <div class="col-md-4"><span class="text-muted">最大帧间隔：</span>${Number(event.max_frame_gap_ms || 0).toFixed(0)} ms</div>
+                        <div class="col-md-4"><span class="text-muted">最低 FPS：</span>${Number(event.min_fps || 0).toFixed(1)}</div>
+                        <div class="col-md-4"><span class="text-muted">CPU：</span>${cpuSummary}</div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        ${event.event_token ? `
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    data-event-token="${escapeHtml(event.event_token)}"
+                                    data-open="0"
+                                    onclick="toggleEventEvidence(this)">
+                                查看证据
+                            </button>
+                        ` : ''}
+                        ${evidencePath ? `
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    data-path="${escapeHtml(evidencePath)}" onclick="copyEvidencePath(this)">
+                                复制路径
+                            </button>
+                        ` : ''}
+                    </div>
+                    <div class="tv-event-evidence-panel mt-2 d-none" id="event-evidence-${escapeHtml(event.event_token || '')}"></div>
+                    ${evidencePath ? `
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <div class="tv-event-evidence flex-grow-1">${escapeHtml(evidencePath)}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function copyEvidencePath(button) {
+        try {
+            await navigator.clipboard.writeText(button.dataset.path || '');
+            toast.success('证据目录已复制');
+        } catch (error) {
+            toast.warning('复制失败，请手动选择路径');
+        }
+    }
+
+    function formatEvidenceFileSize(size) {
+        const value = Number(size || 0);
+        if (!Number.isFinite(value) || value <= 0) return '0 B';
+        if (value < 1024) return `${value} B`;
+        if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+        return `${(value / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    function renderEventEvidencePanel(data) {
+        const diagnosis = data.diagnosis || {};
+        const screenshots = Array.isArray(data.screenshots) ? data.screenshots : [];
+        const files = Array.isArray(data.files) ? data.files : [];
+        const confidenceText = diagnosis.confirmed ? '确认级' : '风险级';
+        const confidenceBadge = diagnosis.confirmed ? 'bg-success' : 'bg-warning text-dark';
+        const diagnosisHtml = diagnosis.statement ? `
+            <div class="border rounded p-3 mb-3 ${diagnosis.confirmed ? 'bg-success-subtle border-success-subtle' : 'bg-warning-subtle border-warning-subtle'}">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                    <span class="badge ${confidenceBadge}">${escapeHtml(confidenceText)}</span>
+                    <span class="badge bg-light text-dark border">责任方向：${escapeHtml(diagnosis.owner || '待确认')}</span>
+                </div>
+                <div class="fw-semibold text-dark mb-2">研发一句话结论</div>
+                <div class="small text-dark mb-2">${escapeHtml(diagnosis.statement || '')}</div>
+                <div class="small text-muted mb-1">关键依据：${escapeHtml(diagnosis.basis || '-')}</div>
+                <div class="small text-muted">建议动作：${escapeHtml(diagnosis.next_action || '-')}</div>
+            </div>
+        ` : '';
+        const screenshotHtml = screenshots.length ? `
+            <div class="mb-3">
+                <div class="small text-muted mb-2">截图证据</div>
+                <div class="d-flex flex-wrap gap-3">
+                    ${screenshots.map(item => `
+                        <a href="${escapeHtml(item.url)}" target="_blank" class="text-decoration-none">
+                            <div class="border rounded p-2 bg-light">
+                                <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name)}"
+                                     style="width: 160px; height: 90px; object-fit: cover; display: block;">
+                                <div class="small text-dark mt-2">${escapeHtml(item.name)}</div>
+                            </div>
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+        const fileHtml = files.length ? `
+            <div>
+                <div class="small text-muted mb-2">文件证据</div>
+                <div class="d-flex flex-column gap-2">
+                    ${files.map(item => `
+                        <div class="border rounded p-2 bg-light">
+                            <div class="d-flex justify-content-between align-items-center gap-2">
+                                <div class="small fw-semibold text-dark">${escapeHtml(item.name)}</div>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <span class="small text-muted">${escapeHtml(formatEvidenceFileSize(item.size))}</span>
+                                    <a href="${escapeHtml(item.url)}" target="_blank" class="btn btn-sm btn-outline-secondary">打开</a>
+                                </div>
+                            </div>
+                            ${item.is_text && item.preview_text ? `
+                                <pre class="small bg-white border rounded mt-2 p-2 mb-0" style="white-space: pre-wrap; max-height: 180px; overflow:auto;">${escapeHtml(item.preview_text)}</pre>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '<div class="small text-muted">暂无证据文件</div>';
+        return `
+            <div class="border rounded p-3 bg-white shadow-sm">
+                ${diagnosisHtml}
+                <div class="small text-muted mb-2">证据目录：${escapeHtml(data.event_dir || '-')}</div>
+                ${screenshotHtml}
+                ${fileHtml}
+            </div>
+        `;
+    }
+
+    function renderTvEvents(confirmedEvents, riskEvents = []) {
+        const list = document.getElementById('tv-event-list');
+        if (!list) return;
+        const confirmed = Array.isArray(confirmedEvents) ? confirmedEvents : [];
+        const risks = Array.isArray(riskEvents) ? riskEvents : [];
+        if (!confirmed.length && !risks.length) {
+            list.innerHTML = '<div class="tv-empty-state">暂无电视端卡顿事件。检测到异常后，这里会展示时长、帧间隔、责任归因和证据目录。</div>';
+            return;
+        }
+
+        const renderSection = (title, badgeClass, badgeText, events) => {
+            if (!events.length) return '';
+            return `
+                <div class="mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <div class="fw-semibold text-dark">${escapeHtml(title)}</div>
+                        <span class="badge ${badgeClass}">${escapeHtml(badgeText)}</span>
+                    </div>
+                    <div class="d-flex flex-column gap-3">
+                        ${events.map(event => {
+                            const cpu = event.cpu_candidate;
+                            const startTime = event.start_time
+                                ? new Date(event.start_time).toLocaleTimeString('zh-CN', { hour12: false })
+                                : '-';
+                            const evidencePath = event.evidence_dir || '';
+                            const attribution = event.attribution || {};
+                            const attributionLabel = attribution.category || '待补证据';
+                            const attributionOwner = attribution.owner || '待确认';
+                            const attributionConfidence = String(attribution.confidence || 'low');
+                            const attributionBadge = attributionLabel.includes('系统')
+                                ? 'bg-warning text-dark'
+                                : (attributionLabel.includes('解码')
+                                    ? 'bg-danger'
+                                    : (attributionLabel.includes('确认') ? 'bg-success' : 'bg-secondary'));
+                            const confidenceBadge = attributionConfidence === 'high'
+                                ? 'bg-success'
+                                : (attributionConfidence === 'medium' ? 'bg-warning text-dark' : 'bg-secondary');
+                            const cpuSummary = cpu
+                                ? `${escapeHtml(cpu.process || '未知进程')}，峰值 ${Number(cpu.peak_cpu_percent || 0).toFixed(1)}%，置信度 ${Number(cpu.confidence || 0).toFixed(1)}%`
+                                : '未发现明确 CPU 争抢进程';
+                            const confidenceText = event.confirmed ? '确认事件' : '风险事件';
+                            const assessmentReason = event.assessment_reason || '等待更多互证信号';
+
+                            return `
+                                <div class="tv-event-item">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <div class="fw-semibold text-dark">${escapeHtml(formatStallReason(event.reason))}</div>
+                                            <div class="small text-muted mt-1">${escapeHtml(startTime)} | 持续 ${escapeHtml(formatEventDuration(event.duration_ms))}</div>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <span class="badge ${event.cpu_contention_detected ? 'bg-danger' : 'bg-secondary'}">
+                                                ${event.cpu_contention_detected ? '疑似 CPU 争抢' : '卡顿事件'}
+                                            </span>
+                                            <span class="badge ${confidenceBadge}">
+                                                ${escapeHtml(confidenceText)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        <span class="badge ${attributionBadge}">责任归因：${escapeHtml(attributionLabel)}</span>
+                                        <span class="badge bg-light text-dark border">优先对象：${escapeHtml(attributionOwner)}</span>
+                                    </div>
+                                    <div class="small text-muted mt-2">${escapeHtml(assessmentReason)}</div>
+                                    <div class="row g-2 mt-2 small">
+                                        <div class="col-md-4"><span class="text-muted">最大帧间隔：</span>${Number(event.max_frame_gap_ms || 0).toFixed(0)} ms</div>
+                                        <div class="col-md-4"><span class="text-muted">最低 FPS：</span>${Number(event.min_fps || 0).toFixed(1)}</div>
+                                        <div class="col-md-4"><span class="text-muted">CPU：</span>${cpuSummary}</div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        ${event.event_token ? `
+                                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                                    data-event-token="${escapeHtml(event.event_token)}"
+                                                    data-open="0"
+                                                    onclick="toggleEventEvidence(this)">
+                                                查看证据
+                                            </button>
+                                        ` : ''}
+                                        ${evidencePath ? `
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    data-path="${escapeHtml(evidencePath)}" onclick="copyEvidencePath(this)">
+                                                复制路径
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                    <div class="tv-event-evidence-panel mt-2 d-none" id="event-evidence-${escapeHtml(event.event_token || '')}"></div>
+                                    ${evidencePath ? `
+                                        <div class="d-flex align-items-center gap-2 mt-2">
+                                            <div class="tv-event-evidence flex-grow-1">${escapeHtml(evidencePath)}</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        };
+
+        list.innerHTML = [
+            renderSection('已确认事件', 'bg-danger', '会进入正式结论', confirmed),
+            renderSection('风险事件', 'bg-warning text-dark', '仅提示风险，不直接定责', risks),
+        ].filter(Boolean).join('');
+    }
+
+    function renderEventEvidencePanel(data) {
+        const diagnosis = data.diagnosis || {};
+        const screenshots = Array.isArray(data.screenshots) ? data.screenshots : [];
+        const files = Array.isArray(data.files) ? data.files : [];
+        const confidenceText = diagnosis.confirmed ? '确认级' : '风险级';
+        const confidenceBadge = diagnosis.confirmed ? 'bg-success' : 'bg-warning text-dark';
+        const quickLinks = [
+            { label: '事件结论', url: data.event_summary_url, style: 'btn-outline-primary' },
+            { label: '时间窗日志', url: data.time_window_logcat_url, style: 'btn-outline-secondary' },
+            { label: '时间窗摘要', url: data.time_window_summary_url, style: 'btn-outline-secondary' },
+            { label: '解码器日志', url: data.decoder_window_url, style: 'btn-outline-secondary' },
+            { label: '卡顿前 Top', url: data.top_before_url, style: 'btn-outline-secondary' },
+            { label: '卡顿后 Top', url: data.top_after_url, style: 'btn-outline-secondary' },
+        ].filter(item => item.url);
+        const diagnosisHtml = diagnosis.statement ? `
+            <div class="border rounded p-3 mb-3 ${diagnosis.confirmed ? 'bg-success-subtle border-success-subtle' : 'bg-warning-subtle border-warning-subtle'}">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                    <span class="badge ${confidenceBadge}">${escapeHtml(confidenceText)}</span>
+                    <span class="badge bg-light text-dark border">责任方向：${escapeHtml(diagnosis.owner || '待确认')}</span>
+                </div>
+                <div class="fw-semibold text-dark mb-2">研发一句话结论</div>
+                <div class="small text-dark mb-2">${escapeHtml(diagnosis.statement || '')}</div>
+                <div class="small text-muted mb-1">关键依据：${escapeHtml(diagnosis.basis || '-')}</div>
+                <div class="small text-muted">建议动作：${escapeHtml(diagnosis.next_action || '-')}</div>
+            </div>
+        ` : '';
+        const quickLinksHtml = quickLinks.length ? `
+            <div class="mb-3">
+                <div class="small text-muted mb-2">关键证据直达</div>
+                <div class="d-flex flex-wrap gap-2">
+                    ${quickLinks.map(item => `
+                        <a href="${escapeHtml(item.url)}" target="_blank" class="btn btn-sm ${escapeHtml(item.style)}">${escapeHtml(item.label)}</a>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+        const screenshotHtml = screenshots.length ? `
+            <div class="mb-3">
+                <div class="small text-muted mb-2">截图证据</div>
+                <div class="d-flex flex-wrap gap-3">
+                    ${screenshots.map(item => `
+                        <a href="${escapeHtml(item.url)}" target="_blank" class="text-decoration-none">
+                            <div class="border rounded p-2 bg-light">
+                                <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name)}"
+                                     style="width: 160px; height: 90px; object-fit: cover; display: block;">
+                                <div class="small text-dark mt-2">${escapeHtml(item.name)}</div>
+                            </div>
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+        const fileHtml = files.length ? `
+            <div>
+                <div class="small text-muted mb-2">文件证据</div>
+                <div class="d-flex flex-column gap-2">
+                    ${files.map(item => `
+                        <div class="border rounded p-2 bg-light">
+                            <div class="d-flex justify-content-between align-items-center gap-2">
+                                <div class="small fw-semibold text-dark">${escapeHtml(item.name)}</div>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <span class="small text-muted">${escapeHtml(formatEvidenceFileSize(item.size))}</span>
+                                    <a href="${escapeHtml(item.url)}" target="_blank" class="btn btn-sm btn-outline-secondary">打开</a>
+                                </div>
+                            </div>
+                            ${item.is_text && item.preview_text ? `
+                                <pre class="small bg-white border rounded mt-2 p-2 mb-0" style="white-space: pre-wrap; max-height: 180px; overflow:auto;">${escapeHtml(item.preview_text)}</pre>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '<div class="small text-muted">暂无证据文件</div>';
+        return `
+            <div class="border rounded p-3 bg-white shadow-sm">
+                ${diagnosisHtml}
+                ${quickLinksHtml}
+                <div class="small text-muted mb-2">证据目录：${escapeHtml(data.event_dir || '-')}</div>
+                ${screenshotHtml}
+                ${fileHtml}
+            </div>
+        `;
+    }
+
+    async function toggleEventEvidence(button) {
+        const eventToken = String(button?.dataset?.eventToken || '').trim();
+        if (!eventToken) {
+            toast.warning('缺少事件标识，无法读取证据');
+            return;
+        }
+        const panel = document.getElementById(`event-evidence-${eventToken}`);
+        if (!panel) return;
+        const isOpen = button.dataset.open === '1';
+        if (isOpen) {
+            panel.classList.add('d-none');
+            button.dataset.open = '0';
+            button.textContent = '查看证据';
+            return;
+        }
+        button.disabled = true;
+        button.textContent = '加载中...';
+        try {
+            const response = await ApiClient.get(`/player_stress/api/tv_event_evidence/${encodeURIComponent(eventToken)}`, { showLoading: false });
+            const data = response.data || {};
+            panel.innerHTML = renderEventEvidencePanel(data);
+            panel.classList.remove('d-none');
+            button.dataset.open = '1';
+            button.textContent = '收起证据';
+        } catch (error) {
+            console.error('toggleEventEvidence:', error);
+            toast.error('读取事件证据失败');
+        } finally {
+            button.disabled = false;
+            if (button.dataset.open !== '1') {
+                button.textContent = '查看证据';
+            }
+        }
+    }
 </script>
 {% endblock %}

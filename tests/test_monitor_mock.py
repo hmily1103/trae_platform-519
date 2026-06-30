@@ -90,6 +90,34 @@ class TestPerformanceMonitor(unittest.TestCase):
         self.assertEqual(snapshot["top_consumers"], "com.noisy.worker(45%)")
         self.adb.get_top_heavy_processes.assert_called_once()
 
+    def test_pid_loss_is_reported_once_per_outage(self):
+        self.adb.is_device_online.return_value = True
+        self.adb.get_pid.return_value = None
+        self.adb.get_memory_info.return_value = {"pss_mb": 0}
+        self.adb.get_cpu_usage.return_value = 0.0
+        self.adb.get_system_cpu_usage.return_value = 20.0
+        self.adb.get_gfx_info.return_value = {
+            "total_frames": 0,
+            "janky_frames": 0,
+        }
+        self.adb.is_audio_active.return_value = False
+        self.adb._run_command.return_value = "Display id=0\nDisplay id=1\n"
+        self.monitor.rk_monitor.is_supported = False
+        self.monitor._disable_fps = True
+        self.monitor.last_pid = 1234
+
+        first = self.monitor.collect_snapshot()
+        second = self.monitor.collect_snapshot()
+
+        lost_events = [
+            event for event in self.monitor.pid_events
+            if event["type"] == "PID_LOST"
+        ]
+        self.assertEqual(len(lost_events), 1)
+        self.assertEqual(first["pid_missing_consecutive"], 1)
+        self.assertEqual(second["pid_missing_consecutive"], 2)
+        self.assertFalse(second["target_process_available"])
+
 
 if __name__ == "__main__":
     unittest.main()

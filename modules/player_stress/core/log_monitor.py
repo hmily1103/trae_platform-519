@@ -5,6 +5,7 @@ import re
 import os
 import logging
 from datetime import datetime
+from collections import deque
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,10 @@ class LogMonitor:
             
         # 卡顿统计
         self.stutter_count = 0
-        self.stutter_logs = []
+        self.stutter_logs = deque(maxlen=20)
+        self._pending_stutter_events = deque(maxlen=20)
+        self.decoder_logs = deque(maxlen=40)
+        self.recent_logs = deque(maxlen=4000)
         
         # 错误统计
         self.crash_count = 0
@@ -43,6 +47,48 @@ class LogMonitor:
 
     def get_stutter_count(self):
         return self.stutter_count
+
+    def get_stutter_events(self):
+        events = list(self._pending_stutter_events)
+        self._pending_stutter_events.clear()
+        return events
+
+    def get_decoder_events(self):
+        return list(self.decoder_logs)
+
+    def get_time_window_logs(self, start_time: float, end_time: float, max_lines: int = 400):
+        start = float(start_time or 0.0)
+        end = float(end_time or 0.0)
+        if end > 0 and end < start:
+            start, end = end, start
+        rows = []
+        for item in list(self.recent_logs):
+            ts = float(item.get("time", 0) or 0.0)
+            if start and ts < start:
+                continue
+            if end and ts > end:
+                continue
+            rows.append(dict(item))
+        if max_lines and len(rows) > max_lines:
+            rows = rows[-max_lines:]
+        return rows
+
+    def get_time_window_decoder_events(self, start_time: float, end_time: float, max_events: int = 80):
+        start = float(start_time or 0.0)
+        end = float(end_time or 0.0)
+        if end > 0 and end < start:
+            start, end = end, start
+        rows = []
+        for item in list(self.decoder_logs):
+            ts = float(item.get("time", 0) or 0.0)
+            if start and ts < start:
+                continue
+            if end and ts > end:
+                continue
+            rows.append(dict(item))
+        if max_events and len(rows) > max_events:
+            rows = rows[-max_events:]
+        return rows
         
     def get_error_stats(self):
         return {
@@ -130,6 +176,16 @@ class LogMonitor:
                 r"stutter",                # 卡顿
                 r"jank",                   # 卡顿/掉帧
             ]
+            decoder_patterns = [
+                r"MediaCodec",
+                r"\bOMX[\.\w-]*",
+                r"\bc2[\.\w-]*",
+                r"\bcodec\b",
+                r"\bdecoder\b",
+                r"\brkvdec\b",
+                r"\bmpp\b",
+                r"\bVDEC\b",
+            ]
             
             # 播放器生命周期特征 (V2 状态机信号)
             # 涵盖: ExoPlayer, MediaPlayer, IjkPlayer 常见日志
@@ -155,6 +211,12 @@ class LogMonitor:
                 line = self.process.stdout.readline()
                 if not line:
                     break
+                now_ts = time.time()
+                self.recent_logs.append({
+                    "time": now_ts,
+                    "wall_time": datetime.fromtimestamp(now_ts).strftime("%Y-%m-%d %H:%M:%S"),
+                    "line": line.rstrip("\n"),
+                })
                 
                 # 维护一个小的上下文 buffer
                 buffer_lines.append(line)
@@ -175,9 +237,24 @@ class LogMonitor:
                 # 2. 检测卡顿 (Stutter)
                 for pattern in stutter_patterns:
                     if re.search(pattern, line, re.IGNORECASE):
+                        matched_pattern = pattern
                         self.stutter_count += 1
-                        if len(self.stutter_logs) < 10:
-                            self.stutter_logs.append(line.strip())
+                        event = {
+                            "time": now_ts,
+                            "pattern": matched_pattern,
+                            "line": line.strip(),
+                        }
+                        self.stutter_logs.append(event)
+                        self._pending_stutter_events.append(event)
+                        break
+
+                for pattern in decoder_patterns:
+                    if re.search(pattern, line, re.IGNORECASE):
+                        self.decoder_logs.append({
+                            "time": now_ts,
+                            "pattern": pattern,
+                            "line": line.strip(),
+                        })
                         break
                 
                 # 3. 检测生命周期事件 (V2)
@@ -185,7 +262,7 @@ class LogMonitor:
                     for pat in pats:
                         if re.search(pat, line):
                             self.lifecycle_events.append({
-                                "time": time.time(),
+                                "time": now_ts,
                                 "type": event_type,
                                 "line": line.strip()
                             })

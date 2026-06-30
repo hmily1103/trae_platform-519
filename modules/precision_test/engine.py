@@ -311,7 +311,17 @@ def build_execution_plan(test_points, risks):
     return plan
 
 
-def normalize_analysis(raw, *, requirement, code_diff, project_type, version, summary, environment=None):
+def normalize_analysis(
+    raw,
+    *,
+    requirement,
+    code_diff,
+    project_type,
+    version,
+    summary,
+    environment=None,
+    git_source=None,
+):
     raw = raw if isinstance(raw, dict) else {}
     risks = _normalize_risks(raw.get("risks"), requirement, code_diff, summary)
     test_points = _build_test_points(raw.get("test_points"), risks)
@@ -336,6 +346,7 @@ def normalize_analysis(raw, *, requirement, code_diff, project_type, version, su
             "summary": str(raw.get("change_summary") or raw.get("summary") or "根据需求说明与代码变更生成"),
             "diff_summary": summary,
             "environment": environment or {},
+            "git_source": git_source or {},
         },
         "risks": risks,
         "impacts": impacts,
@@ -470,12 +481,20 @@ def build_report_markdown(model):
         lines.append(f"- FAIL {item['id']}：{item.get('note') or '未填写说明'} {item.get('bug_id') or ''}".rstrip())
     for item in env_errors:
         lines.append(f"- ENV_ERROR {item['id']}：{item.get('note') or '测试环境不可用'}")
-    lines.extend(["", "## 执行明细", "", "| 测试项 | 优先级 | 执行方式 | 结果 | Bug |", "|---|---|---|---|---|"])
+    lines.extend(["", "## 执行明细", "", "| 测试项 | 优先级 | 执行方式 | 结果 | Bug | 证据 |", "|---|---|---|---|---|---|"])
     points = {point["id"]: point for point in model["test_points"]}
     for item in model["execution_plan"]:
         point = points.get(item["test_point_id"], {})
+        evidence = item.get("evidence") or []
+        if isinstance(evidence, str):
+            evidence = [evidence]
+        if not isinstance(evidence, list):
+            evidence = []
+        evidence_text = "；".join(str(value).strip() for value in evidence if str(value).strip())
+        if len(evidence_text) > 120:
+            evidence_text = evidence_text[:117] + "..."
         lines.append(
             f"| {point.get('title', item['test_point_id'])} | {item['priority']} | "
-            f"{item['executor_name']} / {item['mode']} | {item['status']} | {item.get('bug_id') or '-'} |"
+            f"{item['executor_name']} / {item['mode']} | {item['status']} | {item.get('bug_id') or '-'} | {evidence_text or '-'} |"
         )
     return "\n".join(lines)

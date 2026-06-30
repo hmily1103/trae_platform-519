@@ -1,0 +1,58 @@
+{
+  "name": "decoder_stuck_confirmed",
+  "package_name": "com.thunder.ktv:media",
+  "baseline": [
+    {
+      "timestamp": "2026-06-25 12:00:00",
+      "cpu_percent": 6.0,
+      "player_cpu_percent": 6.0,
+      "system_cpu_percent": 28.0,
+      "pss_mb": 60.0,
+      "video_fps": 30.0,
+      "decode_drop_ratio": 0.0,
+      "gfx_jank_percent": 1.0,
+      "top_consumers": "mediaserver(5.0%) | surfaceflinger(4.0%)"
+    }
+  ],
+  "events": [
+    {
+      "top_consumers_raw": "mediaserver(8.0%) | com.thunder.ktv(6.0%)",
+      "snapshot": {
+        "timestamp": "2026-06-25 12:10:00",
+        "cpu_percent": 6.0,
+        "player_cpu_percent": 6.0,
+        "system_cpu_percent": 42.0,
+        "video_fps": 0.0,
+        "video_fps_source": "mpp_estimate",
+        "expected_stream_fps": 30.0,
+        "mpp_active": 1,
+        "mpp_work_count_delta": 0,
+        "decoder_stuck": true,
+        "decoder_stuck_confirmed": true,
+        "decode_fps_estimate": 0.0,
+        "decode_slowdown_detected": true,
+        "decode_drop_ratio": 1.0,
+        "gfx_jank_percent": 1.0,
+        "tv_stutter_detected": true,
+        "pss_mb": 61.0,
+        "log_stutter_count": 0,
+        "log_stutter_delta": 0,
+        "audio_active": true,
+        "system_cpu_pressure": false,
+        "thermal_throttling": false,
+        "tv_surface_name": "SurfaceView[](BLAST)#360",
+        "decoder_diagnostics": {
+          "decoder_name": "OMX.rk.video.decoder"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "most_confident_cause": "DECODER_STUCK",
+    "suspect_process": "OMX.rk.video.decoder",
+    "evidence_level": "confirmed",
+    "evidence_strength_level": "confirmed",
+    "confidence_min": 85.0,
+    "resource_only": false
+  }
+}

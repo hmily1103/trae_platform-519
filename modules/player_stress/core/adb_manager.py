@@ -194,6 +194,35 @@ class AdbManager:
             return value
         return ""
 
+    def get_platform_identity(self) -> str:
+        """获取芯片/平台标识，用于报告中的平台支持等级说明。"""
+        prop_candidates = [
+            "ro.soc.model",
+            "ro.board.platform",
+            "ro.hardware",
+            "ro.product.board",
+            "ro.product.device",
+        ]
+        values = []
+        seen = set()
+        for prop in prop_candidates:
+            output = self._run_command(["shell", "getprop", prop])
+            value = str(output or "").strip()
+            if not value or value.startswith("Error:") or value in seen:
+                continue
+            seen.add(value)
+            values.append(value)
+
+        if values:
+            primary = values[0]
+            aliases = [item for item in values[1:] if item.lower() != primary.lower()]
+            if aliases:
+                return f"{primary} ({', '.join(aliases[:2])})"
+            return primary
+
+        firmware = self.get_firmware_incremental()
+        return firmware or ""
+
     @staticmethod
     def _parse_proc_stat_cpu(output: str) -> Optional[Tuple[int, int]]:
         """Return cumulative (total, idle) CPU jiffies from /proc/stat."""
@@ -324,6 +353,61 @@ class AdbManager:
             "thermal_throttling": thermal_throttling,
             "temperatures": temperatures,
             "cpu_frequencies": frequencies,
+        }
+
+    @staticmethod
+    def _extract_decoder_name(text: str) -> str:
+        raw = str(text or "")
+        patterns = [
+            r"(OMX\.[\w\.\-]+)",
+            r"(c2\.[\w\.\-]+)",
+            r"(rk[\w\.\-]*decoder[\w\.\-]*)",
+            r"(rkvdec[\w\.\-]*)",
+            r"(vdec[\w\.\-]*)",
+            r"(MediaCodec[\w\.\-:/]*)",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, raw, re.IGNORECASE)
+            if match:
+                return str(match.group(1)).strip()
+        return ""
+
+    def get_decoder_diagnostics(self, package_name: str = "") -> Dict:
+        package_hint = str(package_name or "").split(":")[0].lower()
+        outputs = [
+            self._run_command(["shell", "dumpsys", "media.codec"], timeout=4),
+            self._run_command(
+                ["shell", "sh", "-c", "cat /proc/mpp_service/sessions-summary 2>/dev/null"],
+                timeout=3,
+            ),
+            self._run_command(
+                ["shell", "sh", "-c", "cat /sys/kernel/debug/mpp_service/stats 2>/dev/null"],
+                timeout=3,
+            ),
+        ]
+        relevant_lines: List[str] = []
+        decoder_name = ""
+        for output in outputs:
+            for line in str(output or "").splitlines():
+                line_s = line.strip()
+                if not line_s:
+                    continue
+                line_l = line_s.lower()
+                if package_hint and package_hint in line_l:
+                    relevant_lines.append(line_s)
+                elif any(
+                    key in line_l
+                    for key in ["codec", "omx", "c2.", "decoder", "rkvdec", "mpp", "session"]
+                ):
+                    relevant_lines.append(line_s)
+                if not decoder_name:
+                    decoder_name = self._extract_decoder_name(line_s)
+        if not decoder_name:
+            decoder_name = self._extract_decoder_name("\n".join(relevant_lines))
+        return {
+            "decoder_name": decoder_name,
+            "codec_lines": relevant_lines[:12],
+            "codec_output_excerpt": "\n".join(relevant_lines[:12]),
         }
 
     def send_key_event(self, key_code: int):

@@ -1,0 +1,66 @@
+{
+  "name": "cpu_contention_risk",
+  "package_name": "com.thunder.ktv:media",
+  "baseline": [
+    {
+      "timestamp": "2026-06-25 11:00:00",
+      "cpu_percent": 5.0,
+      "player_cpu_percent": 5.0,
+      "system_cpu_percent": 22.0,
+      "pss_mb": 57.0,
+      "video_fps": 30.0,
+      "decode_drop_ratio": 0.0,
+      "gfx_jank_percent": 1.0,
+      "top_consumers": "/system/bin/init.thunder.sh x12(2.0%) | mediaserver(4.0%)"
+    },
+    {
+      "timestamp": "2026-06-25 11:00:05",
+      "cpu_percent": 5.3,
+      "player_cpu_percent": 5.3,
+      "system_cpu_percent": 24.0,
+      "pss_mb": 58.0,
+      "video_fps": 29.8,
+      "decode_drop_ratio": 0.0,
+      "gfx_jank_percent": 1.2,
+      "top_consumers": "/system/bin/init.thunder.sh x12(2.5%) | mediaserver(3.5%)"
+    }
+  ],
+  "events": [
+    {
+      "top_consumers_raw": "/system/bin/init.thunder.sh x40(88.0%) | com.thunder.ktv(5.0%)",
+      "snapshot": {
+        "timestamp": "2026-06-25 11:10:00",
+        "cpu_percent": 5.0,
+        "player_cpu_percent": 5.0,
+        "system_cpu_percent": 96.0,
+        "video_fps": 30.0,
+        "video_fps_source": "surfaceflinger_surface_display_1",
+        "expected_stream_fps": 30.0,
+        "mpp_active": 0,
+        "mpp_work_count_delta": 0,
+        "decoder_stuck": false,
+        "decoder_stuck_confirmed": false,
+        "decode_fps_estimate": 29.8,
+        "decode_slowdown_detected": false,
+        "decode_drop_ratio": 0.0,
+        "gfx_jank_percent": 2.0,
+        "tv_stutter_detected": false,
+        "pss_mb": 60.0,
+        "log_stutter_count": 0,
+        "log_stutter_delta": 0,
+        "audio_active": true,
+        "system_cpu_pressure": true,
+        "thermal_throttling": false,
+        "tv_surface_name": "SurfaceView[](BLAST)#360"
+      }
+    }
+  ],
+  "expected": {
+    "most_confident_cause": "CPU_CONTENTION",
+    "suspect_process": "/system/bin/init.thunder.sh x40",
+    "evidence_level": "risk",
+    "evidence_strength_level": "risk",
+    "confidence_min": 80.0,
+    "resource_only": true
+  }
+}

@@ -1,52 +1,80 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>VOD 智能精准回归 - Trae Platform</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
-    <style>
-        body { background: #f5f7fb; color: #1f2937; }
-        .page-shell { max-width: 1500px; }
-        .card { border: 0; }
-        .sticky-input { position: sticky; top: 16px; }
-        .code-textarea { font: 12px/1.5 Consolas, "Courier New", monospace; background: #f8fafc; }
-        .metric { border-left: 4px solid #2563eb; background: #fff; }
-        .risk-P0 { border-left: 4px solid #dc2626; }
-        .risk-P1 { border-left: 4px solid #f59e0b; }
-        .risk-P2 { border-left: 4px solid #64748b; }
-        .gate-PASS { background: #dcfce7; color: #166534; }
-        .gate-CONDITIONAL_PASS { background: #fef3c7; color: #92400e; }
-        .gate-BLOCKED { background: #fee2e2; color: #991b1b; }
-        .gate-REVIEW_REQUIRED { background: #dbeafe; color: #1e40af; }
-        .table td, .table th { vertical-align: middle; font-size: 13px; }
-        .executor-link { text-decoration: none; font-weight: 600; }
-        .markdown-body { line-height: 1.65; font-size: 14px; }
-        .markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
-        .markdown-body th, .markdown-body td { border: 1px solid #dee2e6; padding: .5rem; }
-        .empty-panel { min-height: 420px; display: grid; place-items: center; color: #64748b; }
-        .nav-pills .nav-link { color: #475569; }
-        .nav-pills .nav-link.active { background: #1d4ed8; }
-        .small-label { font-size: 12px; color: #64748b; }
-    </style>
-</head>
-<body>
-<nav class="navbar navbar-dark bg-dark">
-    <div class="container-fluid page-shell">
-        <a class="navbar-brand" href="/"><i class="fas fa-bullseye me-2"></i>VOD 智能精准回归</a>
-        <a class="btn btn-sm btn-outline-light" href="/unified/reports">报告中心</a>
-    </div>
-</nav>
+{% extends "base.html" %}
 
-<main class="container-fluid page-shell py-4">
+{% block extra_css %}
+<style>
+    .page-shell { max-width: 1500px; }
+    .card { border: 0; }
+    .sticky-input { position: sticky; top: 16px; }
+    .code-textarea { font: 12px/1.5 Consolas, "Courier New", monospace; background: #f8fafc; }
+    .metric { border-left: 4px solid #2563eb; background: #fff; }
+    .risk-P0 { border-left: 4px solid #dc2626; }
+    .risk-P1 { border-left: 4px solid #f59e0b; }
+    .risk-P2 { border-left: 4px solid #64748b; }
+    .gate-PASS { background: #dcfce7; color: #166534; }
+    .gate-CONDITIONAL_PASS { background: #fef3c7; color: #92400e; }
+    .gate-BLOCKED { background: #fee2e2; color: #991b1b; }
+    .gate-REVIEW_REQUIRED { background: #dbeafe; color: #1e40af; }
+    .table td, .table th { vertical-align: middle; font-size: 13px; }
+    .executor-link { text-decoration: none; font-weight: 600; }
+    .markdown-body { line-height: 1.65; font-size: 14px; }
+    .markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+    .markdown-body th, .markdown-body td { border: 1px solid #dee2e6; padding: .5rem; }
+    .empty-panel { min-height: 420px; display: grid; place-items: center; color: #64748b; }
+    .nav-pills .nav-link { color: #475569; }
+    .nav-pills .nav-link.active { background: #1d4ed8; }
+    .small-label { font-size: 12px; color: #64748b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid page-shell py-3">
+    <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+        <div>
+            <div class="h4 mb-1"><i class="fas fa-bullseye me-2"></i>精准回归</div>
+            <div class="text-muted small">从变更到最小验证集，再到确定性门禁与可追溯证据</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a class="btn btn-sm btn-outline-primary" href="/unified/reports"><i class="fas fa-file-lines me-1"></i>报告中心</a>
+        </div>
+    </div>
+
     <div class="row g-4">
         <div class="col-xl-4">
             <section class="card shadow-sm sticky-input">
                 <div class="card-header bg-white fw-bold py-3">需求与代码变更</div>
                 <div class="card-body">
+                    <div class="border rounded p-3 mb-3 bg-light">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong class="small">只读 Git 代码来源</strong>
+                            <span class="badge text-bg-success">READ ONLY</span>
+                        </div>
+                        <div class="mb-2">
+                            <input id="repositoryUrlInput" class="form-control form-control-sm"
+                                   placeholder="粘贴完整 GitLab 分支链接即可">
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <input id="targetRefInput" class="form-control form-control-sm"
+                                       placeholder="目标分支 / Commit">
+                            </div>
+                            <div class="col-6">
+                                <input id="baseCommitInput" class="form-control form-control-sm"
+                                       placeholder="上一个发布 Commit">
+                            </div>
+                        </div>
+                        <button id="btnDetectBaseline" class="btn btn-sm btn-outline-secondary w-100 mb-2" type="button">
+                            自动查找上一个发布 Commit
+                        </button>
+                        <div class="d-grid gap-2">
+                            <button id="btnLatestCommit" class="btn btn-sm btn-primary" type="button">
+                                <i class="fas fa-code-commit me-1"></i>仅对比本次提交
+                            </button>
+                            <button id="btnReadGit" class="btn btn-sm btn-outline-primary" type="button">
+                                <i class="fab fa-git-alt me-1"></i>对比上次发布版本
+                            </button>
+                        </div>
+                        <div id="gitPreview" class="small text-muted mt-2"></div>
+                    </div>
                     <div class="row g-2 mb-3">
                         <div class="col-5">
                             <label class="form-label small-label">版本号</label>
@@ -98,6 +126,12 @@
                         <span id="btnSpinner" class="spinner-border spinner-border-sm d-none ms-2"></span>
                     </button>
                     <div id="sourceHint" class="small text-muted mt-2"></div>
+                    <details class="mt-3">
+                        <summary class="small fw-semibold text-primary">历史分析（最近 10 条）</summary>
+                        <div class="mt-2">
+                            <div id="historyList" class="list-group small">加载中...</div>
+                        </div>
+                    </details>
                 </div>
             </section>
         </div>
@@ -138,10 +172,15 @@
             </div>
         </div>
     </div>
-</main>
+</div>
+{% endblock %}
 
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script>
 var currentAnalysis = null;
+var currentGitSource = null;
 var exampleRequirement = '新增歌曲收藏能力：用户可以在点歌页收藏和取消收藏。收藏状态需要同步到用户中心，并写入 Redis 和数据库。连续点击不得产生重复收藏；断网恢复后状态应一致。';
 var exampleDiff = `--- a/services/favorite_service.py
 +++ b/services/favorite_service.py
@@ -194,6 +233,149 @@ function requestJson(url, options) {
         return payload.data;
     });
 }
+
+function normalizeGitInputs() {
+    var input = document.getElementById('repositoryUrlInput');
+    var value = input.value.trim();
+    var marker = '/-/tree/';
+    var markdownMatch = value.match(/^\[[^\]]*\]\((https:\/\/[^)]+)\)$/);
+    if (markdownMatch) {
+        value = markdownMatch[1];
+        input.value = value;
+    }
+    if (value.indexOf(marker) !== -1) {
+        var parts = value.split(marker);
+        input.value = parts[0];
+        if (!document.getElementById('targetRefInput').value.trim()) {
+            try {
+                document.getElementById('targetRefInput').value = decodeURIComponent(parts[1].split(/[?#]/)[0]);
+            } catch (error) {
+                document.getElementById('targetRefInput').value = parts[1].split(/[?#]/)[0];
+            }
+        }
+    }
+    var target = document.getElementById('targetRefInput').value.trim();
+    if (target) {
+        document.getElementById('gitPreview').innerHTML =
+            '<span class="text-success">已识别目标分支：</span>' + escapeHtml(target);
+    }
+}
+
+function baselineStorageKey(repoUrl) {
+    return 'precision_git_base:' + repoUrl.replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+document.getElementById('repositoryUrlInput').addEventListener('change', function() {
+    normalizeGitInputs();
+    var repo = this.value.trim();
+    var saved = localStorage.getItem(baselineStorageKey(repo));
+    if (saved && !document.getElementById('baseCommitInput').value.trim()) {
+        document.getElementById('baseCommitInput').value = saved;
+    }
+});
+document.getElementById('repositoryUrlInput').addEventListener('input', function() {
+    var value = this.value;
+    if (value.indexOf('/-/tree/') !== -1 || value.indexOf('/-/commit/') !== -1) {
+        normalizeGitInputs();
+    }
+});
+document.getElementById('repositoryUrlInput').addEventListener('paste', function() {
+    setTimeout(normalizeGitInputs, 0);
+});
+
+function readGitChange(comparisonMode) {
+    normalizeGitInputs();
+    var repo = document.getElementById('repositoryUrlInput').value.trim();
+    var target = document.getElementById('targetRefInput').value.trim();
+    var base = document.getElementById('baseCommitInput').value.trim();
+    if (!repo) {
+        return alert('请粘贴 GitLab 仓库或完整分支链接');
+    }
+    if (comparisonMode === 'release' && !base) {
+        return detectBaseline().then(function(found) {
+            if (found) document.getElementById('btnReadGit').click();
+        });
+    }
+    var button = document.getElementById(
+        comparisonMode === 'latest_commit' ? 'btnLatestCommit' : 'btnReadGit'
+    );
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>正在读取代码...';
+    requestJson('/precision_test/api/git/preview', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            repository_url: repo,
+            target_ref: target,
+            base_commit: base,
+            comparison_mode: comparisonMode
+        })
+    }).then(function(data) {
+        currentGitSource = data;
+        document.getElementById('codeDiffInput').value = data.code_diff;
+        document.getElementById('codeDiffInput').dispatchEvent(new Event('input'));
+        localStorage.setItem(baselineStorageKey(repo), base);
+        document.getElementById('gitPreview').innerHTML =
+            '<strong>' + escapeHtml(data.comparison_label) + '：</strong>'
+            + escapeHtml(data.base_sha.slice(0, 8)) + ' → '
+            + escapeHtml(data.target_sha.slice(0, 8)) + '，变更文件 '
+            + data.changed_files.length + ' 个，纳入分析 ' + data.included_files.length
+            + ' 个，提交 ' + data.commits.length + ' 个'
+            + '<br><span class="text-muted">' + escapeHtml(data.target_commit.subject) + '</span>'
+            + (data.diff_truncated ? '<br><span class="text-warning">变更较大，已按源码文件和字符上限截取高价值 Diff。</span>' : '');
+    }).catch(function(error) {
+        document.getElementById('gitPreview').textContent = error.message;
+        alert(error.message);
+    }).finally(function() {
+        button.disabled = false;
+        button.innerHTML = comparisonMode === 'latest_commit'
+            ? '<i class="fas fa-code-commit me-1"></i>仅对比本次提交'
+            : '<i class="fab fa-git-alt me-1"></i>对比上次发布版本';
+    });
+}
+
+document.getElementById('btnLatestCommit').addEventListener('click', function() {
+    readGitChange('latest_commit');
+});
+document.getElementById('btnReadGit').addEventListener('click', function() {
+    readGitChange('release');
+});
+
+function detectBaseline() {
+    normalizeGitInputs();
+    var repo = document.getElementById('repositoryUrlInput').value.trim();
+    var target = document.getElementById('targetRefInput').value.trim();
+    if (!repo) {
+        alert('请先粘贴 GitLab 仓库或完整分支链接');
+        return Promise.resolve(false);
+    }
+    var button = document.getElementById('btnDetectBaseline');
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>正在查找发布 Tag...';
+    return requestJson('/precision_test/api/git/detect_baseline', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({repository_url: repo, target_ref: target})
+    }).then(function(data) {
+        document.getElementById('baseCommitInput').value = data.base_commit;
+        localStorage.setItem(baselineStorageKey(repo), data.base_commit);
+        document.getElementById('gitPreview').innerHTML =
+            '<strong>自动基线：</strong>' + escapeHtml(data.tag) + ' · '
+            + escapeHtml(data.tag_date) + ' · ' + escapeHtml(data.base_commit.slice(0, 8))
+            + '<br><span class="' + (data.confidence === 'high' ? 'text-success' : 'text-warning') + '">'
+            + escapeHtml(data.reason) + '</span>';
+        return true;
+    }).catch(function(error) {
+        document.getElementById('gitPreview').textContent = error.message;
+        alert(error.message);
+        return false;
+    }).finally(function() {
+        button.disabled = false;
+        button.textContent = '自动查找上一个发布 Commit';
+    });
+}
+
+document.getElementById('btnDetectBaseline').addEventListener('click', detectBaseline);
 
 function setLoading(loading) {
     document.getElementById('btnAnalyze').disabled = loading;
@@ -283,18 +465,23 @@ function renderExecution(model) {
         + '<option value="observe"' + (model.gate_mode === 'observe' ? ' selected' : '') + '>观察模式</option>'
         + '<option value="enforce"' + (model.gate_mode === 'enforce' ? ' selected' : '') + '>强制门禁</option></select>'
         + '<button class="btn btn-sm btn-primary" onclick="saveResults()">保存并计算门禁</button></div></div>'
-        + '<div class="table-responsive"><table class="table"><thead><tr><th>测试项</th><th style="width:150px">结果</th><th>Bug / 说明</th><th>规避</th></tr></thead><tbody>';
+        + '<div class="table-responsive"><table class="table"><thead><tr><th>测试项</th><th style="width:150px">结果</th><th>Bug / 说明 / 证据</th><th>规避</th></tr></thead><tbody>';
     model.execution_plan.forEach(function(item) {
         var point = points[item.test_point_id] || {};
+        var executor = item.executor_url
+            ? '<a class="executor-link" target="_blank" href="' + escapeHtml(item.executor_url) + '">' + escapeHtml(item.executor_name) + '</a>'
+            : escapeHtml(item.executor_name);
+        var evidenceValue = Array.isArray(item.evidence) ? item.evidence.join(', ') : '';
         html += '<tr data-execution-id="' + item.id + '"><td><div class="fw-semibold">' + escapeHtml(point.title || item.test_point_id) + '</div>'
-            + '<small class="text-muted">' + item.priority + ' · ' + escapeHtml(item.executor_name) + ' · ' + escapeHtml(item.mode) + '</small></td>'
+            + '<small class="text-muted">' + item.priority + ' · ' + executor + ' · ' + escapeHtml(item.mode) + '</small></td>'
             + '<td><select class="form-select form-select-sm result-status">';
         ['PENDING','PASS','FAIL','BLOCKED','SKIPPED','ENV_ERROR'].forEach(function(status) {
             html += '<option value="' + status + '"' + (item.status === status ? ' selected' : '') + '>' + status + '</option>';
         });
         html += '</select></td><td><div class="input-group input-group-sm mb-1"><span class="input-group-text">Bug</span>'
             + '<input class="form-control result-bug" value="' + escapeHtml(item.bug_id || '') + '"></div>'
-            + '<input class="form-control form-control-sm result-note" placeholder="结论或环境问题说明" value="' + escapeHtml(item.note || '') + '"></td>'
+            + '<input class="form-control form-control-sm result-note mb-1" placeholder="结论或环境问题说明" value="' + escapeHtml(item.note || '') + '">'
+            + '<input class="form-control form-control-sm result-evidence" placeholder="证据链接/路径（逗号或换行分隔）" value="' + escapeHtml(evidenceValue) + '"></td>'
             + '<td class="text-center"><input class="form-check-input result-workaround" type="checkbox"' + (item.workaround ? ' checked' : '') + '></td></tr>';
     });
     html += '</tbody></table></div>';
@@ -319,11 +506,16 @@ function renderReport(model) {
 
 function collectResults() {
     return Array.from(document.querySelectorAll('#executionPanel tr[data-execution-id]')).map(function(row) {
+        var evidenceRaw = (row.querySelector('.result-evidence')?.value || '').trim();
+        var evidence = evidenceRaw
+            ? evidenceRaw.split(/[\n,]+/).map(function(item) { return item.trim(); }).filter(Boolean)
+            : [];
         return {
             execution_id: row.dataset.executionId,
             status: row.querySelector('.result-status').value,
             bug_id: row.querySelector('.result-bug').value.trim(),
             note: row.querySelector('.result-note').value.trim(),
+            evidence: evidence,
             workaround: row.querySelector('.result-workaround').checked
         };
     });
@@ -398,7 +590,10 @@ document.getElementById('btnExample').addEventListener('click', function() {
     document.getElementById('codeDiffInput').dispatchEvent(new Event('input'));
 });
 document.getElementById('btnClear').addEventListener('click', function() {
-    ['versionInput','requirementInput','codeDiffInput','deviceIdInput','stbModelInput','firmwareInput','serverInput'].forEach(function(id) { document.getElementById(id).value = ''; });
+    ['versionInput','requirementInput','codeDiffInput','deviceIdInput','stbModelInput','firmwareInput','serverInput',
+     'repositoryUrlInput','targetRefInput','baseCommitInput'].forEach(function(id) { document.getElementById(id).value = ''; });
+    currentGitSource = null;
+    document.getElementById('gitPreview').textContent = '';
     document.getElementById('requirementInput').dispatchEvent(new Event('input'));
     document.getElementById('codeDiffInput').dispatchEvent(new Event('input'));
 });
@@ -416,6 +611,13 @@ document.getElementById('btnAnalyze').addEventListener('click', function() {
             requirement: requirement,
             code_diff: diff,
             project_type: document.getElementById('projectType').value,
+            git_source: currentGitSource ? {
+                repository_url: currentGitSource.repository_url,
+                target_ref: currentGitSource.target_ref,
+                target_sha: currentGitSource.target_sha,
+                base_commit: currentGitSource.base_commit,
+                base_sha: currentGitSource.base_sha
+            } : {},
             environment: {
                 device_id: document.getElementById('deviceIdInput').value.trim(),
                 stb_model: document.getElementById('stbModelInput').value.trim(),
@@ -435,6 +637,40 @@ if (initialId) {
     requestJson('/precision_test/api/analyses/' + encodeURIComponent(initialId))
         .then(renderWorkspace).catch(function() { history.replaceState(null, '', location.pathname); });
 }
+
+function loadHistory() {
+    return requestJson('/precision_test/api/analyses?limit=10').then(function(data) {
+        var items = data.items || data.data?.items || [];
+        var list = document.getElementById('historyList');
+        if (!list) return;
+        if (!items.length) {
+            list.innerHTML = '<div class="text-muted small">暂无历史分析</div>';
+            return;
+        }
+        list.innerHTML = '';
+        items.forEach(function(item) {
+            var analysisId = item.analysis_id;
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'list-group-item list-group-item-action';
+            button.innerHTML = '<div class="d-flex justify-content-between align-items-center">'
+                + '<span class="fw-semibold">' + escapeHtml(analysisId) + '</span>'
+                + '<span class="badge text-bg-light border">' + escapeHtml(item.decision || '-') + '</span>'
+                + '</div>'
+                + '<div class="small text-muted mt-1">' + escapeHtml(item.summary || '-') + '</div>';
+            button.addEventListener('click', function() {
+                requestJson('/precision_test/api/analyses/' + encodeURIComponent(analysisId))
+                    .then(renderWorkspace)
+                    .catch(function(error) { alert(error.message); });
+            });
+            list.appendChild(button);
+        });
+    }).catch(function() {
+        var list = document.getElementById('historyList');
+        if (list) list.innerHTML = '<div class="text-danger small">加载失败</div>';
+    });
+}
+
+loadHistory();
 </script>
-</body>
-</html>
+{% endblock %}

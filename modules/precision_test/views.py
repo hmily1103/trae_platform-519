@@ -15,6 +15,7 @@ from .engine import (
     normalize_analysis,
 )
 from .store import get_precision_test_store
+from .git_source import build_git_diff, detect_release_baseline
 from utils.response import error_response, success_response
 from utils.llm_client import call_llm
 
@@ -262,6 +263,46 @@ def module_status():
     })
 
 
+@precision_test_bp.route("/api/git/preview", methods=["POST"])
+def preview_git_change():
+    try:
+        data = request.get_json(silent=True) or {}
+        result = build_git_diff(
+            data.get("repository_url"),
+            data.get("target_ref"),
+            data.get("base_commit"),
+            data.get("comparison_mode") or "release",
+        )
+        return success_response(result)
+    except ValueError as exc:
+        return error_response(str(exc))
+    except RuntimeError as exc:
+        logger.warning("只读拉取 Git 变更失败: %s", exc)
+        return error_response(f"读取 Git 仓库失败: {exc}", status_code=502)
+    except Exception as exc:
+        logger.exception("只读拉取 Git 变更异常: %s", exc)
+        return error_response("读取 Git 仓库失败", status_code=500)
+
+
+@precision_test_bp.route("/api/git/detect_baseline", methods=["POST"])
+def detect_git_baseline():
+    try:
+        data = request.get_json(silent=True) or {}
+        result = detect_release_baseline(
+            data.get("repository_url"),
+            data.get("target_ref"),
+        )
+        return success_response(result)
+    except ValueError as exc:
+        return error_response(str(exc))
+    except RuntimeError as exc:
+        logger.warning("自动识别发布基线失败: %s", exc)
+        return error_response(str(exc), status_code=422)
+    except Exception as exc:
+        logger.exception("自动识别发布基线异常: %s", exc)
+        return error_response("自动识别发布基线失败", status_code=500)
+
+
 @precision_test_bp.route("/api/analyze", methods=["POST"])
 def analyze_code_diff():
     try:
@@ -273,6 +314,7 @@ def analyze_code_diff():
         project_type = str(data.get("project_type") or "vod").strip().lower()
         version = str(data.get("version") or "").strip()
         environment = data.get("environment") if isinstance(data.get("environment"), dict) else {}
+        git_source = data.get("git_source") if isinstance(data.get("git_source"), dict) else {}
         if not code_diff:
             return error_response("代码 Diff 不能为空")
         if project_type not in PROJECT_TYPES:
@@ -309,6 +351,13 @@ def analyze_code_diff():
             project_type=project_type,
             version=version,
             summary=summary,
+            git_source={
+                "repository_url": str(git_source.get("repository_url") or "").strip(),
+                "target_ref": str(git_source.get("target_ref") or "").strip(),
+                "target_sha": str(git_source.get("target_sha") or "").strip(),
+                "base_commit": str(git_source.get("base_commit") or "").strip(),
+                "base_sha": str(git_source.get("base_sha") or "").strip(),
+            },
             environment={
                 "device_id": str(environment.get("device_id") or "").strip(),
                 "stb_model": str(environment.get("stb_model") or "").strip(),

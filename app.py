@@ -438,7 +438,7 @@ if __name__ == '__main__':
         # serve(app, host='127.0.0.1', port=port)
         # print("Waitress serve() returned.", flush=True)
 
-        app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)
+        app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
         print("app.run() returned.", flush=True)
     except KeyboardInterrupt:
         print("\n\n服务器已停止 (KeyboardInterrupt)", flush=True)

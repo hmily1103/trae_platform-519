@@ -10,6 +10,12 @@ from modules.precision_test.engine import (
     normalize_analysis,
 )
 from modules.precision_test.store import PrecisionTestStore
+from modules.precision_test.git_source import (
+    detect_release_baseline,
+    normalize_repository_url,
+    parse_repository_input,
+    validate_ref,
+)
 from modules.precision_test.views import _extract_diff_summary
 
 
@@ -53,6 +59,74 @@ def test_extract_diff_summary_collects_vod_risks():
 
 def test_extract_json_object_handles_fenced_json():
     assert extract_json_object('```json\n{"risks": []}\n```') == {"risks": []}
+
+
+def test_git_url_normalization_accepts_gitlab_tree_url():
+    raw = (
+        "https://g.ktvsky.com/vod/ThunderNetVod/-/tree/dev-%CF%802-rk3576-standard-x9"
+    )
+    url = normalize_repository_url(raw)
+    assert url == "https://g.ktvsky.com/vod/ThunderNetVod.git"
+    assert parse_repository_input(raw)["target_ref"] == "dev-π2-rk3576-standard-x9"
+    assert validate_ref("dev-π2-rk3576-standard-x9", "目标分支") == "dev-π2-rk3576-standard-x9"
+
+
+def test_git_url_parses_markdown_link():
+    parsed = parse_repository_input(
+        "[分支](https://g.ktvsky.com/vod/ThunderNetVod/-/tree/dev-main)"
+    )
+    assert parsed["repository_url"].endswith("/ThunderNetVod.git")
+    assert parsed["target_ref"] == "dev-main"
+
+
+def test_git_url_rejects_embedded_credentials():
+    try:
+        normalize_repository_url("https://user:pass@g.ktvsky.com/vod/repo.git")
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "不能包含账号或密码" in str(exc)
+
+
+@patch("modules.precision_test.git_source._fetch_ref")
+@patch("modules.precision_test.git_source._ensure_cache", return_value="cache")
+@patch("modules.precision_test.git_source._run_git")
+def test_detect_release_baseline_selects_latest_reachable_release(mock_run, _mock_cache, _mock_fetch):
+    mock_run.side_effect = [
+        "",
+        "target-sha\n",
+        (
+            "2025-04-15\tstable_V5.1.1.6110\tbase-new\n"
+            "2024-12-26\tstable_V5.1.1.6102\tbase-old\n"
+        ),
+    ]
+    result = detect_release_baseline("https://example.com/team/repo.git", "dev-x9")
+    assert result["base_commit"] == "base-new"
+    assert result["tag"] == "stable_V5.1.1.6110"
+    assert result["confidence"] == "medium"
+
+
+@patch("modules.precision_test.git_source._fetch_ref")
+@patch("modules.precision_test.git_source._ensure_cache", return_value="cache")
+@patch("modules.precision_test.git_source._run_git")
+def test_build_git_diff_latest_commit_uses_first_parent(mock_run, _mock_cache, _mock_fetch):
+    from modules.precision_test.git_source import build_git_diff
+
+    mock_run.side_effect = [
+        "target-sha\n",
+        "parent-sha\n",
+        "target-sha\tdev\t2026-06-12\tfix player\n",
+        "abc\tdev\tfix player\n",
+        "M\tsrc/player.py\n",
+        "diff --git a/src/player.py b/src/player.py\n+fixed\n",
+    ]
+    result = build_git_diff(
+        "https://example.com/team/repo.git",
+        "feature",
+        comparison_mode="latest_commit",
+    )
+    assert result["base_sha"] == "parent-sha"
+    assert result["comparison_mode"] == "latest_commit"
+    assert result["included_files"] == ["src/player.py"]
 
 
 def test_normalize_analysis_builds_minimum_vod_test_set_and_executors():
