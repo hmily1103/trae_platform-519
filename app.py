@@ -89,6 +89,22 @@ except Exception as e:
     platform_logger.error(f'Error loading LogMonitor module: {e}', exc_info=True)
 
 try:
+    from modules.log_monitor.bridge import bridge_bp
+    # 无 url_prefix：路由直接为 /api/device/<id>/logs、/api/history/search、/api/diagnose
+    app.register_blueprint(bridge_bp)
+except Exception as e:
+    MODULE_LOAD_FAILURES['bridge'] = str(e)
+    platform_logger.error(f'Error loading LogMonitor bridge module: {e}', exc_info=True)
+
+try:
+    from modules.core.views import core_bp
+    # 无 url_prefix：全局设置类路由 /api/llm_config、/llm_settings
+    app.register_blueprint(core_bp)
+except Exception as e:
+    MODULE_LOAD_FAILURES['core'] = str(e)
+    platform_logger.error(f'Error loading Core module: {e}', exc_info=True)
+
+try:
     from modules.test_case.views import test_case_bp
     app.register_blueprint(test_case_bp)
 except Exception as e:
@@ -438,7 +454,7 @@ if __name__ == '__main__':
         # serve(app, host='127.0.0.1', port=port)
         # print("Waitress serve() returned.", flush=True)
 
-        app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+        app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
         print("app.run() returned.", flush=True)
     except KeyboardInterrupt:
         print("\n\n服务器已停止 (KeyboardInterrupt)", flush=True)

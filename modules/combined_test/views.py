@@ -124,6 +124,9 @@ def api_start():
         'mode': data.get('mode', 'monitor_only'),
         'package_name': data.get('package_name', 'com.thunder.ktv:media'),
         'reboot_defaults': data.get('reboot_defaults', {}),
+        'precision_analysis_id': data.get('precision_analysis_id') or request.args.get('precision_analysis_id'),
+        'precision_test_point_id': data.get('precision_test_point_id') or request.args.get('precision_test_point_id'),
+        'precision_execution_id': data.get('precision_execution_id') or request.args.get('precision_execution_id'),
     }
 
     pipeline_id = data.get('pipeline_id') or uuid.uuid4().hex[:8]
@@ -201,7 +204,30 @@ def api_reports():
             if f.endswith('.html'):
                 fp = os.path.join(report_dir, f)
                 mtime = os.path.getmtime(fp)
-                files.append({'name': f, 'mtime': mtime})
+                item = {'name': f, 'mtime': mtime, 'report_url': f'/combined_test/reports/{f}'}
+                json_name = f[:-5] + '.json'
+                json_path = os.path.join(report_dir, json_name)
+                if os.path.exists(json_path):
+                    try:
+                        import json
+                        with open(json_path, 'r', encoding='utf-8') as jf:
+                            report = json.load(jf)
+                        item.update({
+                            'json_name': json_name,
+                            'success': bool(report.get('success')),
+                            'status': 'success' if report.get('success') else 'failed',
+                            'summary': report.get('message') or '',
+                            'pipeline_id': report.get('pipeline_id'),
+                            'pipeline_type': report.get('pipeline_type'),
+                            'steps_done': report.get('steps_done') or [],
+                            'steps_failed': report.get('steps_failed') or [],
+                            'precision_analysis_id': report.get('precision_analysis_id') or '',
+                            'precision_test_point_id': report.get('precision_test_point_id') or '',
+                            'precision_execution_id': report.get('precision_execution_id') or '',
+                        })
+                    except Exception as ex:
+                        item['parse_error'] = str(ex)
+                files.append(item)
         files.sort(key=lambda x: x['mtime'], reverse=True)
         return success_response(data={'reports': files[:50]})
     except Exception as e:

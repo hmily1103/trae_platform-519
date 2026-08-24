@@ -4,12 +4,63 @@ from typing import Dict, List, Tuple, Optional
 
 
 class RootCauseAnalyzer:
+    PROCESS_ALIAS_RULES = [
+        (("mediaserver",), "mediaserver"),
+        (("media.codec",), "media.codec"),
+        (("media.extractor",), "media.extractor"),
+        (("surfaceflinger",), "SurfaceFlinger"),
+        (("android.hardware.graphics.composer", "composer"), "Graphics Composer Service"),
+        (("audioserver",), "AudioServer"),
+    ]
+
     def __init__(self, package_name: str = ""):
         self.package_name = package_name or ""
         self.main_package_name = (self.package_name.split(":")[0] if self.package_name else "")
         self.baseline_snapshots: List[Dict] = []
         self.stutter_events: List[Dict] = []
         self.cause_candidates: List[Dict] = []
+
+    def reset(self) -> None:
+        self.baseline_snapshots = []
+        self.stutter_events = []
+        self.cause_candidates = []
+
+    def _normalize_process_name(self, process_name: str) -> str:
+        raw_name = str(process_name or "").strip()
+        lowered = raw_name.lower()
+        for aliases, canonical_name in self.PROCESS_ALIAS_RULES:
+            if any(alias in lowered for alias in aliases):
+                return canonical_name
+        return raw_name
+
+    @staticmethod
+    def _is_sampling_artifact_process(process_name: str) -> bool:
+        lowered = str(process_name or "").strip().lower()
+        if not lowered:
+            return True
+        artifact_keywords = (
+            "grep",
+            "head",
+            "tail",
+            "ps ",
+            "ps -",
+            "top ",
+            "logcat",
+            "awk",
+            "sed",
+            "xargs",
+            "thunder_logcat",
+            "mediascanner",
+            "hi_mpi_win_getlatestframeinfo",
+        )
+        return any(keyword in lowered for keyword in artifact_keywords)
+
+    def _is_system_media_or_composer_process(self, process_name: str) -> bool:
+        lowered = str(process_name or "").strip().lower()
+        for aliases, _canonical_name in self.PROCESS_ALIAS_RULES:
+            if any(alias in lowered for alias in aliases):
+                return True
+        return False
 
     def record_baseline(self, snapshot: Dict) -> None:
         if not snapshot:
@@ -142,6 +193,30 @@ class RootCauseAnalyzer:
             "confidence": round(float(confidence or 0.0), 1),
         }
 
+    @staticmethod
+    def _extract_confirmation_gaps(evidence: Dict) -> List[str]:
+        snapshot = (evidence or {}).get("event_snapshot") or {}
+        if not isinstance(snapshot, dict):
+            return []
+        gaps = []
+        for item in snapshot.get("confirmation_gap_reasons") or []:
+            text = str(item or "").strip()
+            if text and text not in gaps:
+                gaps.append(text)
+        return gaps[:6]
+
+    @staticmethod
+    def _extract_promotion_hints(evidence: Dict) -> List[str]:
+        snapshot = (evidence or {}).get("event_snapshot") or {}
+        if not isinstance(snapshot, dict):
+            return []
+        hints = []
+        for item in snapshot.get("promotion_hints") or []:
+            text = str(item or "").strip()
+            if text and text not in hints:
+                hints.append(text)
+        return hints[:5]
+
     def get_summary(self) -> Dict:
         self.analyze()
         breakdown = {
@@ -179,7 +254,6 @@ class RootCauseAnalyzer:
                 if isinstance(evidence, dict) and not evidence.get("resource_only", False) and not evidence.get("signal_only", False):
                     stats["playback_confirmed"] = True
 
-        top_suspects = sorted(suspect_counts.items(), key=lambda x: x[1], reverse=True)[:5]
         most_confident = self.cause_candidates[0] if self.cause_candidates else None
         representative_cause = most_confident
         if cause_type_stats:
@@ -203,6 +277,17 @@ class RootCauseAnalyzer:
                 default=most_confident,
             )
         process_risk_stats: Dict[str, Dict] = {}
+        process_appearance_counts: Dict[str, int] = {}
+        for event in self.stutter_events:
+            seen_in_event = set()
+            for proc_name, _cpu_pct in (event.get("top_processes") or []):
+                normalized_name = self._normalize_process_name(proc_name)
+                if normalized_name:
+                    seen_in_event.add(normalized_name)
+            for normalized_name in seen_in_event:
+                process_appearance_counts[normalized_name] = (
+                    process_appearance_counts.get(normalized_name, 0) + 1
+                )
         for cause in self.cause_candidates:
             if str(cause.get("root_cause_type", "") or "") != "CPU_CONTENTION":
                 continue
@@ -243,7 +328,11 @@ class RootCauseAnalyzer:
             count = int(item.get("event_count", 0) or 0)
             process_risk_summary.append({
                 "process": item["process"],
+                "primary_event_count": count,
                 "event_count": count,
+                "appearance_count": int(
+                    process_appearance_counts.get(item["process"], count) or count
+                ),
                 "max_instance_count": int(item["max_instance_count"]),
                 "avg_cpu_percent": round(
                     float(item["cpu_total"]) / count if count else 0.0,
@@ -267,6 +356,72 @@ class RootCauseAnalyzer:
             ),
             reverse=True,
         )
+        top_suspects: List[Dict] = []
+        seen_processes = set()
+        for item in process_risk_summary[:5]:
+            process_name = str(item.get("process", "") or "").strip()
+            if not process_name:
+                continue
+            seen_processes.add(process_name)
+            top_suspects.append(
+                {
+                    "process": process_name,
+                    "count": int(item.get("event_count", 0) or 0),
+                    "primary_event_count": int(item.get("primary_event_count", 0) or 0),
+                    "appearance_count": int(item.get("appearance_count", 0) or 0),
+                    "peak_cpu_percent": round(float(item.get("peak_cpu_percent", 0) or 0.0), 2),
+                    "avg_cpu_percent": round(float(item.get("avg_cpu_percent", 0) or 0.0), 2),
+                    "max_instance_count": int(item.get("max_instance_count", 1) or 1),
+                }
+            )
+        for item in sorted(suspect_counts.items(), key=lambda x: x[1], reverse=True):
+            process_name = str(item[0] or "").strip()
+            if not process_name or process_name in seen_processes:
+                continue
+            top_suspects.append(
+                {
+                    "process": process_name,
+                    "count": int(item[1] or 0),
+                    "primary_event_count": int(item[1] or 0),
+                    "appearance_count": int(item[1] or 0),
+                    "peak_cpu_percent": 0.0,
+                    "avg_cpu_percent": 0.0,
+                    "max_instance_count": 1,
+                }
+            )
+            if len(top_suspects) >= 5:
+                break
+        if process_risk_summary:
+            top_cpu_process = process_risk_summary[0]
+            top_cpu_process_name = str(top_cpu_process.get("process", "") or "").strip()
+            top_cpu_process_hits = int(top_cpu_process.get("primary_event_count", 0) or top_cpu_process.get("event_count", 0) or 0)
+            representative_type = str((representative_cause or {}).get("root_cause_type", "") or "")
+            representative_process = self._normalize_process_name(
+                str((representative_cause or {}).get("suspect_process", "") or "")
+            )
+            if (
+                top_cpu_process_name
+                and top_cpu_process_hits >= 2
+                and (
+                    representative_type != "CPU_CONTENTION"
+                    or representative_process != top_cpu_process_name
+                )
+            ):
+                matching_cpu_candidates = [
+                    candidate
+                    for candidate in self.cause_candidates
+                    if str(candidate.get("root_cause_type", "") or "") == "CPU_CONTENTION"
+                    and self._normalize_process_name(str(candidate.get("suspect_process", "") or "")) == top_cpu_process_name
+                ]
+                if matching_cpu_candidates:
+                    matching_cpu_candidates.sort(
+                        key=lambda candidate: (
+                            float(candidate.get("confidence", 0) or 0.0),
+                            float(((candidate.get("evidence") or {}).get("stutter_cpu", 0) or 0.0)),
+                        ),
+                        reverse=True,
+                    )
+                    representative_cause = matching_cpu_candidates[0]
         confirmed_playback_causes = 0
         resource_risk_events = 0
         log_signal_events = 0
@@ -343,170 +498,124 @@ class RootCauseAnalyzer:
         if cause_type == "CPU_CONTENTION":
             issue_process = issue_process or suspect or "未知进程"
             instance_count = int(top_process_risk.get("max_instance_count", evidence.get("instance_count", 1)) or 1)
-            event_count = int(top_process_risk.get("event_count", 0) or 0)
-            proliferation = bool(
-                top_process_risk.get("process_proliferation", False)
-                or evidence.get("process_proliferation", False)
+            primary_event_count = int(
+                top_process_risk.get("primary_event_count", 0)
+                or top_process_risk.get("event_count", 0)
+                or 0
+            )
+            appearance_count = int(
+                top_process_risk.get("appearance_count", 0)
+                or primary_event_count
+                or 0
+            )
+            proliferation = bool(top_process_risk.get("process_proliferation", False) or evidence.get("process_proliferation", False))
+            peak_cpu_percent = float(
+                top_process_risk.get("peak_cpu_percent", evidence.get("peak_cpu_percent", 0.0)) or 0.0
             )
             evidence_level = "confirmed"
             if resource_only and confirmed_playback_causes <= 0:
                 evidence_level = "risk"
             if signal_only:
                 evidence_level = "risk"
-            title = (
-                "可判定为 CPU 资源竞争导致电视端卡顿"
-                if evidence_level == "confirmed"
-                else "检测到 CPU 资源竞争风险，但电视端直证仍不足"
+            strong_cpu_resonance = (
+                primary_event_count >= 3
+                or appearance_count >= 3
+                or peak_cpu_percent >= 100.0
+                or instance_count >= 3
             )
-            conclusion = (
-                f"可判定本轮电视端卡顿主要由 {issue_process} 引发的 CPU 资源竞争导致。"
-                if evidence_level == "confirmed"
-                else f"检测到 {issue_process} 存在明显 CPU 资源竞争风险，但当前缺少足够的电视端 Surface/帧时间直证，建议先按高风险问题继续复核。"
+            is_media_service = issue_process in {"mediaserver", "media.codec", "media.extractor"}
+            clear_system_direction = bool(
+                strong_cpu_resonance
+                and is_media_service
+                and (primary_event_count >= 2 or peak_cpu_percent >= 95.0)
             )
+            if evidence_level == "confirmed":
+                title = "可判定为 CPU 资源竞争导致电视端卡顿"
+                conclusion = f"可判定本轮电视端卡顿主要由 {issue_process} 引发的 CPU 资源竞争导致。"
+            elif clear_system_direction:
+                title = "高概率为系统媒体服务 CPU 竞争"
+                conclusion = (
+                    f"当前已看到 {issue_process} 在电视端抖动样本时段反复高占用，"
+                    "问题方向已经比较明确地指向系统媒体服务侧。"
+                    " 现阶段仍缺少解码丢帧、underrun 或 buffer starvation 这类更硬的播放侧直证，"
+                    "因此结论保持在强风险级，而不直接升为确认级阻断。"
+                )
+            elif strong_cpu_resonance:
+                title = "高概率存在系统级 CPU 资源竞争"
+                conclusion = (
+                    f"当前已看到 {issue_process} 与电视端抖动样本反复同时间出现，"
+                    "属于高概率系统级 CPU 资源竞争。"
+                    " 只是现阶段仍缺少解码停顿、丢帧恶化或更强的电视端直证，"
+                    "因此暂不升级为确认级定责。"
+                )
+            else:
+                title = "检测到 CPU 资源竞争风险，但电视端直证仍不足"
+                conclusion = (
+                    f"检测到 {issue_process} 存在明显 CPU 资源竞争风险，"
+                    "但当前仍缺少足够的电视端 Surface / 帧时间直证，"
+                    "建议先按高风险问题继续复核。"
+                )
             if proliferation:
                 conclusion += f" 该进程存在多实例并发迹象，峰值达到 {instance_count} 个实例。"
-            elif event_count > 0:
-                conclusion += f" 该进程在卡顿样本中重复命中 {event_count} 次。"
+            elif primary_event_count > 0:
+                conclusion += f" 该进程作为首要根因候选命中 {primary_event_count} 次。"
+                if appearance_count > primary_event_count:
+                    conclusion += f" 另外，它在事件快照中共出现 {appearance_count} 次。"
+            if peak_cpu_percent > 0:
+                conclusion += f" 峰值 CPU 达到 {peak_cpu_percent:.1f}%。"
             actions = [
-                f"优先排查 {issue_process} 的启动/保活/循环拉起逻辑",
+                f"优先排查 {issue_process} 的启动、保活或循环拉起逻辑",
                 "将卡顿时的整机 CPU、嫌疑进程实例数和电视端事件时间线一起交叉确认",
             ]
-            return {
-                "title": title,
-                "conclusion": conclusion,
-                "evidence_level": evidence_level,
-                "evidence_strength": self.build_evidence_strength(evidence_level, confidence),
-                "owner": owner,
-                "actions": actions,
-                "suspect_process": issue_process,
-                "confidence": round(confidence, 1),
-            }
+            if is_media_service:
+                actions = [
+                    f"先补抓 {issue_process} 的 codec / binder / media 相关日志，确认是否存在解码链路阻塞",
+                    "重点检索 underrun / buffer starvation / dequeue output timeout / mpp timeout 等关键字",
+                    "对照事件目录中的 top_before.txt、top_after.txt 和 time_window_logcat.txt，确认高 CPU 与大帧间隔是否同窗出现",
+                ]
+            return {"title": title, "conclusion": conclusion, "evidence_level": evidence_level, "evidence_strength": self.build_evidence_strength(evidence_level, confidence), "owner": owner, "actions": actions, "suspect_process": issue_process, "confidence": round(confidence, 1), "primary_event_count": primary_event_count, "appearance_count": appearance_count}
 
         if cause_type == "DECODER_STUCK":
             confirmed_decoder_stuck = not resource_only and bool(evidence.get("decoder_stuck_confirmed", True))
-            return {
-                "title": "可判定为硬件解码链路停滞",
-                "conclusion": (
-                    "卡顿时硬件解码吞吐明显停顿，可优先归因到解码链路异常，而不是单纯 CPU 抢占。"
-                    if confirmed_decoder_stuck
-                    else "检测到解码链路停顿风险，但当前缺少电视端 Surface 或硬错误日志直证，需结合实机观察复核。"
-                ),
-                "evidence_level": "confirmed" if confirmed_decoder_stuck else "risk",
-                "evidence_strength": self.build_evidence_strength(
-                    "confirmed" if confirmed_decoder_stuck else "risk",
-                    confidence,
-                ),
-                "owner": "播放器/解码侧",
-                "actions": [
-                    "检查 MPP 驱动日志与输入流状态",
-                    "核对码率、分辨率和芯片能力上限",
-                ],
-                "suspect_process": suspect or "MPP Hardware Decoder",
-                "confidence": round(confidence, 1),
-            }
+            return {"title": "可判定为硬件解码链路停滞" if confirmed_decoder_stuck else "检测到解码链路停顿风险", "conclusion": ("卡顿时硬件解码吞吐明显停顿，可优先归因到解码链路异常，而不是单纯 CPU 抢占。" if confirmed_decoder_stuck else "检测到解码链路停顿风险，但当前缺少电视端 Surface 或硬错误日志直证，需结合实机观察复核。"), "evidence_level": "confirmed" if confirmed_decoder_stuck else "risk", "evidence_strength": self.build_evidence_strength("confirmed" if confirmed_decoder_stuck else "risk", confidence), "owner": "播放器/解码侧", "actions": ["检查 MPP 驱动日志与输入流状态", "核对码率、分辨率和芯片能力上限"], "suspect_process": suspect or "MPP Hardware Decoder", "confidence": round(confidence, 1)}
 
         if cause_type == "THERMAL_THROTTLING":
-            return {
-                "title": "可判定为热降频导致播放退化",
-                "conclusion": "卡顿与温度/限频同时出现，更像是热降频触发后的系统性性能下降。",
-                "evidence_level": "confirmed",
-                "evidence_strength": self.build_evidence_strength("confirmed", confidence),
-                "owner": "系统/硬件侧",
-                "actions": [
-                    "检查散热条件与温控策略",
-                    "对比冷机与热机下的同场景表现",
-                ],
-                "suspect_process": suspect or "CPU Thermal Governor",
-                "confidence": round(confidence, 1),
-            }
+            return {"title": "可判定为热降频导致播放退化", "conclusion": "卡顿与温度或限频同时出现，更像是热降频触发后的系统性性能下降。", "evidence_level": "confirmed", "evidence_strength": self.build_evidence_strength("confirmed", confidence), "owner": "系统/硬件侧", "actions": ["检查散热条件与温控策略", "对比冷机与热机下的同场景表现"], "suspect_process": suspect or "CPU Thermal Governor", "confidence": round(confidence, 1)}
+
         if cause_type == "MEMORY_PRESSURE":
-            return {
-                "title": "较大概率为内存压力导致播放退化",
-                "conclusion": "播放器或关联进程 PSS 明显高于基线，存在内存压力或泄漏风险。",
-                "evidence_level": "strong" if confidence >= 70 else "weak",
-                "evidence_strength": self.build_evidence_strength(
-                    "strong" if confidence >= 70 else "weak",
-                    confidence,
-                ),
-                "owner": owner,
-                "actions": [
-                    "对比基线版本内存曲线",
-                    "重点检查大对象、纹理缓存和 GC 抖动",
-                ],
-                "suspect_process": suspect,
-                "confidence": round(confidence, 1),
-            }
+            level = "strong" if confidence >= 70 else "risk"
+            return {"title": "较大概率为内存压力导致播放退化", "conclusion": "播放器或关联进程 PSS 明显高于基线，存在内存压力或泄漏风险。", "evidence_level": level, "evidence_strength": self.build_evidence_strength(level, confidence), "owner": owner, "actions": ["对比基线版本内存曲线", "重点检查大对象、纹理缓存和 GC 抖动"], "suspect_process": suspect, "confidence": round(confidence, 1)}
+
         if cause_type == "LOW_FPS_DEGRADATION":
-            return {
-                "title": "较大概率为渲染/合成链路压力导致低帧率",
-                "conclusion": "解码吞吐基本正常，但电视端显示帧率持续偏低，问题更偏向渲染/合成链路。",
-                "evidence_level": "risk",
-                "evidence_strength": self.build_evidence_strength("risk", confidence),
-                "owner": "系统显示链路/渲染侧",
-                "actions": [
-                    "检查 SurfaceFlinger、composer 服务与 GPU 占用",
-                    "排查 UI 动画、弹层和合成开销",
-                ],
-                "suspect_process": suspect or "SurfaceFlinger/Render",
-                "confidence": round(confidence, 1),
-            }
+            risk_target = issue_process or suspect or "SurfaceFlinger/Render"
+            risk_owner = "系统/固件侧" if self._is_system_media_or_composer_process(risk_target) else "系统显示链路/渲染侧"
+            actions = ["检查 SurfaceFlinger、composer 服务和 GPU 占用", "排查 UI 动画、弹层和合成开销"]
+            if risk_target in {"mediaserver", "media.codec", "media.extractor"}:
+                actions = [
+                    f"先补抓 {risk_target} 的 codec / binder / media 相关日志",
+                    "重点检查 mediaserver 高 CPU 是否与大帧间隔同时间窗出现",
+                    "再回看显示链路日志，判断是否是媒体服务把问题传导到合成层",
+                ]
+            return {"title": "较大概率为渲染/合成链路压力导致低帧率", "conclusion": "解码吞吐基本正常，但电视端显示帧率持续偏低，问题更偏向渲染或合成链路。" if risk_target == "SurfaceFlinger/Render" else f"电视端显示帧率持续偏低，同时高频命中 {risk_target}，当前更建议先围绕该系统进程排查。", "evidence_level": "risk", "evidence_strength": self.build_evidence_strength("risk", confidence), "owner": risk_owner, "actions": actions, "suspect_process": risk_target, "confidence": round(confidence, 1)}
+
         if cause_type == "AV_SYNC_ISSUE":
-            evidence_level = "weak" if signal_only else "strong"
-            return {
-                "title": "较大概率为播放器内部音画同步/缓冲抖动",
-                "conclusion": "日志出现卡顿信号，但解码、显示和系统资源没有同步恶化，更偏向播放器内部缓冲或时钟同步问题。",
-                "evidence_level": evidence_level,
-                "evidence_strength": self.build_evidence_strength(evidence_level, confidence),
-                "owner": "播放器侧",
-                "actions": [
-                    "重点核对 buffer underrun、时钟漂移和音轨切换日志",
-                    "复查播放器内部队列深度与同步策略",
-                ],
-                "suspect_process": suspect or self.main_package_name or self.package_name,
-                "confidence": round(confidence, 1),
-            }
+            evidence_level = "risk" if signal_only else "strong"
+            return {"title": "较大概率为播放器内部音画同步或缓冲抖动", "conclusion": "日志出现卡顿信号，但解码、显示和系统资源没有同步恶化，更偏向播放器内部缓冲或时钟同步问题。", "evidence_level": evidence_level, "evidence_strength": self.build_evidence_strength(evidence_level, confidence), "owner": "播放器侧", "actions": ["重点核对 buffer underrun、时钟漂移和音轨切换日志", "复查播放器内部队列深度与同步策略"], "suspect_process": suspect or self.main_package_name or self.package_name, "confidence": round(confidence, 1)}
+
         if resource_risk_events > 0 and confirmed_playback_causes <= 0:
+            risk_target = suspect or issue_process or "无"
             return {
-                "title": "存在明显资源风险，但证据仍偏辅助",
-                "conclusion": "当前已看到整机资源竞争或负载异常，但还缺少足够强的电视端退化同步证据。",
+                "title": "存在较强资源竞争信号，建议按高风险问题排查",
+                "conclusion": f"当前已看到 {risk_target} 相关的整机资源竞争或负载异常，虽然电视端直证仍不完整，但已经足以作为高优先级排查方向。",
                 "evidence_level": "strong",
                 "evidence_strength": self.build_evidence_strength("strong", confidence),
                 "owner": owner,
-                "actions": [
-                    "继续保留电视端卡顿事件目录",
-                    "增加同场景复测次数，确认是否稳定复现",
-                ],
-                "suspect_process": issue_process or suspect,
-                "confidence": round(confidence, 1),
-            }
-        if log_signal_events > 0:
-            return {
-                "title": "仅发现日志信号，暂不能直接定责",
-                "conclusion": "当前只有播放器相关日志异常，仍不足以直接判定具体责任方。",
-                "evidence_level": "weak",
-                "evidence_strength": self.build_evidence_strength("weak", confidence),
-                "owner": "待补证据",
-                "actions": [
-                    "补充电视端 Surface 帧时间和 Top 进程证据",
-                    "延长监控并提高卡顿时段采样密度",
-                ],
-                "suspect_process": suspect,
+                "actions": ["继续补采电视端 Surface、FPS 或解码侧同步证据", "保留异常时间窗内的 Top、日志和截图目录用于交叉复核"],
+                "suspect_process": risk_target,
                 "confidence": round(confidence, 1),
             }
 
-        return {
-            "title": "暂无法定责",
-            "conclusion": "已捕获异常，但现有证据还不足以直接锁定具体问题。",
-            "evidence_level": "insufficient",
-            "evidence_strength": self.build_evidence_strength("insufficient", confidence),
-            "owner": "待补证据",
-            "actions": [
-                "继续采集更多卡顿样本",
-                "补充播放器日志、Top 和电视端 Surface 证据",
-            ],
-            "suspect_process": suspect,
-            "confidence": round(confidence, 1),
-        }
+        return {"title": "暂无法定责", "conclusion": "当前证据还不足以稳定归因，建议继续补样本和交叉证据。", "evidence_level": "insufficient", "evidence_strength": self.build_evidence_strength("insufficient", confidence), "owner": owner or "待补证据", "actions": ["补抓同一时间窗内的电视端证据、Top 进程和关键日志", "延长时长后复测，确认结论是否可重复"], "suspect_process": suspect or issue_process or "无", "confidence": round(confidence, 1)}
 
     def _guess_owner(self, suspect_process: str, cause_type: str) -> str:
         suspect = str(suspect_process or "").lower()
@@ -518,10 +627,7 @@ class RootCauseAnalyzer:
             return "系统/硬件侧"
         if (
             suspect.startswith("/system/bin/")
-            or "surfaceflinger" in suspect
-            or "mediaserver" in suspect
-            or "composer" in suspect
-            or "audioserver" in suspect
+            or self._is_system_media_or_composer_process(suspect)
         ):
             return "系统/固件侧"
         if self.main_package_name and self.main_package_name.lower() in suspect:
@@ -540,7 +646,10 @@ class RootCauseAnalyzer:
             m = re.match(r"^(.*)\(([\d\.]+)%\)$", p)
             if not m:
                 continue
-            name = (m.group(1) or "").strip()
+            raw_name = (m.group(1) or "").strip()
+            if self._is_sampling_artifact_process(raw_name):
+                continue
+            name = self._normalize_process_name(raw_name)
             try:
                 cpu = float(m.group(2))
             except (TypeError, ValueError):
@@ -595,6 +704,10 @@ class RootCauseAnalyzer:
                 "decoder_stuck_confirmed": bool(
                     event.get("decoder_stuck_confirmed", False)
                 ),
+                "confirmation_gap_reasons": list(
+                    event.get("confirmation_gap_reasons") or []
+                ),
+                "promotion_hints": list(event.get("promotion_hints") or []),
             },
         )
         if top_processes:
@@ -825,6 +938,7 @@ class RootCauseAnalyzer:
 
         proc_baseline = baseline.get("process_cpu_baseline", {}) or {}
         for proc_name, cpu_pct in (event.get("top_processes") or []):
+            proc_name = self._normalize_process_name(proc_name)
             name_lower = str(proc_name).lower()
             instance_match = re.search(r"\sx(\d+)$", str(proc_name))
             instance_count = (
@@ -835,7 +949,7 @@ class RootCauseAnalyzer:
                 continue
             if "screencap" in name_lower or "screen_temp_" in name_lower:
                 continue
-            if name_lower in ("system_server", "surfaceflinger", "audioserver", "cameraserver"):
+            if name_lower in ("system_server", "cameraserver"):
                 continue
             if self.main_package_name and self.main_package_name in proc_name:
                 continue

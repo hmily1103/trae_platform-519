@@ -8,6 +8,7 @@ from collections import Counter
 ALLOWED_PRIORITIES = {"P0", "P1", "P2"}
 ALLOWED_STATUSES = {"PENDING", "PASS", "FAIL", "BLOCKED", "SKIPPED", "ENV_ERROR"}
 ALLOWED_MODES = {"auto", "semi_auto", "manual"}
+GATE_RULE_VERSION = "precision_gate_v1"
 
 EXECUTORS = {
     "song_order": {"name": "点歌与搜索", "url": "/song_order/", "mode": "auto"},
@@ -40,6 +41,39 @@ VOD_SIGNALS = (
     ("跨端", "P1", r"sync|state|mobile|tv|central|room|同步|状态一致|移动端|中控|包厢"),
     ("异常", "P1", r"timeout|retry|exception|error|network|offline|weak|超时|重试|异常|断网|弱网|断电|降级"),
 )
+
+# 功能分类信号（不含「异常」），用于把被误判为「异常」的风险回正到业务分类。
+# 顺序即优先级：命中前者优先归入该业务分类，故「点歌/播放」排在「服务端/跨端」前。
+FUNCTIONAL_SIGNALS = tuple(
+    (category, priority, pattern)
+    for (category, priority, pattern) in VOD_SIGNALS
+    if category != "异常"
+)
+
+
+def refine_category(raw_category, text):
+    """把 LLM 可能误判的「异常」回正到功能分类（确定性安全网，不依赖模型）。
+
+    规则：
+      - 若 AI 给出的是具体功能分类（点歌/播放/设备/服务端/跨端），原样信任保留。
+      - 若 AI 给出「异常」，但文本命中任一功能信号，说明改的是某业务子系统里的
+        容错/兜底代码，应归到该业务分类（如「修复播放解码崩溃」→ 播放）。
+      - 仅当文本确实以韧性/容灾为主线（无明确功能子系统信号）时才保留「异常」
+        （如全局熔断/统一降级框架）。
+      - 若 AI 给的分类完全不在允许集合，用 detect_vod_categories 兜底。
+    """
+    valid = set(CATEGORY_EXECUTORS)
+    cat = str(raw_category or "").strip()
+    if cat not in valid:
+        cat = detect_vod_categories(text or "")[0]["category"]
+    if cat != "异常":
+        return cat
+    # 仅当 AI 判为「异常」时才做回正检查
+    for category, _priority, pattern in FUNCTIONAL_SIGNALS:
+        if re.search(pattern, text or "", re.I):
+            return category
+    # 无功能子系统信号，确属韧性/容灾主线，保留「异常」
+    return "异常"
 
 
 def extract_json_object(text):
@@ -104,6 +138,25 @@ def _unique_strings(values, limit=8):
 
 
 def _default_risks(requirement, code_diff, summary):
+    if summary.get("runtime_impact") == "none":
+        change_type = summary.get("change_type") or "non_runtime"
+        title_map = {
+            "ai_tooling": "AI 协作工具配置变更不影响 VOD 运行时",
+            "documentation": "文档变更不影响 VOD 运行时",
+            "test_only": "测试代码变更不影响产品运行时",
+        }
+        return [{
+            "id": "R01",
+            "category": "跨端",
+            "title": title_map.get(change_type, "非运行时变更不影响 VOD 主链路"),
+            "priority": "P2",
+            "impact_type": "indirect",
+            "affected_users": "开发、测试或协作人员",
+            "scope": summary.get("reason") or "本次改动未进入产品运行时链路",
+            "evidence": summary.get("files") or ["Diff 文件列表"],
+            "confidence": "high",
+        }]
+
     source = f"{requirement}\n{code_diff}"
     risks = []
     evidence = (summary.get("files") or ["需求说明"])[0]
@@ -132,6 +185,9 @@ def _default_risks(requirement, code_diff, summary):
 
 
 def _normalize_risks(raw_risks, requirement, code_diff, summary):
+    if summary.get("runtime_impact") == "none":
+        return _default_risks(requirement, code_diff, summary)
+
     items = raw_risks if isinstance(raw_risks, list) else []
     normalized = []
     valid_categories = set(CATEGORY_EXECUTORS)
@@ -143,6 +199,12 @@ def _normalize_risks(raw_risks, requirement, code_diff, summary):
             category = detect_vod_categories(
                 f"{item.get('title', '')} {item.get('scope', '')}"
             )[0]["category"]
+        # 回正：把被误判的「异常」归位到命中的功能分类（确定性安全网）
+        category = refine_category(
+            category,
+            f"{item.get('title', '')} {item.get('scope', '')} "
+            f"{' '.join(item.get('evidence') or [])}",
+        )
         normalized.append({
             "id": f"R{index:02d}",
             "category": category,
@@ -194,17 +256,78 @@ def _test_templates(risk):
     return common + extras.get(category, [])
 
 
-def _build_test_points(raw_points, risks):
+def _target_test_point_count(risks, summary):
+    if summary.get("runtime_impact") == "none":
+        return 3
+    if any(risk.get("priority") == "P0" for risk in risks):
+        return 10
+    if any(risk.get("priority") == "P1" for risk in risks):
+        return 8
+    return 5
+
+
+def _non_runtime_test_points(risks, summary):
+    risk_id = risks[0]["id"] if risks else "R01"
+    change_type = summary.get("change_type") or "non_runtime"
+    if change_type == "ai_tooling":
+        scenarios = [
+            ("配置校验", "验证 AI 工具配置格式", "检查 JSON/Markdown 配置可解析", "配置格式正确，无语法错误"),
+            ("协作流程", "验证 Hook/Command 不阻断正常开发", "按团队常用命令做一次干跑或人工检查", "不会误拦截正常代码编辑和文档维护"),
+            ("产物影响", "确认 VOD 编译产物无变化", "确认改动文件不参与 Android/服务端构建产物", "无需执行点歌、播放、机顶盒全链路回归"),
+        ]
+    elif change_type == "documentation":
+        scenarios = [
+            ("文档校验", "验证文档内容准确性", "人工核对文档描述与当前流程一致", "文档无误导信息"),
+            ("链接校验", "验证文档链接与引用", "检查新增链接、路径或命令引用", "链接和路径可访问"),
+            ("产物影响", "确认文档变更无运行时影响", "确认改动文件不进入 VOD 编译和部署产物", "无需执行产品主链路回归"),
+        ]
+    else:
+        scenarios = [
+            ("测试资产", "验证测试代码可运行", "执行受影响测试或做语法检查", "测试资产本身可用"),
+            ("覆盖意图", "确认测试改动覆盖目标风险", "核对测试名称、断言和数据准备", "测试意图清晰且不误报"),
+            ("产物影响", "确认产品代码无变化", "确认 Diff 不包含产品运行时代码", "无需执行完整 VOD 回归"),
+        ]
+    points = []
+    for index, (point_type, title, steps, expected) in enumerate(scenarios, 1):
+        points.append({
+            "id": f"T{index:02d}",
+            "risk_ids": [risk_id],
+            "priority": "P2",
+            "type": point_type,
+            "title": title,
+            "precondition": "已获取本次 Diff 与需求说明",
+            "steps": steps,
+            "expected": expected,
+            "mode": "manual",
+            "source": "rule",
+        })
+    return points
+
+
+def _build_test_points(raw_points, risks, summary=None):
+    """合并 LLM 生成的有效测试点与分类模板补充，保证覆盖且不浪费模型智能。
+
+    - LLM 返回的测试点只要 risk_ids 合法就保留（标记 source=llm）
+    - 不足 10 条时按风险分类用模板补充（标记 source=template），而非清空重来
+    - 极端情况下用通用 fallback 场景补到 10 条
+    """
+    summary = summary or {}
+    if summary.get("runtime_impact") == "none":
+        return _non_runtime_test_points(risks, summary)
+
     points = []
     items = raw_points if isinstance(raw_points, list) else []
-    risk_ids = {risk["id"] for risk in risks}
+    risk_by_id = {risk["id"]: risk for risk in risks}
+    target_count = _target_test_point_count(risks, summary)
+
+    # 1. 保留 LLM 生成的有效测试点（不再因数量不足而整体丢弃）
     for item in items[:20]:
         if not isinstance(item, dict):
             continue
-        linked = [rid for rid in _unique_strings(item.get("risk_ids"), 4) if rid in risk_ids]
+        linked = [rid for rid in _unique_strings(item.get("risk_ids"), 4) if rid in risk_by_id]
         if not linked:
             continue
-        risk = next(r for r in risks if r["id"] == linked[0])
+        risk = risk_by_id[linked[0]]
         points.append({
             "id": "",
             "risk_ids": linked,
@@ -215,12 +338,17 @@ def _build_test_points(raw_points, risks):
             "steps": str(item.get("steps") or "执行对应业务操作").strip(),
             "expected": str(item.get("expected") or "结果符合需求且状态一致").strip(),
             "mode": str(item.get("mode") or "").lower(),
+            "source": "llm",
         })
 
-    if len(points) < 10:
-        points = []
+    # 2. 不足目标条数时，按风险分类用模板补充（保留 LLM 点，仅补齐缺失类别）
+    if len(points) < target_count:
         for risk in risks:
+            if len(points) >= target_count:
+                break
             for point_type, title, steps, expected in _test_templates(risk):
+                if any(p["title"] == title for p in points):
+                    continue
                 points.append({
                     "id": "",
                     "risk_ids": [risk["id"]],
@@ -231,34 +359,44 @@ def _build_test_points(raw_points, risks):
                     "steps": steps,
                     "expected": expected,
                     "mode": "",
+                    "source": "template",
                 })
-                if len(points) >= 20:
+                if len(points) >= target_count:
                     break
-            if len(points) >= 20:
-                break
-        fallback_scenarios = [
-            ("冒烟场景", "核心链路冒烟验证", "完成搜索、点歌、起播、切歌主链路", "主链路可用且各端状态一致"),
-            ("日志场景", "关键异常日志检查", "执行主流程并检查设备与服务端日志", "无新增Crash、ANR或高频错误"),
-            ("性能场景", "核心链路性能基线", "执行主流程并采集CPU、内存、FPS", "指标不劣化且无明显卡顿"),
-            ("恢复场景", "中断后恢复验证", "主流程中断网络或重启后重新进入", "状态可预测且数据不丢失"),
-            ("兼容场景", "目标设备矩阵验证", "选择代表性型号与固件执行主流程", "各设备行为符合统一业务规则"),
-        ]
-        fallback_index = 0
-        while len(points) < 10:
-            risk = risks[fallback_index % len(risks)]
-            point_type, title, steps, expected = fallback_scenarios[fallback_index % len(fallback_scenarios)]
-            points.append({
-                "id": "",
-                "risk_ids": [risk["id"]],
-                "priority": risk["priority"],
-                "type": point_type,
-                "title": title,
-                "precondition": "目标版本、代表性机顶盒和服务端环境可用",
-                "steps": steps,
-                "expected": expected,
-                "mode": "",
-            })
+
+    # 3. 极端情况（LLM 点与模板补充后仍不足目标条数）用通用场景补齐
+    #    先按标题去重；若一轮全部重复仍凑不够，则放宽允许重复以保证达到目标条数
+    fallback_scenarios = [
+        ("冒烟场景", "核心链路冒烟验证", "完成搜索、点歌、起播、切歌主链路", "主链路可用且各端状态一致"),
+        ("日志场景", "关键异常日志检查", "执行主流程并检查设备与服务端日志", "无新增Crash、ANR或高频错误"),
+        ("性能场景", "核心链路性能基线", "执行主流程并采集CPU、内存、FPS", "指标不劣化且无明显卡顿"),
+        ("恢复场景", "中断后恢复验证", "主流程中断网络或重启后重新进入", "状态可预测且数据不丢失"),
+        ("兼容场景", "目标设备矩阵验证", "选择代表性型号与固件执行主流程", "各设备行为符合统一业务规则"),
+    ]
+    fallback_index = 0
+    fallback_dedup = True
+    while len(points) < target_count:
+        risk = risks[fallback_index % len(risks)]
+        point_type, title, steps, expected = fallback_scenarios[fallback_index % len(fallback_scenarios)]
+        if fallback_dedup and any(p["title"] == title for p in points):
             fallback_index += 1
+            if fallback_index >= len(fallback_scenarios):
+                fallback_dedup = False
+                fallback_index = 0
+            continue
+        points.append({
+            "id": "",
+            "risk_ids": [risk["id"]],
+            "priority": risk["priority"],
+            "type": point_type,
+            "title": title,
+            "precondition": "目标版本、代表性机顶盒和服务端环境可用",
+            "steps": steps,
+            "expected": expected,
+            "mode": "",
+            "source": "template",
+        })
+        fallback_index += 1
 
     points.sort(key=lambda p: {"P0": 0, "P1": 1, "P2": 2}[p["priority"]])
     for index, point in enumerate(points[:20], 1):
@@ -266,42 +404,165 @@ def _build_test_points(raw_points, risks):
     return points[:20]
 
 
+EXECUTOR_ROUTING_RULES = (
+    {
+        "executor": "song_order",
+        "mode": "auto",
+        "reason": "点歌、搜索、队列或收藏逻辑优先走点歌模块",
+        "categories": {"点歌"},
+        "pattern": r"点歌|搜索|队列|歌单|收藏|切歌顺序|song|music|queue|favorite|collect|order|search",
+    },
+    {
+        "executor": "api_stress",
+        "mode": "auto",
+        "reason": "接口、参数、幂等、并发或缓存一致性优先走 API 压测",
+        "categories": {"点歌", "服务端", "异常"},
+        "pattern": r"接口|参数|错误码|幂等|并发|请求|响应|缓存|Redis|数据库|服务端|API|Controller|Service|DB",
+    },
+    {
+        "executor": "player_stress",
+        "mode": "semi_auto",
+        "reason": "播放画面、声音、播控栏、卡顿或图层问题优先走播放器压测",
+        "categories": {"播放", "跨端"},
+        "pattern": r"播放|起播|切歌|暂停|继续|seek|卡顿|黑屏|无声|音画|解码|播控栏|ControlBar|PlayControl|图层|弹框|遮挡|player|playback|video|audio",
+    },
+    {
+        "executor": "ui_automation",
+        "mode": "semi_auto",
+        "reason": "页面、弹框、按钮、布局或交互流程优先走 UI 自动化",
+        "categories": {"播放", "设备", "跨端"},
+        "pattern": r"页面|按钮|弹框|退出|遮挡|背景图|布局|显示|交互|扫码|登录|UI|View|Dialog|Activity|Fragment|Layout|Pad",
+    },
+    {
+        "executor": "performance_monitor",
+        "mode": "auto",
+        "reason": "CPU、内存、FPS、卡顿或资源占用优先走性能监控",
+        "categories": {"播放", "设备", "跨端"},
+        "pattern": r"CPU|内存|FPS|性能|卡顿|掉帧|资源占用|memory|perf|jank",
+    },
+    {
+        "executor": "log_monitor",
+        "mode": "auto",
+        "reason": "Crash、ANR、异常日志、错误码优先走日志监控",
+        "categories": {"播放", "设备", "服务端", "跨端", "异常"},
+        "pattern": r"日志|错误|异常|Crash|ANR|Exception|Error|超时|timeout|decoder|解码",
+    },
+    {
+        "executor": "combined_test",
+        "mode": "auto",
+        "reason": "跨端状态、重启恢复、断网弱网或多模块组合优先走组合测试",
+        "categories": {"设备", "跨端", "异常"},
+        "pattern": r"跨端|同步|状态一致|主盒|Pad|中控|移动端|重启|恢复|断网|弱网|断电|扫码|连接|房台|组合",
+    },
+    {
+        "executor": "reboot",
+        "mode": "auto",
+        "reason": "启动、冷启动、升级或多轮重启优先走中控重启",
+        "categories": {"设备", "异常"},
+        "pattern": r"启动|冷启动|重启|升级|固件|断电|boot|reboot|upgrade|firmware",
+    },
+    {
+        "executor": "monkey",
+        "mode": "auto",
+        "reason": "稳定性、随机操作、Crash/ANR 探测优先走 Monkey",
+        "categories": {"设备", "跨端", "异常"},
+        "pattern": r"稳定|随机|长稳|Crash|ANR|monkey|压力",
+    },
+    {
+        "executor": "server_stress",
+        "mode": "auto",
+        "reason": "服务高负载、ARM 服务器资源或服务端压测优先走 ARM 服务器压测",
+        "categories": {"服务端"},
+        "pattern": r"高负载|压测|ARM|服务器资源|吞吐|QPS|并发房台|server_stress",
+    },
+)
+
+
 def _executor_for_point(point, risk):
-    text = f"{point['title']} {point['type']} {point['steps']}"
+    text = " ".join(str(value or "") for value in (
+        point.get("title"),
+        point.get("type"),
+        point.get("steps"),
+        point.get("expected"),
+        risk.get("title"),
+        risk.get("scope"),
+        " ".join(risk.get("evidence") or []),
+    ))
+    if point.get("mode") == "manual" and point.get("source") == "rule":
+        return "manual", "manual", "规则判断为轻量人工验证"
     candidates = list(CATEGORY_EXECUTORS.get(risk["category"], ["manual"]))
-    if re.search(r"画面|黑屏|无声|音画|体验", text):
-        return "player_stress", "semi_auto"
-    if re.search(r"日志|错误码|异常", text):
-        return "log_monitor", "auto"
-    if re.search(r"CPU|内存|FPS|性能|卡顿", text, re.I):
-        return "performance_monitor", "auto"
-    if re.search(r"并发|接口|错误码|参数|幂等", text):
-        return "api_stress", "auto"
-    if re.search(r"重启|冷启动|断电|恢复", text):
-        return "combined_test", "auto"
+    matches = []
+    for rule in EXECUTOR_ROUTING_RULES:
+        if risk.get("category") not in rule["categories"] and rule["executor"] not in candidates:
+            continue
+        if re.search(rule["pattern"], text, re.I):
+            matches.append(rule)
+    if matches:
+        chosen = matches[0]
+        return chosen["executor"], chosen["mode"], chosen["reason"]
     executor_id = candidates[0] if candidates else "manual"
     mode = point.get("mode")
     if mode not in ALLOWED_MODES:
         mode = EXECUTORS[executor_id]["mode"]
-    return executor_id, mode
+    return executor_id, mode, f"按风险分类 {risk.get('category')} 默认映射"
 
 
-def build_execution_plan(test_points, risks):
+def _build_executor_url_with_env(executor_url, environment, tracking=None):
+    """把执行环境（设备/型号/固件/版本/服务端）预填到执行器页面链接的 query 参数。
+
+    统一前缀 `env_` 避免与各执行器页面自身参数冲突；各页面可选消费，不消费也不影响。
+    返回空串（manual 等无 url 的执行器）或带 query 的绝对/相对路径。
+    """
+    if not executor_url:
+        return ""
+    env = environment or {}
+    params = {}
+    mapping = {
+        "env_device_id": "device_id",
+        "env_stb_model": "stb_model",
+        "env_firmware": "firmware",
+        "env_vod_version": "vod_version",
+        "env_server": "server",
+    }
+    for qkey, ekey in mapping.items():
+        val = str(env.get(ekey) or "").strip()
+        if val:
+            params[qkey] = val
+    for key, value in (tracking or {}).items():
+        val = str(value or "").strip()
+        if val:
+            params[key] = val
+    if not params:
+        return executor_url
+    from urllib.parse import urlencode
+    sep = "&" if "?" in executor_url else "?"
+    return executor_url + sep + urlencode(params)
+
+
+def build_execution_plan(test_points, risks, environment=None):
     risk_map = {risk["id"]: risk for risk in risks}
     plan = []
     for point in test_points:
         risk = risk_map[point["risk_ids"][0]]
-        executor_id, mode = _executor_for_point(point, risk)
+        executor_id, mode, routing_reason = _executor_for_point(point, risk)
         executor = EXECUTORS[executor_id]
+        execution_id = f"E{len(plan) + 1:02d}"
+        tracking = {
+            "precision_analysis_id": environment.get("analysis_id") if isinstance(environment, dict) else "",
+            "precision_test_point_id": point["id"],
+            "precision_execution_id": execution_id,
+        }
         plan.append({
-            "id": f"E{len(plan) + 1:02d}",
+            "id": execution_id,
             "test_point_id": point["id"],
             "risk_ids": point["risk_ids"],
             "priority": point["priority"],
             "mode": mode,
             "executor": executor_id,
             "executor_name": executor["name"],
+            "routing_reason": routing_reason,
             "executor_url": executor["url"],
+            "executor_url_with_env": _build_executor_url_with_env(executor["url"], environment, tracking),
             "status": "PENDING",
             "bug_id": "",
             "note": "",
@@ -309,6 +570,133 @@ def build_execution_plan(test_points, risks):
             "workaround": False,
         })
     return plan
+
+
+def _contains_any(text, keywords):
+    return any(keyword.lower() in text.lower() for keyword in keywords)
+
+
+def _build_tester_brief(risks, test_points, summary):
+    text = "\n".join(
+        " ".join(str(value or "") for value in (
+            risk.get("title"),
+            risk.get("scope"),
+            " ".join(risk.get("evidence") or []),
+        ))
+        for risk in risks
+    )
+    p0_count = sum(1 for risk in risks if risk.get("priority") == "P0")
+    p1_count = sum(1 for risk in risks if risk.get("priority") == "P1")
+    focus = []
+    confirmations = []
+    plain = []
+
+    if summary.get("runtime_impact") == "none":
+        plain.append("本次改动未进入 VOD 产品运行时，重点确认配置/文档/测试资产本身是否正确。")
+        focus.append("确认改动文件不参与 Android、机顶盒或服务端发布产物")
+    else:
+        if p0_count:
+            plain.append(f"本次存在 {p0_count} 个 P0 风险，必须先完成主链路验证再给上线结论。")
+        elif p1_count:
+            plain.append(f"本次以 P1 风险为主，建议完成代表性设备和核心接口验证。")
+        else:
+            plain.append("本次未识别到 P0/P1 主风险，可按轻量回归处理。")
+
+    if _contains_any(text, ["PlayControlBar", "播控栏", "MultiModePlayControlBarView"]):
+        plain.append("改动影响播放控制栏，真实风险集中在播放、暂停、继续、切歌、退出弹框和图层显示。")
+        focus.extend([
+            "Pad 进入播放页后播控栏显示和按钮响应正常",
+            "播放中执行暂停、继续、切歌、退出，弹框不被背景图或三方应用图层遮挡",
+            "RK3576 与非 RK3576 Pad 至少各选一台做对比验证",
+        ])
+    if _contains_any(text, ["getMainBoxModel", "MAIN_BOX_MODEL", "主盒型号", "TS_KTV_X9"]):
+        plain.append("改动涉及主盒型号判断，可能把多型号适配逻辑统一收敛到 X9，需要研发明确这是有意设计。")
+        confirmations.append("请研发确认：getMainBoxModel() 固定返回 TS_KTV_X9 是否为本次需求设计，是否允许废弃动态主盒型号。")
+        focus.extend([
+            "扫码初始化后 Pad 能正确连接主盒并进入业务页面",
+            "依赖主盒型号的页面、播放控制、三方应用图层逻辑仍符合当前产品预期",
+        ])
+    if _contains_any(text, ["Pad", "isPadChip", "平板"]):
+        focus.append("覆盖 Pad 设备，不只验证 X9 主盒")
+    if _contains_any(text, ["扫码", "ScanCode", "Initialize"]):
+        focus.append("覆盖扫码初始化、断开重连和重新进入后的状态恢复")
+
+    if not focus:
+        focus = [point.get("title") for point in test_points[:5] if point.get("title")]
+    return {
+        "plain_summary": _unique_strings(plain, 4),
+        "must_confirm": _unique_strings(confirmations, 5),
+        "verification_focus": _unique_strings(focus, 8),
+        "suggested_action": "先确认设计意图，再执行最小验证集" if confirmations else "按最小验证集执行",
+    }
+
+
+def _build_confirmations(brief, risks):
+    priority = "P2"
+    if any(risk.get("priority") == "P0" for risk in risks):
+        priority = "P0"
+    elif any(risk.get("priority") == "P1" for risk in risks):
+        priority = "P1"
+    return [{
+        "id": f"C{index:02d}",
+        "title": text,
+        "priority": priority,
+        "status": "OPEN",
+        "assignee": "研发负责人",
+        "response": "",
+        "confirmed_by": "",
+        "confirmed_at": 0,
+        "evidence": [],
+    } for index, text in enumerate(brief.get("must_confirm") or [], 1)]
+
+
+def _compute_adoption_metrics(model):
+    """根据执行结果计算采纳率：给出明确执行结论（非 PENDING）的测试点视为已采纳。
+
+    按测试点来源(source)拆出 LLM 采纳率与模板采纳率，作为"精准回归"的可度量指标：
+    - 整体采纳率 = 已采纳测试点 / 推荐测试点
+    - LLM 采纳率 = 已采纳的 AI 生成点 / AI 生成点总数
+    - 模板采纳率 = 已采纳的模板补充点 / 模板补充点总数
+    """
+    test_points = model.get("test_points") or []
+    execution_plan = model.get("execution_plan") or []
+    source_by_point = {p["id"]: p.get("source") or "custom" for p in test_points}
+
+    llm_recommended = sum(1 for p in test_points if p.get("source") == "llm")
+    template_recommended = sum(1 for p in test_points if p.get("source") == "template")
+    recommended = len(test_points)
+    custom_recommended = recommended - llm_recommended - template_recommended
+
+    adopted = llm_adopted = template_adopted = custom_adopted = 0
+    for item in execution_plan:
+        if str(item.get("status") or "PENDING").upper() == "PENDING":
+            continue
+        adopted += 1
+        source = source_by_point.get(item.get("test_point_id"), "custom")
+        if source == "llm":
+            llm_adopted += 1
+        elif source == "template":
+            template_adopted += 1
+        else:
+            custom_adopted += 1
+
+    def _rate(part, whole):
+        return round(part * 100.0 / whole, 1) if whole else 0.0
+
+    metrics = model.setdefault("metrics", {})
+    metrics["recommended_count"] = recommended
+    metrics["custom_added_count"] = custom_recommended
+    metrics["llm_generated_count"] = llm_recommended
+    metrics["template_supplement_count"] = template_recommended
+    metrics["adopted_count"] = adopted
+    metrics["adoption_rate"] = _rate(adopted, recommended)
+    metrics["llm_adopted_count"] = llm_adopted
+    metrics["llm_adoption_rate"] = _rate(llm_adopted, llm_recommended)
+    metrics["template_adopted_count"] = template_adopted
+    metrics["template_adoption_rate"] = _rate(template_adopted, template_recommended)
+    metrics["custom_adopted_count"] = custom_adopted
+    metrics["custom_adoption_rate"] = _rate(custom_adopted, custom_recommended)
+    return model
 
 
 def normalize_analysis(
@@ -324,7 +712,7 @@ def normalize_analysis(
 ):
     raw = raw if isinstance(raw, dict) else {}
     risks = _normalize_risks(raw.get("risks"), requirement, code_diff, summary)
-    test_points = _build_test_points(raw.get("test_points"), risks)
+    test_points = _build_test_points(raw.get("test_points"), risks, summary)
     impacts = []
     for risk in risks:
         impacts.append({
@@ -335,6 +723,8 @@ def normalize_analysis(
             "confidence": risk["confidence"],
         })
     analysis_id = f"pt_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    tester_brief = _build_tester_brief(risks, test_points, summary)
+    confirmations = _build_confirmations(tester_brief, risks)
     model = {
         "analysis_id": analysis_id,
         "created_at": int(time.time()),
@@ -345,27 +735,48 @@ def normalize_analysis(
             "requirement": requirement,
             "summary": str(raw.get("change_summary") or raw.get("summary") or "根据需求说明与代码变更生成"),
             "diff_summary": summary,
-            "environment": environment or {},
+            "environment": dict(environment or {}, analysis_id=analysis_id),
             "git_source": git_source or {},
         },
         "risks": risks,
         "impacts": impacts,
+        "tester_brief": tester_brief,
+        "confirmations": confirmations,
         "test_points": test_points,
-        "execution_plan": build_execution_plan(test_points, risks),
+        "execution_plan": build_execution_plan(test_points, risks, dict(environment or {}, analysis_id=analysis_id)),
         "quality_gate": {},
         "metrics": {
             "analysis_duration_ms": 0,
             "recommended_count": len(test_points),
-            "adopted_count": len(test_points),
+            "custom_added_count": sum(1 for p in test_points if p.get("source") not in ("llm", "template")),
+            "llm_generated_count": sum(1 for p in test_points if p.get("source") == "llm"),
+            "template_supplement_count": sum(1 for p in test_points if p.get("source") == "template"),
+            "adopted_count": 0,
+            "adoption_rate": 0.0,
+            "llm_adopted_count": 0,
+            "llm_adoption_rate": 0.0,
+            "template_adopted_count": 0,
+            "template_adoption_rate": 0.0,
+            "custom_adopted_count": sum(1 for p in test_points if p.get("source") not in ("llm", "template")),
+            "custom_adoption_rate": 0.0,
         },
         "report_markdown": "",
         "gate_mode": "observe",
     }
-    model["quality_gate"] = calculate_quality_gate(model["execution_plan"], model["risks"], "observe")
+    model["quality_gate"] = calculate_quality_gate(
+        model["execution_plan"], model["risks"], "observe", model.get("confirmations")
+    )
     return model
 
 
-def calculate_quality_gate(execution_plan, risks, gate_mode="observe"):
+def _open_blocking_confirmations(confirmations):
+    return [
+        item for item in confirmations or []
+        if item.get("status") == "OPEN" and item.get("priority") in {"P0", "P1"}
+    ]
+
+
+def calculate_quality_gate(execution_plan, risks, gate_mode="observe", confirmations=None):
     risk_priorities = {risk["id"]: risk["priority"] for risk in risks}
     counts = Counter(str(item.get("status") or "PENDING").upper() for item in execution_plan)
     p0_items = [
@@ -400,6 +811,9 @@ def calculate_quality_gate(execution_plan, risks, gate_mode="observe"):
     elif p1_failures or p2_failures:
         decision = "CONDITIONAL_PASS"
         reasons.append("存在非阻断失败，需要接受遗留风险")
+    elif _open_blocking_confirmations(confirmations):
+        decision = "REVIEW_REQUIRED"
+        reasons.append("存在未关闭的高风险研发确认项")
     elif any(item.get("status") == "ENV_ERROR" for item in execution_plan):
         decision = "REVIEW_REQUIRED"
         reasons.append("存在环境失败，需要人工确认覆盖有效性")
@@ -413,6 +827,7 @@ def calculate_quality_gate(execution_plan, risks, gate_mode="observe"):
     total = len(execution_plan)
     return {
         "decision": decision,
+        "rule_version": GATE_RULE_VERSION,
         "mode": gate_mode,
         "enforced": gate_mode == "enforce",
         "would_block_release": decision == "BLOCKED",
@@ -422,6 +837,7 @@ def calculate_quality_gate(execution_plan, risks, gate_mode="observe"):
         "coverage_rate": round(completed * 100 / total, 1) if total else 0,
         "p0_total": len(p0_items),
         "p0_passed": sum(item.get("status") == "PASS" for item in p0_items),
+        "open_confirmations": len(_open_blocking_confirmations(confirmations)),
     }
 
 
@@ -435,6 +851,13 @@ def apply_execution_results(model, results, gate_mode=None):
         update = result_map.get(execution["id"])
         if not update:
             continue
+        before = {
+            "status": execution.get("status"),
+            "bug_id": execution.get("bug_id"),
+            "note": execution.get("note"),
+            "workaround": execution.get("workaround"),
+            "evidence": execution.get("evidence"),
+        }
         status = str(update.get("status") or "").upper()
         if status not in ALLOWED_STATUSES:
             raise ValueError(f"不支持的执行状态: {status}")
@@ -444,6 +867,23 @@ def apply_execution_results(model, results, gate_mode=None):
         execution["workaround"] = bool(update.get("workaround"))
         execution["evidence"] = _unique_strings(update.get("evidence"), 10)
         execution["updated_at"] = int(time.time())
+        after = {
+            "status": execution.get("status"),
+            "bug_id": execution.get("bug_id"),
+            "note": execution.get("note"),
+            "workaround": execution.get("workaround"),
+            "evidence": execution.get("evidence"),
+        }
+        if before != after:
+            model.setdefault("audit_log", []).append({
+                "ts": int(time.time()),
+                "action": "execution_result_update",
+                "source": str(update.get("source") or "manual"),
+                "actor": str(update.get("actor") or "unknown"),
+                "execution_id": execution["id"],
+                "before": before,
+                "after": after,
+            })
     if gate_mode in {"observe", "enforce"}:
         model["gate_mode"] = gate_mode
     model["updated_at"] = int(time.time())
@@ -451,7 +891,9 @@ def apply_execution_results(model, results, gate_mode=None):
         model.get("execution_plan", []),
         model.get("risks", []),
         model.get("gate_mode", "observe"),
+        model.get("confirmations"),
     )
+    model = _compute_adoption_metrics(model)
     return model
 
 
@@ -468,11 +910,26 @@ def build_report_markdown(model):
         f"- **变更**：{change.get('summary')}",
         f"- **质量结论**：**{gate['decision']}**",
         f"- **门禁模式**：{'强制阻断' if gate['enforced'] else '观察模式（不实际阻断发布）'}",
-        f"- **覆盖率**：{gate['coverage_rate']}%",
+        f"- **执行覆盖率**：{gate['coverage_rate']}%",
+        f"- **采纳率**：{model.get('metrics', {}).get('adoption_rate', 0)}%（LLM {model.get('metrics', {}).get('llm_adoption_rate', 0)}% / 模板 {model.get('metrics', {}).get('template_adoption_rate', 0)}%）",
         f"- **风险分布**：P0 {risk_counts['P0']} / P1 {risk_counts['P1']} / P2 {risk_counts['P2']}",
+        "",
+        "## 测试负责人解读",
+    ]
+    brief = model.get("tester_brief") or {}
+    for item in brief.get("plain_summary") or []:
+        lines.append(f"- {item}")
+    if brief.get("must_confirm"):
+        lines.extend(["", "## 需研发确认"])
+        lines.extend(f"- {item}" for item in brief["must_confirm"])
+    if brief.get("verification_focus"):
+        lines.extend(["", "## 建议优先验证"])
+        lines.extend(f"- {item}" for item in brief["verification_focus"])
+    lines.extend([
         "",
         "## 结论依据",
     ]
+    )
     lines.extend(f"- {reason}" for reason in gate["reasons"])
     lines.extend(["", "## 失败与环境问题"])
     if not failed and not env_errors:

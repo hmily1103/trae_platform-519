@@ -361,7 +361,7 @@
     // 打开 LLM 配置
     async function openLLMConfig() {
         try {
-            const result = await ApiClient.get('/test_case/api/llm_config');
+            const result = await ApiClient.get('/api/llm_config');
             const config = result.data || {};
             
             $('#llmProvider').val(config.llm_provider || 'deepseek');
@@ -412,7 +412,7 @@
         };
 
         try {
-            await ApiClient.post('/test_case/api/llm_config', data);
+            await ApiClient.post('/api/llm_config', data);
             toast.success('配置已保存');
             llmConfigModal.hide();
         } catch (error) {

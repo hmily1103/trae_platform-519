@@ -1,110 +1,264 @@
 {% extends "ui_automation_base.html" %}
 
 {% block module_content %}
-<div class="row">
-    <!-- Left: Screen Preview -->
+<style>
+/* 三态显示控制：录制态 / 确认态（编辑） / 执行态 */
+.page-mode-recording .editing-only,
+.page-mode-recording .executing-only { display: none !important; }
+.page-mode-recording .recording-only { }
+
+.page-mode-editing  .recording-only,
+.page-mode-editing  .executing-only { display: none !important; }
+.page-mode-editing  .editing-only  { }
+
+.page-mode-executing .recording-only,
+.page-mode-executing .editing-only { display: none !important; }
+.page-mode-executing .executing-only { }
+
+/* 确认态步骤列表增强 */
+.page-mode-editing .recording-step {
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
+    border-left: 3px solid transparent;
+    transition: background 0.15s ease;
+}
+.page-mode-editing .recording-step:hover {
+    background: #f8f9fa;
+    border-left-color: #0d6efd;
+}
+.page-mode-editing .recording-step .badge {
+    font-size: 0.8rem;
+    min-width: 28px;
+}
+
+/* 执行态进度样式 */
+.exec-progress {
+    height: 8px;
+    border-radius: 4px;
+}
+.exec-case-result {
+    border-left: 4px solid #dee2e6;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+.exec-case-result.status-completed { border-left-color: #28a745; background: #f0fff4; }
+.exec-case-result.status-failed    { border-left-color: #dc3545; background: #fff5f5; }
+.exec-case-result.status-running   { border-left-color: #ffc107; background: #fffbeb; }
+</style>
+<div class="row page-mode-recording" id="pageModeRoot">
+    <!-- 左侧：设备预览 -->
     <div class="col-md-5">
         <div class="card shadow-sm">
             <div class="card-header bg-white">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="mb-0" style="color: red;"><i class="fas fa-mobile-alt me-2"></i>设备预览 (DEBUG MODE)</h5>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="loadDevices()" title="刷新列表">
-                        <i class="fas fa-sync-alt me-1"></i>刷新
-                    </button>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label small mb-1 text-muted">已连接设备</label>
-                    <div id="connectedDevicesList" class="d-flex flex-wrap gap-1 align-items-center" style="min-height: 28px;">
-                        <span class="text-muted small" id="noDevicesHint">暂无设备，请先连接</span>
+                <!-- 录制态：设备选择 -->
+                <div class="recording-only">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0"><i class="fas fa-mobile-alt me-2"></i>设备预览</h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadDevices()" title="刷新列表">
+                            <i class="fas fa-sync-alt me-1"></i>刷新
+                        </button>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-1 text-muted">已连接设备</label>
+                        <div id="connectedDevicesList" class="d-flex flex-wrap gap-1 align-items-center" style="min-height: 28px;">
+                            {% if initial_all_devices %}
+                            {% for d in initial_all_devices %}
+                            <span class="badge {% if d.status == 'device' %}bg-success{% else %}bg-warning text-dark{% endif %} me-1 mb-1" style="font-size:0.85em">{{ d.id }}{% if d.status != 'device' %}（{% if d.status == 'unauthorized' %}需授权{% elif d.status == 'offline' %}离线{% else %}{{ d.status }}{% endif %}）{% endif %}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span class="text-muted small" id="noDevicesHint">暂无设备，请先连接</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <select id="deviceSelect" class="form-select form-select-sm" style="width: 220px;">
+                            <option value="">选择设备...</option>
+                            {% for d in initial_all_devices %}
+                            {% if d.status == 'device' %}
+                            <option value="{{ d.id }}">{{ d.id }}</option>
+                            {% else %}
+                            <option value="" disabled>{{ d.id }}（{% if d.status == 'unauthorized' %}需授权{% elif d.status == 'offline' %}离线{% else %}{{ d.status }}{% endif %}）</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                        <button type="button" id="btnStartPreview" class="btn btn-sm btn-primary" title="开始预览当前设备画面">
+                            <i class="fas fa-play me-1"></i>开始预览
+                        </button>
+                        <button id="btnConnectDevice" class="btn btn-sm btn-outline-primary" title="连接新设备">
+                            <i class="fas fa-plus me-1"></i>连接设备
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" type="button" onclick="window.refreshPreview && window.refreshPreview()" title="刷新预览">
+                            <i class="fas fa-image me-1"></i>刷新预览
+                        </button>
                     </div>
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    <select id="deviceSelect" class="form-select form-select-sm" style="width: 220px;" onchange="onDeviceSelectChange(this.value)">
-                        <option value="">选择设备...</option>
-                    </select>
-                    <button id="btnConnectDevice" class="btn btn-sm btn-outline-primary" title="连接新设备" onclick="showConnectModal(); return false;">
-                        <i class="fas fa-plus me-1"></i>连接设备
-                    </button>
-                    <button class="btn btn-sm btn-outline-info" onclick="refreshPreview()" title="刷新预览">
-                        <i class="fas fa-image me-1"></i>刷新预览
-                    </button>
+                <!-- 编辑态：设备 + 用例名 -->
+                <div class="editing-only">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-mobile-alt me-2"></i>设备预览</h5>
+                        <button class="btn btn-sm btn-outline-info" onclick="refreshPreview()" title="刷新预览">
+                            <i class="fas fa-sync-alt me-1"></i>刷新
+                        </button>
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge bg-success me-2" id="editingDeviceBadge">--</span>
+                        <small class="text-muted">编辑用例：</small>
+                        <strong id="editingCaseName" class="ms-1">--</strong>
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0 text-center bg-dark preview-area" style="height: clamp(280px, 50vh, 600px); min-height: 250px; position: relative; overflow: hidden;">
                 <div id="screenContainer" class="preview-inner" style="width: 100%; height: 100%; min-height: 250px; display: flex; justify-content: center; align-items: center; cursor: crosshair; position: relative;">
-                    <img id="screenPreview" src="/static/img/placeholder_phone.png" class="preview-img" style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; cursor: crosshair; user-select: none; -webkit-user-select: none; pointer-events: auto !important; z-index: 10;" alt="设备预览" ondragstart="return false;">
+                    <img id="screenPreview" src="/static/img/placeholder_phone.png" class="preview-img" style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; cursor: crosshair; user-select: none; -webkit-user-select: none; pointer-events: none; z-index: 10;" alt="设备预览" draggable="false">
+                    <!-- 全覆盖点击层：解决黑边点不到、img pointer 事件丢失 -->
+                    <div id="screenHitLayer" title="点击此处控制设备" style="position:absolute;inset:0;z-index:20;cursor:crosshair;touch-action:none;background:transparent;"></div>
+                    <div id="previewStatusHint" class="small text-muted" style="position:absolute;left:8px;bottom:8px;z-index:30;background:rgba(0,0,0,.45);color:#fff;padding:2px 8px;border-radius:4px;pointer-events:none;">请选择设备以预览</div>
+                    <div id="recordingPreviewTip" class="d-none" style="position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:31;background:rgba(220,53,69,.92);color:#fff;padding:6px 12px;border-radius:6px;font-size:13px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25);">
+                        录制中：请点击/滑动此画面
+                    </div>
                 </div>
-                <div id="loadingOverlay" class="position-absolute top-50 start-50 translate-middle text-white d-none">
+                <div id="loadingOverlay" class="position-absolute top-50 start-50 translate-middle text-white d-none" style="z-index:25;pointer-events:none;">
                     <div class="spinner-border" role="status"></div>
                 </div>
-                <!-- Debug Console -->
-                <div id="debugConsole" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100px; background: rgba(0,0,0,0.8); color: lime; font-family: monospace; font-size: 10px; overflow-y: scroll; display: block; z-index: 1000; pointer-events: none;"></div>
             </div>
-            <div class="card-footer bg-light">
+            <div class="card-footer bg-light recording-only">
                 <div class="d-flex justify-content-center gap-2">
-                    <button class="btn btn-outline-secondary" onclick="sendBack()" title="返回 (Back)">
-                        <i class="fas fa-arrow-left"></i> Back
+                    <button class="btn btn-outline-secondary" onclick="sendBack()" title="返回">
+                        <i class="fas fa-arrow-left"></i> 返回
                     </button>
-                    <button class="btn btn-outline-secondary" onclick="sendHome()" title="主页 (Home)">
-                        <i class="fas fa-circle"></i> Home
+                    <button class="btn btn-outline-secondary" onclick="sendHome()" title="主页">
+                        <i class="fas fa-circle"></i> 主页
                     </button>
-                    <button class="btn btn-outline-secondary" onclick="sendMenu()" title="菜单 (Menu)">
-                        <i class="fas fa-bars"></i> Menu
+                    <button class="btn btn-outline-secondary" onclick="sendMenu()" title="菜单">
+                        <i class="fas fa-bars"></i> 菜单
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Right: Recording Controls & Steps -->
+    <!-- 右侧：录制控制 / 步骤编辑 -->
     <div class="col-md-7">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="mb-0"><i class="fas fa-video me-2"></i>录制控制</h5>
-                    <div id="recordingStatus">
-                        <span class="text-muted">未录制</span>
-                    </div>
-                </div>
-                <div class="row g-2">
-                    <div class="col-md-4">
-                        <input type="text" id="recordingName" class="form-control form-control-sm" placeholder="用例名称 (默认: Untitled)">
-                    </div>
-                    <div class="col-md-4">
-                         <input type="text" id="recordingPackage" class="form-control form-control-sm" placeholder="包名" value="com.thunder.ktv">
-                    </div>
-                    <div class="col-md-4">
-                        <div class="d-grid gap-2 d-md-block">
-                            <button id="btnStartRecording" class="btn btn-primary btn-sm w-100" onclick="startRecording()">
-                                <i class="fas fa-circle me-1"></i>开始录制
-                            </button>
-                            <button id="btnStopRecording" class="btn btn-danger btn-sm w-100" onclick="stopRecording()" style="display: none;">
-                                <i class="fas fa-stop me-1"></i>停止录制
-                            </button>
+                <!-- 录制态 Header -->
+                <div class="recording-only">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0"><i class="fas fa-video me-2"></i>录制控制</h5>
+                        <div id="recordingStatus">
+                            <span class="text-muted">未录制</span>
                         </div>
                     </div>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <input type="text" id="recordingName" class="form-control form-control-sm" placeholder="用例名称（默认：未命名用例）">
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" id="recordingPackage" class="form-control form-control-sm" placeholder="包名" value="">
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-grid gap-2 d-md-block">
+                                <button type="button" id="btnStartRecording" class="btn btn-primary btn-sm w-100">
+                                    <i class="fas fa-circle me-1"></i>开始录制
+                                </button>
+                                <button type="button" id="btnStopRecording" class="btn btn-danger btn-sm w-100" style="display: none;">
+                                    <i class="fas fa-stop me-1"></i>停止录制
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <input type="text" id="recordingDescription" class="form-control form-control-sm" placeholder="描述（可选）">
+                    </div>
+                    <div class="mt-2">
+                        <label class="form-label small text-muted mb-0">所属项目</label>
+                        <select id="recordingProject" class="form-select form-select-sm">
+                            <option value="">默认（无项目）</option>
+                        </select>
+                    </div>
+                    <!-- 录制中操作指引 -->
+                    <div id="recordingGuide" class="alert alert-danger py-2 px-3 mt-2 mb-0 d-none" role="status">
+                        <div class="fw-semibold mb-1"><i class="fas fa-circle fa-beat me-1"></i>正在录制 — 请在左侧预览画面上操作</div>
+                        <ol class="small mb-1 ps-3">
+                            <li>在左侧设备画面上<strong>点击 / 滑动</strong>（会同步到盒子并记入步骤）</li>
+                            <li>需要返回/主页时，点预览下方的<strong>返回 / 主页 / 菜单</strong></li>
+                            <li>右侧步骤列表会实时增加；操作完后点<strong>停止录制</strong></li>
+                        </ol>
+                        <div class="small text-muted mb-0">提示：先保证左侧已「开始预览」且画面在更新，再录制效果最好。</div>
+                    </div>
                 </div>
-                 <div class="mt-2">
-                    <input type="text" id="recordingDescription" class="form-control form-control-sm" placeholder="描述 (可选)">
+                <!-- 编辑态 Header -->
+                <div class="editing-only">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-1 text-success"><i class="fas fa-check-circle me-2"></i>录制完成</h5>
+                            <small class="text-muted">共采集 <strong id="confirmStepCount">0</strong> 个步骤，请确认后保存</small>
+                        </div>
+                        <span id="editingCaseStatus" class="badge bg-warning text-dark">待确认</span>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-sm btn-outline-danger" onclick="discardRecording()">
+                            <i class="fas fa-trash me-1"></i>放弃
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="reRecord()">
+                            <i class="fas fa-redo me-1"></i>重新录制
+                        </button>
+                        <button class="btn btn-sm btn-success px-3" onclick="saveCase()">
+                            <i class="fas fa-save me-1"></i>保存用例
+                        </button>
+                        <button class="btn btn-sm btn-primary px-3 fw-bold" onclick="saveAndExecute()">
+                            <i class="fas fa-play me-1"></i>保存并执行
+                        </button>
+                    </div>
                 </div>
-                <div class="mt-2">
-                    <label class="form-label small text-muted mb-0">所属项目</label>
-                    <select id="recordingProject" class="form-select form-select-sm">
-                        <option value="">默认（无项目）</option>
-                    </select>
+                <!-- 执行态 Header -->
+                <div class="executing-only">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-1 text-primary"><i class="fas fa-spinner fa-spin me-2"></i>正在执行</h5>
+                            <small class="text-muted" id="execJobStatus">提交中...</small>
+                        </div>
+                        <span id="execStatusBadge" class="badge bg-info">执行中</span>
+                    </div>
+                    <div class="progress mb-2 exec-progress" style="height: 6px;">
+                        <div id="execProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a id="btnViewFullReport" class="btn btn-sm btn-outline-primary d-none" target="_blank">
+                            <i class="fas fa-external-link-alt me-1"></i>查看完整报告
+                        </a>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="exitExecutionMode()">
+                            <i class="fas fa-arrow-left me-1"></i>返回录制
+                        </button>
+                    </div>
+                    <!-- 执行结果加厚面板：失败摘要 / 当前用例结果 / 最近失败步骤 -->
+                    <div id="execResultPanel" class="mt-3 d-none">
+                        <div id="execFailSummary"></div>
+                        <div id="execCaseList" class="mt-2 small"></div>
+                        <div id="execFailedStep" class="mt-2"></div>
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0">
                 <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light border-bottom">
-                    <h6 class="mb-0 text-muted">录制步骤 (<span id="stepCount">0</span>)</h6>
+                    <h6 class="mb-0 text-muted">录制步骤（<span id="stepCount">0</span>）</h6>
                     <button class="btn btn-sm btn-link text-muted" onclick="refreshRecordingSteps()" title="刷新步骤">
                         <i class="fas fa-sync-alt"></i>
                     </button>
                 </div>
-                <div id="recordingSteps" class="p-3" style="height: 500px; overflow-y: auto;">
-                    <div class="text-muted text-center py-5">
+                <div id="recordingSteps" class="p-3" style="height: 450px; overflow-y: auto;">
+                    <div id="recordingEmptyHint" class="text-muted text-center py-4">
                         <i class="fas fa-clipboard-list fa-3x mb-3 opacity-25"></i>
-                        <p>暂无步骤，请开始录制并操作设备</p>
+                        <p class="mb-2 fw-semibold">还没有步骤</p>
+                        <ol class="small text-start mx-auto" style="max-width: 360px;">
+                            <li class="mb-1">左侧选择设备 → 点「开始预览」</li>
+                            <li class="mb-1">右侧点「开始录制」</li>
+                            <li class="mb-1">在左侧预览画面上点击/滑动操作盒子</li>
+                            <li class="mb-1">点「停止录制」→ 确认步骤 → 保存用例</li>
+                        </ol>
                     </div>
                 </div>
             </div>
@@ -112,18 +266,18 @@
     </div>
 </div>
 
-<!-- Assertion Context Menu -->
+<!-- 断言右键菜单 -->
 <div id="assertionMenu" class="dropdown-menu position-absolute" style="display: none; z-index: 1050;">
     <h6 class="dropdown-header">断言验证</h6>
     <button class="dropdown-item" onclick="prepareAssertion('exists')">
-        <i class="fas fa-check-circle me-2"></i>元素存在 (Exists)
+        <i class="fas fa-check-circle me-2"></i>元素存在
     </button>
     <button class="dropdown-item" onclick="prepareAssertion('text_contains')">
-        <i class="fas fa-font me-2"></i>包含文本 (Text Contains)
+        <i class="fas fa-font me-2"></i>包含文本
     </button>
 </div>
 
-<!-- Assertion Input Modal -->
+<!-- 断言输入弹窗 -->
 <div class="modal fade" id="assertionModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -143,7 +297,7 @@
                     </div>
                     
                     <div class="mb-3" id="expectedValueGroup">
-                        <label class="form-label">预期文本 (Expected Text)</label>
+                        <label class="form-label">预期文本</label>
                         <input type="text" class="form-control" id="assertionExpected" placeholder="输入期望包含的文本">
                         <div class="form-text">留空则自动提取当前元素的文本</div>
                     </div>
@@ -162,7 +316,7 @@
     </div>
 </div>
 
-<!-- Connect Device Modal -->
+<!-- 连接设备弹窗 -->
 <div class="modal fade" id="connectDeviceModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -191,245 +345,154 @@
     </div>
 </div>
 
-<!-- 连接设备弹窗脚本（内联确保加载） -->
-<script>
-function showConnectModal() {
-    var modalEl = document.getElementById('connectDeviceModal');
-    if (!modalEl) return;
-    if (modalEl.parentNode !== document.body) document.body.appendChild(modalEl);
-    if (window.bootstrap && bootstrap.Modal) {
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    } else if (typeof $ !== 'undefined' && $.fn.modal) {
-        $(modalEl).modal('show');
-    } else {
-        modalEl.classList.add('show'); modalEl.style.display = 'block';
-        document.body.classList.add('modal-open');
-    }
-}
-async function submitConnectDevice() {
-    var ip = document.getElementById('connectIp').value.trim();
-    var port = parseInt(document.getElementById('connectPort').value) || 8787;
-    if (!ip) { alert('请输入 IP 地址'); return; }
-    var btn = document.querySelector('#connectDeviceModal .btn-primary');
-    if (btn) { btn.textContent = '连接中...'; btn.disabled = true; }
-    try {
-        var res = await fetch('/ui_automation/api/connect', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ip: ip, port: port})
-        });
-        var data = await res.json().catch(function(){ return {}; });
-        if (data.success || data.ok) {
-            alert(data.message || '连接成功');
-            var modalEl = document.getElementById('connectDeviceModal');
-            if (modalEl) {
-                try {
-                    if (window.bootstrap && bootstrap.Modal) {
-                        var m = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
-                        m.hide();
-                    } else if (typeof $ !== 'undefined' && $.fn.modal) {
-                        $(modalEl).modal('hide');
-                    }
-                } catch (e) {}
-                modalEl.classList.remove('show');
-                modalEl.style.display = 'none';
-                modalEl.setAttribute('aria-hidden', 'true');
-                document.body.classList.remove('modal-open');
-                document.body.style.overflow = '';
-                document.body.style.paddingRight = '';
-                document.querySelectorAll('.modal-backdrop').forEach(function(el){ el.remove(); });
-            }
-            var devId = data.data && data.data.device_id;
-            if (typeof loadDevices === 'function') loadDevices();
-            if (devId && typeof $ !== 'undefined') {
-                window.currentDeviceId = devId;
-                if (typeof connectDevice === 'function') connectDevice(devId);
-                setTimeout(function(){
-                    var sel = document.getElementById('deviceSelect');
-                    if (sel) {
-                        var found = [].some.call(sel.options, function(o){ return o.value === devId; });
-                        if (!found) {
-                            var opt = document.createElement('option');
-                            opt.value = devId;
-                            opt.textContent = devId;
-                            sel.appendChild(opt);
-                        }
-                        sel.value = devId;
-                    }
-                }, 800);
-            } else if (typeof $ !== 'undefined') location.reload();
-        } else {
-            alert(data.message || '连接失败');
-        }
-    } catch (e) {
-        alert('连接异常: ' + (e.message || '未知错误'));
-    } finally {
-        if (btn) { btn.textContent = '连接'; btn.disabled = false; }
-    }
-}
-window.currentDeviceId = null;
-var currentRecordingId = null, isRecording = false, stepPollingInterval = null;
 
-function onDeviceSelectChange(val) {
-    window.currentDeviceId = val || null;
-    if (typeof connectDevice === 'function') connectDevice(val);
-}
+<!-- 通用确认弹窗 -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmTitle">确认</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="confirmBody">确定执行此操作吗？</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmOkBtn">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-async function loadDevices() {
-    try {
-        var res = await fetch('/ui_automation/api/devices');
-        var data = await res.json().catch(function(){ return {}; });
-        var list = (data.data && data.data.devices) || data.devices || [];
-        var sel = document.getElementById('deviceSelect');
-        var listEl = document.getElementById('connectedDevicesList');
-        var hintEl = document.getElementById('noDevicesHint');
-        if (!sel) return;
-        var cur = sel.value;
-        sel.innerHTML = '<option value="">选择设备...</option>';
-        list.forEach(function(d){ var o = document.createElement('option'); o.value = d; o.textContent = d; sel.appendChild(o); });
-        if (cur && list.indexOf(cur) >= 0) sel.value = cur;
+<!-- 步骤编辑弹窗（按动作类型动态渲染字段） -->
+<div class="modal fade" id="editStepModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑步骤</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">步骤描述</label>
+                    <input type="text" class="form-control" id="editStepDesc" placeholder="请输入步骤描述">
+                </div>
+                <div id="editStepDynamicFields"></div>
+                <div class="mb-1">
+                    <label class="form-label">操作后等待时间（毫秒）</label>
+                    <input type="number" class="form-control" id="editStepWaitAfter" min="0" step="100" placeholder="1000">
+                    <div class="form-text">该步骤执行完成后等待的时间，默认 1000 毫秒。</div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-outline-danger" id="editStepDeleteBtn">删除此步骤</button>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="editStepSaveBtn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-        if (listEl) {
-            if (list.length === 0) {
-                listEl.innerHTML = '<span class="text-muted small">暂无设备，请先连接</span>';
-            } else {
-                listEl.innerHTML = list.map(function(d){
-                    return '<span class="badge bg-success me-1 mb-1" style="font-size:0.85em">' + (d || '').replace(/</g,'&lt;') + '</span>';
-                }).join('');
-            }
-        }
-    } catch (e) { console.error('loadDevices', e); }
-}
+</div>
 
-async function refreshPreview() {
-    var devId = window.currentDeviceId;
-    if (!devId) { alert('请先选择设备'); return; }
-    try {
-        var res = await fetch('/ui_automation/api/device/screenshot/latest?device_id=' + encodeURIComponent(devId));
-        var data = await res.json().catch(function(){ return {}; });
-        if (data.success && data.data && data.data.image) {
-            document.getElementById('screenPreview').src = 'data:image/jpeg;base64,' + data.data.image;
-        } else {
-            alert(data.message || '获取预览失败');
-        }
-    } catch (e) { alert('刷新预览失败: ' + (e.message || '')); }
-}
-async function startRecording() {
-    var devId = window.currentDeviceId;
-    if (!devId) { alert('请先选择设备'); return; }
-    var name = document.getElementById('recordingName').value || '';
-    var pkg = (document.getElementById('recordingPackage').value || '').trim() || 'com.thunder.ktv';
-    var desc = document.getElementById('recordingDescription').value || '';
-    var project = document.getElementById('recordingProject') ? document.getElementById('recordingProject').value || '' : '';
-    try {
-        var res = await fetch('/ui_automation/api/recording/start', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({device_id: devId, name: name, package_name: pkg, description: desc, project_id: project})
-        });
-        var data = await res.json().catch(function(){ return {}; });
-        if (data.success || data.ok) {
-            currentRecordingId = data.data.recording_id;
-            isRecording = true;
-            var startBtn = document.getElementById('btnStartRecording'), stopBtn = document.getElementById('btnStopRecording');
-            var statusEl = document.getElementById('recordingStatus'), stepsEl = document.getElementById('recordingSteps'), countEl = document.getElementById('stepCount');
-            if (startBtn) startBtn.style.display = 'none';
-            if (stopBtn) stopBtn.style.display = 'block';
-            if (statusEl) statusEl.innerHTML = '<span class="text-danger"><i class="fas fa-circle fa-beat"></i> 录制中...</span>';
-            if (stepsEl) stepsEl.innerHTML = '';
-            if (countEl) countEl.textContent = '0';
-            if (typeof startStepPolling === 'function') startStepPolling();
-            else stepPollingInterval = setInterval(function(){ if (typeof refreshRecordingSteps === 'function') refreshRecordingSteps(); }, 2000);
-            alert('录制已开始');
-        } else { alert(data.message || '开始录制失败'); }
-    } catch (e) { alert('开始录制失败: ' + (e.message || '')); }
-}
-async function stopRecording() {
-    if (!currentRecordingId) return;
-    try {
-        var res = await fetch('/ui_automation/api/recording/stop', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({recording_id: currentRecordingId})
-        });
-        var data = await res.json().catch(function(){ return {}; });
-        if (data.success || data.ok) {
-            isRecording = false;
-            var startBtn = document.getElementById('btnStartRecording'), stopBtn = document.getElementById('btnStopRecording');
-            var statusEl = document.getElementById('recordingStatus');
-            if (startBtn) startBtn.style.display = 'block';
-            if (stopBtn) stopBtn.style.display = 'none';
-            if (statusEl) statusEl.innerHTML = '<span class="text-muted">录制已停止</span>';
-            if (typeof stopStepPolling === 'function') stopStepPolling();
-            else if (stepPollingInterval) { clearInterval(stepPollingInterval); stepPollingInterval = null; }
-            alert('录制已停止，共 ' + (data.data ? data.data.action_count : 0) + ' 个步骤');
-            currentRecordingId = null;
-        } else { alert(data.message || '停止录制失败'); }
-    } catch (e) { alert('停止录制失败: ' + (e.message || '')); }
-}
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadDevices);
-else loadDevices();
-</script>
 {% endblock %}
 
 {% block extra_js %}
 {{ super() }}
 <script>
-    // Global variables (使用 window.currentDeviceId 与内联脚本共享)
+    // ========== 预览入口（必须最先定义，不依赖 jQuery）==========
+    window.currentDeviceId = window.currentDeviceId || null;
+    window.startPreview = window.startPreview || function() {
+        alert('预览脚本尚未加载完成，请 Ctrl+F5 强制刷新后再试');
+    };
+
+    // ========== 页面状态机 ==========
+    // pageMode: 'recording' | 'editing' | 'executing'
+    //   录制态: 设备预览 + 录制按钮 + 实时步骤流
+    //   确认态: 步骤编辑面板 + 保存/放弃/重新录制
+    //   执行态: 执行进度 + 实时结果（保存并执行后自动进入）
+    let pageMode = 'recording';
+    
+    /** 统一状态切换入口：同步更新 pageMode 变量和 DOM class */
+    function setPageMode(mode) {
+        pageMode = mode;
+        const root = document.getElementById('pageModeRoot');
+        if (root) {
+            root.classList.remove('page-mode-recording', 'page-mode-editing', 'page-mode-executing');
+            root.classList.add('page-mode-' + mode);
+        }
+    }
+
+    // 全局变量（使用 window.currentDeviceId 与内联脚本共享）
     let currentRecordingId = null;
     let isRecording = false;
     let videoEventSource = null;
     let stepPollingInterval = null;
+    let currentSteps = [];  // 当前步骤列表，供步骤编辑弹窗按 step_num 查找
     
-    // Assertion variables
+    // 断言相关变量
     let longPressTimer = null;
     let isLongPress = false;
     let assertionCoordinates = { x: 0, y: 0 };
     const LONG_PRESS_DURATION = 800;
 
-    // ApiClient 简单封装 (如果 base.html 中没有)
-    const ApiClient = {
+    // ApiClient：优先使用 common.js 全局实现；仅在缺失时降级
+    const ApiClient = window.ApiClient || {
         async get(url, options = {}) {
-            return $.ajax({
-                url: url,
-                method: 'GET',
-                ...options
-            });
+            const timeout = (options && options.timeout) || 30000;
+            const ctrl = AbortController ? new AbortController() : null;
+            const timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, timeout) : null;
+            try {
+                const resp = await fetch(url, { method: 'GET', signal: ctrl ? ctrl.signal : undefined, cache: 'no-store' });
+                return await resp.json();
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
         },
-        async post(url, data, options = {}) {
-            return $.ajax({
-                url: url,
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(data),
-                ...options
-            });
+        async post(url, data) {
+            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}) });
+            return await resp.json();
+        },
+        async put(url, data) {
+            const resp = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}) });
+            return await resp.json();
         },
         async delete(url, options = {}) {
-            return $.ajax({
-                url: url,
-                method: 'DELETE',
-                contentType: 'application/json',
-                data: JSON.stringify(options.data || {}),
-                ...options
-            });
-        },
-        async put(url, data, options = {}) {
-            return $.ajax({
-                url: url,
-                method: 'PUT',
-                contentType: 'application/json',
-                data: JSON.stringify(data),
-                ...options
-            });
+            const resp = await fetch(url, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify((options && options.data) || {}) });
+            return await resp.json();
         }
     };
 
-    function showToast(message, type = 'info') {
-        // 简单 Toast 实现，或者使用 Bootstrap Toast
-        alert(message);
+
+    /** 通用确认弹窗，返回 Promise<boolean> */
+    function showConfirm(title, body, okText = '确认', okClass = 'btn-danger') {
+        return new Promise(function(resolve) {
+            const modalEl = document.getElementById('confirmModal');
+            if (!modalEl || typeof bootstrap === 'undefined') { resolve(false); return; }
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmBody').textContent = body;
+            const okBtn = document.getElementById('confirmOkBtn');
+            okBtn.textContent = okText;
+            okBtn.className = 'btn ' + okClass;
+
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            let settled = false;
+            function cleanup() {
+                if (settled) return;
+                settled = true;
+                okBtn.removeEventListener('click', onOk);
+                modalEl.removeEventListener('hidden.bs.modal', onCancel);
+            }
+            function onOk() { cleanup(); resolve(true); }
+            function onCancel() { cleanup(); resolve(false); }
+            okBtn.addEventListener('click', onOk);
+            modalEl.addEventListener('hidden.bs.modal', onCancel);
+            modal.show();
+        });
     }
 
     $(document).ready(function() {
-        debugLog('Document Ready. ScreenPreview length: ' + $('#screenPreview').length);
         // 支持从用例管理页跳转加载用例 ?load=recordingId
         const urlParams = new URLSearchParams(window.location.search);
         const loadId = urlParams.get('load');
@@ -437,20 +500,18 @@ else loadDevices();
             loadProjectsForRecorder().then(() => loadCaseForView(loadId));
         }
 
-        // Bind Connect Device button
-        $('#btnConnectDevice').click(function(e) {
-            e.preventDefault();
-            console.log('Connect Device button clicked');
-            showConnectModal();
-        });
+        // 「连接设备」按钮与弹窗流程已交由页面底部「纯原生降级脚本块」统一接管
+        // （原生 addEventListener 绑定 + fetch 提交），不依赖 jQuery/Bootstrap，避免双绑定导致重复弹窗。
 
+        // 禁止全屏 Loading 遮罩：会盖住「开始预览」导致点击无反应
         loadDevices();
         loadProjectsForRecorder();
 
         $('#deviceSelect').change(function() {
             const deviceId = $(this).val();
             if (deviceId) {
-                connectDevice(deviceId);
+                if (window.startPreview) window.startPreview();
+                else connectDevice(deviceId);
             } else {
                 window.currentDeviceId = null;
                 stopVideoStream();
@@ -458,25 +519,8 @@ else loadDevices();
         });
 
         // ---------------------------------------------------------
-        // Move all event bindings inside ready and use document delegation
+        // 所有事件绑定在 ready 内完成，使用 document 委托
         // ---------------------------------------------------------
-
-        function debugLog(msg) {
-            const consoleDiv = document.getElementById('debugConsole');
-            if (consoleDiv) {
-                consoleDiv.style.display = 'block';
-                const p = document.createElement('div');
-                p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-                consoleDiv.appendChild(p);
-                consoleDiv.scrollTop = consoleDiv.scrollHeight;
-            }
-            console.log(msg);
-        }
-
-        // Global click listener for debugging
-        document.addEventListener('mousedown', function(e) {
-            debugLog('Global mousedown: ' + e.target.tagName + '#' + e.target.id + '.' + e.target.className);
-        }, true); // Use capture phase to ensure we catch it
 
         let screenScaleX = 1.0, screenScaleY = 1.0;
         let isDragging = false, dragStart = null;
@@ -484,10 +528,16 @@ else loadDevices();
         function updateScreenScale() {
             const img = document.getElementById('screenPreview');
             if (!img) return;
-            const nw = img.naturalWidth || 0, nh = img.naturalHeight || 0;
             const dw = img.clientWidth || 1, dh = img.clientHeight || 1;
+            // 优先用设备真实分辨率（压缩预览图 naturalWidth≠设备宽）
+            const deviceW = Number(window.__deviceWidth || 0);
+            const deviceH = Number(window.__deviceHeight || 0);
+            const nw = deviceW > 0 ? deviceW : (img.naturalWidth || 0);
+            const nh = deviceH > 0 ? deviceH : (img.naturalHeight || 0);
             if (nw > 0 && dw > 0) screenScaleX = nw / dw;
             if (nh > 0 && dh > 0) screenScaleY = nh / dh;
+            window.__screenScaleX = screenScaleX;
+            window.__screenScaleY = screenScaleY;
         }
 
         function getPointInImg(clientX, clientY) {
@@ -497,21 +547,18 @@ else loadDevices();
             const cx = clientX - rect.left;
             const cy = clientY - rect.top;
             if (cx < 0 || cy < 0 || cx > rect.width || cy > rect.height) return null;
+            updateScreenScale();
             return { x: Math.round(cx * screenScaleX), y: Math.round(cy * screenScaleY) };
         }
 
-        // Use document delegation for dynamic elements and better reliability
+        // 使用 document 委托处理动态元素，提高可靠性
         $(document).on('mousedown touchstart', '#screenPreview', function(e) {
-            debugLog('Delegate mousedown on #screenPreview');
-            
             if (!window.currentDeviceId) {
-                debugLog('No device selected');
                 showToast('请先选择设备', 'error');
                 return;
             }
             
             updateScreenScale();
-            debugLog(`Scale: ${screenScaleX}, ${screenScaleY}`);
             
             isLongPress = false;
             if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
@@ -528,18 +575,15 @@ else loadDevices();
             const px = te.clientX ?? te.pageX;
             const py = te.clientY ?? te.pageY;
 
-            debugLog(`Client coords: ${px}, ${py}`);
             const pt = getPointInImg(px, py);
             if (!pt) {
-                debugLog('Point outside image');
                 return;
             }
             
-            debugLog(`Image coords: ${pt.x}, ${pt.y}`);
             isDragging = true;
             dragStart = pt;
             
-            // Prevent default drag behavior manually if needed, though ondragstart handles it
+            // 阻止默认拖拽行为（ondragstart 已处理）
             // e.preventDefault(); 
         });
 
@@ -560,20 +604,16 @@ else loadDevices();
 
         $(document).on('mouseup touchend', async function(e) {
             if (!isDragging || !dragStart || !window.currentDeviceId) { 
-                if (isDragging) debugLog('Mouseup ignored: dragging=' + isDragging + ', dragStart=' + dragStart + ', deviceId=' + window.currentDeviceId);
                 isDragging = false; dragStart = null; return; 
             }
             if (isLongPress) { isLongPress = false; isDragging = false; dragStart = null; return; }
             
-            debugLog('Mouseup triggered');
             const oe = e.originalEvent || e;
             const te = (oe.touches && oe.touches[0]) || (oe.changedTouches && oe.changedTouches[0]) || oe;
             const px = te.clientX ?? te.pageX;
             const py = te.clientY ?? te.pageY;
             const dragEnd = getPointInImg(px, py);
             const dist = dragEnd ? Math.sqrt(Math.pow(dragEnd.x - dragStart.x, 2) + Math.pow(dragEnd.y - dragStart.y, 2)) : 0;
-            
-            debugLog(`DragEnd: ${dragEnd ? dragEnd.x + ',' + dragEnd.y : 'null'}, Dist: ${dist}`);
             
             if (dist > 10 && dragEnd) {
                 apiControlSwipe(dragStart.x, dragStart.y, dragEnd.x, dragEnd.y);
@@ -594,7 +634,7 @@ else loadDevices();
 
     async function loadProjectsForRecorder() {
         try {
-            const result = await ApiClient.get('/ui_automation/api/projects');
+            const result = await ApiClient.get('/ui_automation/api/projects', { showLoading: false, showError: false });
             const projects = (result && result.data && result.data.projects) || [];
             const select = $('#recordingProject');
             select.find('option:not(:first)').remove();
@@ -607,188 +647,231 @@ else loadDevices();
     }
 
     async function loadDevices() {
+        const select = $('#deviceSelect');
+        // 保留服务端已渲染的选项，API 失败时还原兜底（不依赖 JS 也能看到设备）
+        const fallbackHtml = select.html();
         try {
-            const result = await ApiClient.get('/ui_automation/api/devices');
-            const select = $('#deviceSelect');
+            // showLoading 必须 false：全屏遮罩会挡住「开始预览」按钮
+            const result = await ApiClient.get('/ui_automation/api/devices', { showLoading: false, showError: false });
+            const curVal = select.val();
             select.empty().append('<option value="">选择设备...</option>');
-            
-            if (result && result.success && result.data.devices) {
-                result.data.devices.forEach(device => {
-                    select.append(`<option value="${device}">${device}</option>`);
-                });
+
+            // 优先使用含状态的设备列表（all_devices），让「需授权/离线」的盒子也可见
+            const allDevices = (result && result.data && result.data.all_devices) || [];
+            const plainDevices = (result && result.data && result.data.devices) || [];
+            const list = allDevices.length ? allDevices : plainDevices.map(function(id) { return { id: id, status: 'device' }; });
+
+            list.forEach(function(d) {
+                const id = d.id || d;
+                const status = d.status || 'device';
+                if (status === 'device') {
+                    select.append(`<option value="${id}">${id}</option>`);
+                } else {
+                    const tip = status === 'unauthorized' ? '需授权' : (status === 'offline' ? '离线' : status);
+                    select.append(`<option value="" disabled>${id}（${tip}）</option>`);
+                }
+            });
+            if (curVal && list.some(function(d) { return (d.id || d) === curVal; })) select.val(curVal);
+
+            // 仅选中设备；真正拉预览交给底部权威 startPreview，避免竞态重复截图
+            const onlineIds = list.filter(function(d) { return (d.status || 'device') === 'device'; }).map(function(d) { return d.id || d; });
+            if (!select.val() && onlineIds.length === 1) {
+                select.val(onlineIds[0]);
+            }
+
+            // 更新设备 badge 列表
+            const listEl = document.getElementById('connectedDevicesList');
+            if (listEl) {
+                if (list.length === 0) {
+                    listEl.innerHTML = '<span class="text-muted small">暂无设备，请先连接</span>';
+                } else {
+                    listEl.innerHTML = list.map(function(d) {
+                        const id = d.id || d;
+                        const status = d.status || 'device';
+                        const cls = status === 'device' ? 'bg-success' : 'bg-warning text-dark';
+                        const tip = status === 'device' ? '' : '（' + (status === 'unauthorized' ? '需授权' : (status === 'offline' ? '离线' : status)) + '）';
+                        const clickable = status === 'device'
+                            ? ' role="button" tabindex="0" data-device-id="' + String(id).replace(/"/g,'&quot;') + '" style="font-size:0.85em;cursor:pointer;" title="点击开始预览"'
+                            : ' style="font-size:0.85em"';
+                        return '<span class="badge ' + cls + ' me-1 mb-1"' + clickable + '>' + (id || '').replace(/</g,'&lt;') + tip + '</span>';
+                    }).join('');
+                    listEl.querySelectorAll('[data-device-id]').forEach(function(el) {
+                        el.addEventListener('click', function() {
+                            var id = el.getAttribute('data-device-id');
+                            var sel = document.getElementById('deviceSelect');
+                            if (sel) sel.value = id;
+                            connectDevice(id);
+                        });
+                    });
+                }
             }
         } catch (error) {
             console.error('加载设备失败:', error);
+            const errText = (error && error.status)
+                ? ('HTTP ' + error.status + ' ' + (error.statusText || ''))
+                : (error && error.message ? error.message : String(error));
+            // 还原服务端初始列表，保证设备可见（JS 自动刷新失败不影响使用）
+            select.html(fallbackHtml);
+            if (typeof showToast === 'function') {
+                showToast('设备自动刷新失败，已显示初始列表（刷新页面可更新）', 'warning');
+            }
+            const listEl = document.getElementById('connectedDevicesList');
+            if (listEl && !listEl.querySelector('.badge')) {
+                // 仅在服务端也未渲染出设备时才显示错误
+                listEl.innerHTML = '<span class="badge bg-danger me-1">设备加载失败</span>'
+                    + '<span class="text-danger small">「' + errText.replace(/</g, '&lt;') + '」</span>';
+            }
+        }
+    }
+    window.loadDevices = loadDevices;
+
+    // ===== 连接设备弹窗流程已迁移至页面底部「纯原生降级脚本块」=====
+    // 该块用 window.showConnectModal / window.submitConnectDevice / window.hideConnectModalFallback
+    // 统一实现，完全不依赖 jQuery/Bootstrap，避免 jQuery 缺失时主脚本整块崩溃、
+    // 以及「后脚本覆盖全局函数」这种脆弱写法。此处不再保留 jQuery 版本，杜绝双实现/双绑定。
+
+    // 复用全局 ApiClient（common.js）；禁止本地覆盖，否则 options 透传会打坏预览请求
+    // 预览专用：原生 fetch，不依赖 jQuery/ApiClient
+    async function fetchLatestPreview(deviceId) {
+        if (!deviceId) return false;
+        const url = `/ui_automation/api/device/screenshot/latest?device_id=${encodeURIComponent(deviceId)}&force=1&_t=${Date.now()}`;
+        const resp = await fetch(url, { method: 'GET', cache: 'no-store' });
+        const result = await resp.json();
+        if (result && (result.success || result.ok) && result.data && result.data.image) {
+            updateScreenPreview(result.data.image, result.data);
+            return true;
+        }
+        throw new Error((result && result.message) || ('HTTP ' + resp.status));
+    }
+
+    function updateScreenPreview(imageBase64, meta) {
+        if (!imageBase64) return;
+        if (meta) {
+            if (meta.device_width) window.__deviceWidth = Number(meta.device_width) || window.__deviceWidth;
+            if (meta.device_height) window.__deviceHeight = Number(meta.device_height) || window.__deviceHeight;
+        }
+        var mime = (String(imageBase64).indexOf('/9j/') === 0) ? 'image/jpeg' : 'image/png';
+        var img = document.getElementById('screenPreview');
+        if (img) {
+            var next = 'data:' + mime + ';base64,' + imageBase64;
+            if (img.src === next) img.src = '';
+            img.src = next;
+        }
+        var hint = document.getElementById('previewStatusHint');
+        if (hint) {
+            hint.textContent = '预览已更新';
+            hint.className = 'small text-success';
+            hint.style.color = '';
         }
     }
 
-    function showConnectModal() {
-        console.log("showConnectModal called");
-        $('#connectIp').val('');
-        $('#connectPort').val('8787');
-        
-        try {
-            const modalEl = document.getElementById('connectDeviceModal');
-            if (!modalEl) {
-                console.error("Modal element #connectDeviceModal not found!");
-                alert("错误：无法找到弹窗组件");
-                return;
-            }
-            
-            // Move to body to avoid z-index/overflow issues
-            // Check if already direct child of body
-            if (modalEl.parentNode !== document.body) {
-                 document.body.appendChild(modalEl);
-            }
-            
-            let modal;
-            
-            // Try Bootstrap 5 API
-            if (window.bootstrap && window.bootstrap.Modal) {
-                console.log("Using Bootstrap 5 API");
-                modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
-            } 
-            // Fallback to jQuery if Bootstrap 5 API fails or not available
-            else if (typeof $ !== 'undefined' && $.fn.modal) {
-                console.log("Using jQuery API");
-                $('#connectDeviceModal').modal('show');
-            } else {
-                console.error("Bootstrap Modal API not found");
-                // Last resort manual show
-                $(modalEl).show().addClass('show').css('display', 'block').css('background-color', 'rgba(0,0,0,0.5)');
-                $('body').addClass('modal-open');
-            }
-        } catch (e) {
-            console.error("Error opening modal:", e);
-            // Fallback
-            $('#connectDeviceModal').show();
-            $('#connectDeviceModal').addClass('show');
-            $('#connectDeviceModal').css('background', 'rgba(0,0,0,0.5)');
-            $('body').addClass('modal-open');
-        }
+    let previewPollTimer = null;
+    function startPreviewPolling(deviceId) {
+        stopPreviewPolling();
+        previewPollTimer = setInterval(async function() {
+            if (!deviceId || deviceId !== window.currentDeviceId) return;
+            try { await fetchLatestPreview(deviceId); } catch (e) { /* ignore */ }
+        }, 2500);
     }
-
-    async function submitConnectDevice() {
-        const ip = $('#connectIp').val();
-        const port = $('#connectPort').val();
-        
-        if (!ip) {
-            showToast('请输入 IP 地址', 'error');
-            return;
-        }
-        
-        try {
-            const btn = $('#connectDeviceModal .btn-primary');
-            const originalText = btn.text();
-            btn.text('连接中...').prop('disabled', true);
-            
-            const result = await ApiClient.post('/ui_automation/api/connect', {
-                ip: ip,
-                port: parseInt(port) || 8787
-            });
-            
-            if (result && result.success) {
-                showToast(result.message || '连接成功', 'success');
-                
-                // Close modal
-                const modalEl = document.getElementById('connectDeviceModal');
-                
-                // Try to hide using Bootstrap 5
-                if (window.bootstrap && window.bootstrap.Modal) {
-                    const modal = bootstrap.Modal.getInstance(modalEl);
-                    if (modal) modal.hide();
-                } 
-                // Fallback to jQuery
-                else if (typeof $ !== 'undefined' && $.fn.modal) {
-                     $('#connectDeviceModal').modal('hide');
-                } else {
-                    // Manual hide
-                    $('#connectDeviceModal').hide();
-                    $('#connectDeviceModal').removeClass('show');
-                    $('body').removeClass('modal-open');
-                    $('.modal-backdrop').remove();
-                }
-                
-                // Refresh device list
-                await loadDevices();
-                
-                // Select the new device if possible
-                if (result.data && result.data.device_id) {
-                     // Check if option exists (it should after loadDevices)
-                     const exists = $(`#deviceSelect option[value='${result.data.device_id}']`).length > 0;
-                     if (exists) {
-                         $('#deviceSelect').val(result.data.device_id).change();
-                     }
-                }
-            } else {
-                showToast(result.message || '连接失败', 'error');
-            }
-        } catch (error) {
-            console.error('Connect error:', error);
-            // Handle JSON error response if available
-            let msg = '连接异常';
-            if (error.responseJSON && error.responseJSON.message) {
-                msg += ': ' + error.responseJSON.message;
-            } else {
-                msg += ': ' + error.message;
-            }
-            showToast(msg, 'error');
-        } finally {
-            $('#connectDeviceModal .btn-primary').text('连接').prop('disabled', false);
+    function stopPreviewPolling() {
+        if (previewPollTimer) {
+            clearInterval(previewPollTimer);
+            previewPollTimer = null;
         }
     }
 
     async function connectDevice(deviceId) {
+        if (!deviceId) return;
         window.currentDeviceId = deviceId;
-        startVideoStream(deviceId);
+        var hint = document.getElementById('previewStatusHint');
+        if (hint) {
+            hint.textContent = '正在拉取预览…';
+            hint.className = 'small text-warning';
+        }
+        var overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.classList.remove('d-none');
         try {
-            const result = await ApiClient.get(`/ui_automation/api/device/screenshot/latest?device_id=${encodeURIComponent(deviceId)}`);
-            if (result && result.success && result.data && result.data.image) {
-                $('#screenPreview').attr('src', 'data:image/jpeg;base64,' + result.data.image);
+            await fetchLatestPreview(deviceId);
+            if (typeof showToast === 'function') showToast('预览已启动', 'success');
+            // 仅轮询，不再自动开 SSE（SSE 会与主动截图抢设备导致「获取截图失败」）
+            startPreviewPolling(deviceId);
+        } catch (e) {
+            console.error('预览失败', e);
+            if (hint) {
+                hint.textContent = '预览失败: ' + (e.message || e);
+                hint.className = 'small text-danger';
             }
-        } catch (e) { console.warn('初始预览加载失败', e); }
+            if (typeof showToast === 'function') showToast('预览失败: ' + (e.message || e), 'error');
+            else alert('预览失败: ' + (e.message || e));
+            startPreviewPolling(deviceId);
+        } finally {
+            if (overlay) overlay.classList.add('d-none');
+        }
+    }
+    window.connectDevice = connectDevice;
+    window.fetchLatestPreview = fetchLatestPreview;
+
+    // 预览入口由页面底部「纯原生权威脚本」最终覆盖；此处仅保留兼容实现
+    window.startPreview = function() {
+        try {
+            var sel = document.getElementById('deviceSelect');
+            var deviceId = (sel && sel.value) || window.currentDeviceId || '';
+            if (!deviceId && sel) {
+                var opts = Array.prototype.filter.call(sel.options || [], function(o){ return !!o.value; });
+                if (opts.length === 1) {
+                    sel.value = opts[0].value;
+                    deviceId = opts[0].value;
+                }
+            }
+            if (!deviceId) {
+                alert('请先在下拉框选择设备');
+                return;
+            }
+            connectDevice(deviceId);
+        } catch (e) {
+            console.error(e);
+            alert('开始预览异常: ' + (e && e.message ? e.message : e));
+        }
+    };
+
+    // 底部权威脚本会再次绑定；此处不再 autoPreview，避免重复截图抢锁
+    function bindPreviewControls() {
+        var btn = document.getElementById('btnStartPreview');
+        if (btn && !btn.__previewBound) {
+            btn.__previewBound = true;
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.startPreview();
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindPreviewControls);
+    } else {
+        bindPreviewControls();
     }
 
     function startVideoStream(deviceId) {
-        if (videoEventSource) {
-            videoEventSource.close();
-        }
-        
-        // 使用 SSE 获取视频流
-        videoEventSource = new EventSource(`/ui_automation/stream_video?device_id=${encodeURIComponent(deviceId)}`);
-        
-        videoEventSource.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            if (data.type === 'frame') {
-                $('#screenPreview').attr('src', 'data:image/jpeg;base64,' + data.data);
-            } else if (data.done) {
-                videoEventSource.close();
-            }
-        };
-        
-        videoEventSource.onerror = function(err) {
-            console.error("Video stream error:", err);
-            videoEventSource.close();
-        };
+        // 保留接口但默认不启动；需要时由外部显式调用
+        console.info('startVideoStream skipped (use polling preview):', deviceId);
     }
-    
+    window.startVideoStream = startVideoStream;
+
     function stopVideoStream() {
         if (videoEventSource) {
-            videoEventSource.close();
+            try { videoEventSource.close(); } catch (e) {}
             videoEventSource = null;
         }
+        stopPreviewPolling();
     }
 
     // 手动刷新屏幕 (用于按键后)
-    function scheduleScreenRefresh(delay = 500) {
+    function scheduleScreenRefresh(delay = 150) {
         setTimeout(async () => {
              if (window.currentDeviceId) {
                  try {
-                     const result = await ApiClient.get(`/ui_automation/api/device/screenshot/latest?device_id=${window.currentDeviceId}`);
-                     if (result && result.success && result.data.image) {
-                         $('#screenPreview').attr('src', 'data:image/jpeg;base64,' + result.data.image);
-                     }
+                     await fetchLatestPreview(window.currentDeviceId);
                  } catch (e) {
                      console.error("刷新屏幕失败", e);
                  }
@@ -796,23 +879,20 @@ else loadDevices();
         }, delay);
     }
 
-    // --- Control Functions ---
+    // --- 控制命令 ---
 
     async function apiControlSwipe(x1, y1, x2, y2) {
         const deviceId = window.currentDeviceId;
         if (!deviceId) { showToast('请先选择设备', 'error'); return; }
         try {
-            const res = await fetch('/ui_automation/api/control/swipe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device_id: deviceId, x1, y1, x2, y2, duration: 300 })
+            const result = await ApiClient.post('/ui_automation/api/control/swipe', {
+                device_id: deviceId, x1, y1, x2, y2, duration: 300
             });
-            const result = await res.json().catch(function(){ return {}; });
-            if (res.ok && result && result.success) {
+            if (result && result.success) {
                 if (isRecording && currentRecordingId) { recordSwipe(x1, y1, x2, y2); }
                 scheduleScreenRefresh(500);
             } else {
-                showToast('滑动失败: ' + (result.message || result.error || 'HTTP ' + res.status), 'error');
+                showToast('滑动失败: ' + (result.message || result.error || '未知错误'), 'error');
             }
         } catch (error) {
             showToast('滑动异常: ' + (error.message || '网络错误'), 'error');
@@ -820,32 +900,24 @@ else loadDevices();
     }
 
     async function apiControlClick(x, y) {
-        debugLog(`Executing Click: ${x}, ${y}`);
         const deviceId = window.currentDeviceId;
         if (!deviceId) {
-            debugLog('No device selected');
             showToast('请先选择设备', 'error');
             return;
         }
         try {
-            const res = await fetch('/ui_automation/api/control/click', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device_id: deviceId, x: x, y: y })
+            const result = await ApiClient.post('/ui_automation/api/control/click', {
+                device_id: deviceId, x: x, y: y
             });
-            const result = await res.json().catch(function(){ return {}; });
-            if (res.ok && result && result.success) {
-                debugLog('Click success');
+            if (result && result.success) {
                 if (isRecording && currentRecordingId) {
                     recordClick(x, y);
                 }
                 scheduleScreenRefresh(500);
             } else {
-                debugLog('Click failed: ' + (result.message || 'unknown'));
-                showToast('点击失败: ' + (result.message || result.error || 'HTTP ' + res.status), 'error');
+                showToast('点击失败: ' + (result.message || result.error || '未知错误'), 'error');
             }
         } catch (error) {
-            debugLog('Click exception: ' + error);
             showToast('点击异常: ' + (error.message || '网络错误'), 'error');
         }
     }
@@ -899,17 +971,34 @@ else loadDevices();
     }
 
     async function sendBack() { await sendKey(4, '返回'); }
-    async function sendHome() { await sendKey(3, 'Home'); }
+    async function sendHome() { await sendKey(3, '主页'); }
     async function sendMenu() { await sendKey(82, '菜单'); }
 
-    // --- Recording Functions ---
+    // 手动刷新屏幕预览
+    async function refreshPreview() {
+        var deviceId = window.currentDeviceId || (document.getElementById('deviceSelect') || {}).value;
+        if (!deviceId) { showToast('请先选择设备', 'error'); return; }
+        window.currentDeviceId = deviceId;
+        try {
+            await fetchLatestPreview(deviceId);
+            showToast('预览已刷新', 'success');
+        } catch (e) {
+            showToast('刷新预览失败: ' + (e.message || ''), 'error');
+        }
+    }
+    window.refreshPreview = refreshPreview;
+
+    // --- 录制相关函数 ---
 
     async function recordClick(x, y) {
         try {
-            const result = await ApiClient.post('/ui_automation/api/recording/click', {
+            // 设备已由 control/click 点过，这里只记步骤，避免双击
+            const result = await ApiClient.post('/ui_automation/api/recording/step', {
                 recording_id: currentRecordingId,
                 x: x,
-                y: y
+                y: y,
+                action_type: 'click',
+                description: ''
             }, { showError: false });
             
             if (result && result.success) {
@@ -936,75 +1025,427 @@ else loadDevices();
         }
     }
 
+    function setRecordingGuideVisible(visible) {
+        var guide = document.getElementById('recordingGuide');
+        var tip = document.getElementById('recordingPreviewTip');
+        if (guide) {
+            if (visible) guide.classList.remove('d-none');
+            else guide.classList.add('d-none');
+        }
+        if (tip) {
+            if (visible) tip.classList.remove('d-none');
+            else tip.classList.add('d-none');
+        }
+        var hit = document.getElementById('screenHitLayer');
+        if (hit) {
+            hit.style.outline = visible ? '2px solid rgba(220,53,69,.85)' : '';
+            hit.style.outlineOffset = visible ? '-2px' : '';
+        }
+    }
+    window.setRecordingGuideVisible = setRecordingGuideVisible;
+
+    function showRecordingActiveEmpty() {
+        var steps = document.getElementById('recordingSteps');
+        if (!steps) return;
+        steps.innerHTML = ''
+            + '<div class="text-center py-4" id="recordingActiveHint">'
+            + '  <div class="text-danger mb-2"><i class="fas fa-hand-pointer fa-2x"></i></div>'
+            + '  <p class="fw-semibold mb-2">录制已开始，请操作左侧预览画面</p>'
+            + '  <p class="small text-muted mb-0">点击 / 滑动画面，或使用下方「返回 / 主页」。步骤会出现在这里。</p>'
+            + '</div>';
+        var cnt = document.getElementById('stepCount');
+        if (cnt) cnt.textContent = '0';
+    }
+
     async function startRecording() {
-        const deviceId = window.currentDeviceId;
+        const deviceId = window.currentDeviceId
+            || (document.getElementById('deviceSelect') || {}).value
+            || '';
         if (!deviceId) {
-            showToast('请先选择设备', 'error');
+            if (typeof showToast === 'function') showToast('请先选择设备并开始预览', 'error');
+            else alert('请先选择设备并开始预览');
             return;
         }
+        window.currentDeviceId = deviceId;
         
-        const name = $('#recordingName').val();
-        const pkg = ($('#recordingPackage').val() || '').trim() || 'com.thunder.ktv';
+        const name = ($('#recordingName').val() || '').trim();
+        const pkg = ($('#recordingPackage').val() || '').trim() || '';
         const desc = $('#recordingDescription').val();
         const project = $('#recordingProject').val() || '';
+        const btn = document.getElementById('btnStartRecording');
+        if (btn) { btn.disabled = true; }
         
         try {
+            // 禁止全屏 Loading，否则像“没反应”
             const result = await ApiClient.post('/ui_automation/api/recording/start', {
                 device_id: deviceId,
                 name: name,
                 package_name: pkg,
                 description: desc,
                 project_id: project
-            });
+            }, { showLoading: false });
             
             if (result && result.success) {
                 currentRecordingId = result.data.recording_id;
                 isRecording = true;
+                window.currentRecordingId = currentRecordingId;
+                window.isRecording = true;
+                setPageMode('recording');
                 
                 $('#btnStartRecording').hide();
-                $('#btnStopRecording').show();
-                $('#recordingStatus').html('<span class="text-danger"><i class="fas fa-circle fa-beat"></i> 录制中...</span>');
+                $('#btnStopRecording').show().prop('disabled', false);
+                $('#recordingStatus').html('<span class="text-danger"><i class="fas fa-circle fa-beat"></i> 录制中</span>');
                 
-                $('#recordingSteps').empty();
-                $('#stepCount').text('0');
+                showRecordingActiveEmpty();
+                setRecordingGuideVisible(true);
                 
                 startStepPolling();
-                showToast('录制已开始', 'success');
+                showToast('录制中：请在左侧预览画面上点击/滑动', 'success');
             } else {
                 showToast('开始录制失败: ' + (result?.message || '未知错误'), 'error');
             }
         } catch (error) {
             showToast('开始录制失败: ' + error.message, 'error');
+        } finally {
+            if (btn) { btn.disabled = false; }
         }
     }
+    window.startRecording = startRecording;
 
     async function stopRecording() {
-        if (!currentRecordingId) return;
+        if (!currentRecordingId && !window.currentRecordingId) return;
+        const rid = currentRecordingId || window.currentRecordingId;
         
         try {
             const result = await ApiClient.post('/ui_automation/api/recording/stop', {
-                recording_id: currentRecordingId
-            });
+                recording_id: rid
+            }, { showLoading: false });
             
             if (result && result.success) {
                 isRecording = false;
-                
-                $('#btnStartRecording').show();
-                $('#btnStopRecording').hide();
-                $('#recordingStatus').html('<span class="text-muted">录制已停止</span>');
+                window.isRecording = false;
+                currentRecordingId = rid;
+                window.currentRecordingId = rid;
+                setRecordingGuideVisible(false);
                 
                 stopStepPolling();
-                refreshRecordingSteps();
                 
-                showToast(`录制已停止，共 ${result.data.action_count} 个步骤`, 'success');
-                currentRecordingId = null;
+                // 进入步骤确认态
+                enterConfirmationMode(result.data.action_count);
+                
+                // 加载完整步骤列表（含截图、UI树摘要）
+                const detailResult = await ApiClient.get(`/ui_automation/api/recording/${currentRecordingId}`, { showLoading: false });
+                if (detailResult && detailResult.success && detailResult.data && detailResult.data.recording) {
+                    const actions = detailResult.data.recording.actions || [];
+                    updateStepList(actions);
+                }
+                
+                showToast(`录制完成，共采集 ${result.data.action_count} 个步骤，请确认后保存`, 'success');
             } else {
                 showToast('停止录制失败: ' + (result?.message || '未知错误'), 'error');
             }
         } catch (error) {
-            showToast('停止录制失败: ' + error.message, 'error');
+            showToast('停止录制失败: ' + (error.message || error), 'error');
         }
     }
+    window.stopRecording = stopRecording;
+
+    function enterConfirmationMode(stepCount, actions) {
+        // 切换到编辑（确认）态
+        setPageMode('editing');
+        
+        // 更新编辑态 Header 的设备信息
+        var devBadge = document.getElementById('editingDeviceBadge');
+        var caseName = document.getElementById('editingCaseName');
+        if (devBadge) devBadge.textContent = window.currentDeviceId || '--';
+        if (caseName) caseName.textContent = $('#recordingName').val() || '未命名用例';
+        
+        // 更新步骤计数
+        $('#confirmStepCount').text(stepCount || 0);
+        $('#editingCaseStatus').removeClass('bg-warning').addClass('bg-warning text-dark').text('待确认');
+        
+        // 隐藏录制态按钮
+        $('#btnStartRecording').hide();
+        $('#btnStopRecording').hide();
+        $('#recordingStatus').html('<span class="text-success"><i class="fas fa-check-circle me-1"></i> 待确认</span>');
+        
+        // 步骤列表：已有数据则直接渲染（避免重复请求与状态跳动），否则拉取
+        if (Array.isArray(actions)) {
+            updateStepList(actions);
+        } else {
+            refreshRecordingSteps();
+        }
+    }
+
+    function exitConfirmationMode() {
+        // 切回录制态
+        setPageMode('recording');
+        
+        // 显示录制按钮
+        $('#btnStartRecording').show();
+        $('#btnStopRecording').hide();
+        $('#recordingStatus').html('<span class="text-muted">未录制</span>');
+        
+        // 清空步骤
+        $('#recordingSteps').html('<div class="text-muted text-center py-5"><i class="fas fa-clipboard-list fa-3x mb-3 opacity-25"></i><p>暂无步骤，请开始录制并操作设备</p></div>');
+        $('#stepCount').text('0');
+        currentRecordingId = null;
+    }
+
+    /** 将当前录制持久化为用例，返回保存结果 */
+    async function persistCurrentCase() {
+        if (!currentRecordingId) return null;
+        try {
+            const payload = {
+                recording_id: currentRecordingId,
+                name: $('#recordingName').val() || '未命名用例',
+                description: $('#recordingDescription').val() || '',
+                package_name: $('#recordingPackage').val() || '',
+                project_id: $('#recordingProject').val() || ''
+            };
+            return await ApiClient.post(`/ui_automation/api/recording/${currentRecordingId}/update`, payload);
+        } catch (error) {
+            showToast('保存失败: ' + error.message, 'error');
+            return null;
+        }
+    }
+
+    async function saveCase() {
+        const result = await persistCurrentCase();
+        if (result && result.success) {
+            showToast('用例已保存', 'success');
+            exitConfirmationMode();
+            setTimeout(function() { window.location.href = '/ui_automation/cases'; }, 800);
+        } else if (result) {
+            showToast('保存失败: ' + (result.message || '未知错误'), 'error');
+        }
+    }
+
+    async function saveAndExecute() {
+        const result = await persistCurrentCase();
+        if (!result || !result.success) {
+            if (result) showToast('保存失败: ' + (result.message || '未知错误'), 'error');
+            return;
+        }
+        showToast('用例已保存，正在启动执行...', 'success');
+        try {
+            const runResult = await ApiClient.post('/ui_automation/api/case/quick-run', {
+                case_id: currentRecordingId,
+                device_ids: [window.currentDeviceId]
+            });
+            if (runResult && runResult.success && runResult.data && runResult.data.job_id) {
+                enterExecutionMode(runResult.data.job_id);
+            } else {
+                showToast('执行启动失败: ' + (runResult?.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            showToast('执行启动失败: ' + error.message, 'error');
+        }
+    }
+
+    async function discardRecording() {
+        if (!currentRecordingId) return;
+        const ok = await showConfirm('放弃录制', '确定放弃当前录制吗？所有步骤将丢失。', '放弃', 'btn-danger');
+        if (!ok) return;
+        try {
+            await ApiClient.delete(`/ui_automation/api/recording/${currentRecordingId}`);
+            setRecordingGuideVisible(false);
+            exitConfirmationMode();
+            showToast('录制已放弃', 'info');
+        } catch (error) {
+            showToast('放弃录制失败: ' + error.message, 'error');
+        }
+    }
+
+    async function reRecord() {
+        // 编辑态下重新录制：先清理当前录制，再切回录制态开始新录制
+        if (currentRecordingId) {
+            try { await ApiClient.delete(`/ui_automation/api/recording/${currentRecordingId}`); } catch(e) {}
+        }
+        exitConfirmationMode();
+        // 等 DOM 切换完成后自动开始录制
+        setTimeout(function() { startRecording(); }, 150);
+    }
+
+    // ========== 执行态管理 ==========
+    let execJobId = null;
+    let execPollInterval = null;
+
+    function enterExecutionMode(jobId) {
+        execJobId = jobId;
+        // 切换到执行态
+        setPageMode('executing');
+        
+        // 更新状态
+        $('#execJobStatus').text('任务已提交，等待执行...');
+        $('#execStatusBadge').removeClass('bg-info bg-success bg-danger').addClass('bg-info').text('执行中');
+        $('#execProgressBar').css('width', '5%');
+        $('#btnViewFullReport').addClass('d-none');
+        $('#execResultPanel').addClass('d-none');
+        $('#execFailSummary').empty();
+        $('#execCaseList').empty();
+        $('#execFailedStep').empty();
+
+        // 设置报告链接
+        $('#btnViewFullReport').attr('href', '/ui_automation/report/' + jobId);
+
+        // 开始轮询
+        startJobPolling();
+    }
+
+    function exitExecutionMode() {
+        if (execPollInterval) { clearInterval(execPollInterval); execPollInterval = null; }
+        execJobId = null;
+        if (currentRecordingId) {
+            // 保留刚执行用例的上下文，回到编辑态以便复核/再执行，而非清空
+            setPageMode('editing');
+            $('#btnStartRecording').hide();
+            $('#btnStopRecording').hide();
+            $('#recordingStatus').html('<span class="text-info"><i class="fas fa-check-circle me-1"></i> 已载入用例（可编辑）</span>');
+            refreshRecordingSteps();
+        } else {
+            setPageMode('recording');
+            $('#btnStartRecording').show();
+            $('#btnStopRecording').hide();
+            $('#recordingStatus').html('<span class="text-muted">未录制</span>');
+            currentRecordingId = null;
+        }
+    }
+
+    function startJobPolling() {
+        if (execPollInterval) clearInterval(execPollInterval);
+        execPollInterval = setInterval(pollJobStatus, 1500);
+        pollJobStatus(); // 立即执行一次
+    }
+
+    async function pollJobStatus() {
+        if (!execJobId) return;
+        try {
+            const result = await ApiClient.get('/ui_automation/api/report/' + execJobId + '/detail');
+            if (!result || !result.success) return;
+            const report = result.data.detail;
+            if (!report) return;
+
+            // 渲染加厚结果面板（当前用例结果 / 失败摘要 / 最近失败步骤）
+            renderExecResultPanel(report);
+
+            const status = report.status || 'running';
+            const results = report.results || [];
+            // 总数优先取后端声明的 total_cases（results 为追加式，执行中长度会持续增长）
+            const total = report.total_cases || results.length;
+            const finished = results.filter(r => ['completed','failed','error','stopped'].includes(r.status)).length;
+            const passed = results.filter(r => r.status === 'completed').length;
+            const failedCount = results.filter(r => ['failed','error','stopped'].includes(r.status)).length;
+            const progress = total > 0 ? Math.round((finished / total) * 100) : 0;
+
+            // 更新进度条
+            $('#execProgressBar').css('width', Math.max(5, progress) + '%');
+
+            // 完成判定以前端聚合为准（全部用例已出结果），顶层 status 仅作辅助，
+            // 避免后端顶层状态晚更新/不一致时展示与明细统计打架
+            const aggregateDone = total > 0 && finished >= total;
+            if (status === 'completed' || (aggregateDone && status !== 'stopped')) {
+                $('#execJobStatus').text(`${passed} 通过 / ${failedCount} 失败 / ${total} 个用例`);
+                const isAllPass = failedCount === 0;
+                $('#execStatusBadge').removeClass('bg-info').addClass(isAllPass ? 'bg-success' : 'bg-danger').text(isAllPass ? '执行完成' : '执行异常');
+                $('#execProgressBar').removeClass('progress-bar-animated').css('width', '100%');
+                if (isAllPass) {
+                    $('#execProgressBar').removeClass('bg-warning').addClass('bg-success');
+                } else {
+                    $('#execProgressBar').removeClass('bg-warning').addClass('bg-danger');
+                }
+                $('#btnViewFullReport').removeClass('d-none');
+                clearInterval(execPollInterval);
+                execPollInterval = null;
+                showToast('执行完成！', isAllPass ? 'success' : 'error');
+            } else if (status === 'failed' || status === 'error' || status === 'stopped') {
+                $('#execJobStatus').text('执行异常终止');
+                $('#execStatusBadge').removeClass('bg-info').addClass('bg-danger').text('执行异常');
+                $('#execProgressBar').removeClass('progress-bar-animated bg-warning').addClass('bg-danger');
+                $('#btnViewFullReport').removeClass('d-none');
+                clearInterval(execPollInterval);
+                execPollInterval = null;
+                showToast('执行异常', 'error');
+            } else {
+                $('#execJobStatus').text(`正在执行... (${finished}/${total} 已完成)`);
+                $('#execProgressBar').addClass('bg-warning');
+            }
+        } catch (e) {
+            console.error('轮询执行状态失败:', e);
+        }
+    }
+
+    // 执行结果加厚面板：失败摘要 / 当前用例结果 / 最近失败步骤
+    function renderExecResultPanel(report) {
+        const panel = document.getElementById('execResultPanel');
+        const summaryEl = document.getElementById('execFailSummary');
+        const caseListEl = document.getElementById('execCaseList');
+        const failedStepEl = document.getElementById('execFailedStep');
+        if (!panel || !report) return;
+
+        const results = report.results || [];
+        if (results.length === 0) { panel.classList.add('d-none'); return; }
+        panel.classList.remove('d-none');
+
+        // 失败摘要
+        const failed = results.filter(r => ['failed','error','stopped'].includes(r.status));
+        if (failed.length > 0) {
+            summaryEl.innerHTML = `
+                <div class="alert alert-danger py-2 px-3 mb-0 small" role="alert">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>${failed.length}</strong> 个用例执行失败
+                </div>`;
+        } else {
+            summaryEl.innerHTML = '';
+        }
+
+        // 当前用例结果列表
+        let listHtml = '<div class="fw-bold text-muted mb-1">用例结果</div>';
+        results.forEach(r => {
+            const name = r.case_name || r.name || r.case_id || '未知用例';
+            let badge, icon;
+            if (r.status === 'completed') { badge = 'bg-success'; icon = 'fa-check'; }
+            else if (['failed','error','stopped'].includes(r.status)) { badge = 'bg-danger'; icon = 'fa-times'; }
+            else { badge = 'bg-secondary'; icon = 'fa-spinner fa-spin'; }
+            const isFailure = ['failed','error','stopped'].includes(r.status);
+            listHtml += `
+                <div class="d-flex align-items-center gap-2 py-1 border-bottom">
+                    <span class="badge ${badge}"><i class="fas ${icon}"></i></span>
+                    <span class="text-truncate">${escapeHtml(name)}</span>
+                    ${isFailure && r.failed_error ? `<span class="text-danger small ms-auto text-truncate" style="max-width:55%;">${escapeHtml(r.failed_error)}</span>` : ''}
+                </div>`;
+        });
+        caseListEl.innerHTML = listHtml;
+
+        // 最近失败步骤
+        const firstFail = failed.find(r => r.failed_step);
+        if (firstFail) {
+            const shot = firstFail.failed_screenshot
+                ? `<a href="/static/ui_automation/screenshots/${firstFail.failed_screenshot}" target="_blank">
+                       <img src="/static/ui_automation/screenshots/${firstFail.failed_screenshot}" class="img-thumbnail mt-1" style="max-height:120px;" alt="失败截图">
+                   </a>`
+                : '';
+            failedStepEl.innerHTML = `
+                <div class="card border-danger">
+                    <div class="card-header bg-danger bg-opacity-10 text-danger small fw-bold py-1">
+                        <i class="fas fa-times-circle me-1"></i>失败步骤：第 ${firstFail.failed_step} 步
+                    </div>
+                    <div class="card-body py-2 small">
+                        ${firstFail.failed_error ? `<div class="text-danger mb-1">${escapeHtml(firstFail.failed_error)}</div>` : ''}
+                        ${shot}
+                    </div>
+                </div>`;
+        } else {
+            failedStepEl.innerHTML = '';
+        }
+    }
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        return String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    }
+
+    // ========== 步骤轮询 ==========
 
     function startStepPolling() {
         if (stepPollingInterval) clearInterval(stepPollingInterval);
@@ -1022,12 +1463,14 @@ else loadDevices();
         try {
             const result = await ApiClient.get(`/ui_automation/api/recording/${recordingId}`);
             const rec = (result && result.data && result.data.recording) || {};
+            currentRecordingId = recordingId;
             $('#recordingName').val(rec.name || '');
             $('#recordingPackage').val(rec.package_name || '');
             $('#recordingDescription').val(rec.description || '');
             $('#recordingProject').val(rec.project_id || '');
-            updateStepList(rec.actions || [], true);
-            $('#recordingStatus').html('<span class="text-info"><i class="fas fa-eye me-1"></i> 正在查看用例（只读）</span>');
+            // 进入编辑态，使步骤可编辑/删除、用例可保存/再执行，避免只读死胡同
+            // 直接复用本次已拉取的 actions 渲染，不再重复请求
+            enterConfirmationMode((rec.actions || []).length, rec.actions || []);
         } catch (e) {
             console.error('加载用例失败:', e);
             showToast('加载用例失败: ' + (e.message || '未知错误'));
@@ -1035,7 +1478,8 @@ else loadDevices();
     }
 
     async function refreshRecordingSteps() {
-        if (!currentRecordingId || !isRecording) return;
+        // 执行态下不需要拉取录制步骤
+        if (!currentRecordingId || pageMode === 'executing') return;
         
         try {
             const result = await ApiClient.get(`/ui_automation/api/recording/${currentRecordingId}`, { showLoading: false });
@@ -1049,10 +1493,13 @@ else loadDevices();
         }
     }
 
-    function updateStepList(actions, viewOnly) {
+    function updateStepList(actions, forceViewOnly) {
         const stepsContainer = $('#recordingSteps');
         const countBadge = $('#stepCount');
-        viewOnly = !!viewOnly;
+        const isEditing = pageMode === 'editing';
+        // 只在确认态下显示编辑/删除按钮，录制态和执行态均为只读
+        const viewOnly = forceViewOnly === true || !isEditing;
+        currentSteps = actions || [];
         
         stepsContainer.empty();
         
@@ -1089,7 +1536,7 @@ else loadDevices();
             }
             
             const actionBtns = viewOnly ? '' : `
-                <div>
+                <div class="step-actions">
                     <button class="btn btn-sm btn-link text-primary p-0 me-2" onclick="editStep(${stepNum})" title="编辑步骤">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -1101,9 +1548,9 @@ else loadDevices();
             const stepHtml = `
                 <div class="recording-step ${statusClass} border-bottom py-2" data-step="${stepNum}">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <span class="badge bg-secondary me-2">${stepNum}</span>
-                            <i class="fas ${icon} me-1"></i>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary">${stepNum}</span>
+                            <i class="fas ${icon} text-muted"></i>
                             <span class="step-desc">${description}</span>
                             ${statusIcon}
                         </div>
@@ -1115,10 +1562,6 @@ else loadDevices();
         });
         
         countBadge.text(actions.length);
-        
-        // Auto scroll
-        // const cardBody = stepsContainer.parent();
-        // cardBody.scrollTop(cardBody[0].scrollHeight);
     }
 
     function addRecordingStep(type, description, isPending = false) {
@@ -1163,6 +1606,7 @@ else loadDevices();
         const cardBody = stepsContainer.parent();
         cardBody.scrollTop(cardBody[0].scrollHeight);
     }
+    window.addRecordingStep = addRecordingStep;
 
     // --- Assertion Functions ---
 
@@ -1221,7 +1665,7 @@ else loadDevices();
         $('#assertionX').val(assertionCoordinates.x);
         $('#assertionY').val(assertionCoordinates.y);
         $('#assertionType').val(type);
-        $('#assertionTypeDisplay').val(type === 'exists' ? '元素存在 (Exists)' : '包含文本 (Text Contains)');
+        $('#assertionTypeDisplay').val(type === 'exists' ? '元素存在' : '包含文本');
         $('#assertionExpected').val('');
         $('#assertionDesc').val('');
         
@@ -1232,12 +1676,12 @@ else loadDevices();
         }
         
         const modalEl = document.getElementById('assertionModal');
-        // Check if bootstrap is available
+        // 检查 Bootstrap 是否可用
         if (typeof bootstrap !== 'undefined') {
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
         } else {
-            alert('Bootstrap JS not loaded');
+            showToast('Bootstrap 未加载，无法打开断言弹窗', 'error');
         }
     }
 
@@ -1248,7 +1692,7 @@ else loadDevices();
         const expected = $('#assertionExpected').val();
         const desc = $('#assertionDesc').val();
         
-        // Close modal first
+        // 先关闭弹窗
         const modalEl = document.getElementById('assertionModal');
         if (typeof bootstrap !== 'undefined') {
             const modal = bootstrap.Modal.getInstance(modalEl);
@@ -1278,7 +1722,8 @@ else loadDevices();
     }
 
     async function deleteStep(stepIndex) {
-        if (!confirm('确定要删除此步骤吗？')) return;
+        const ok = await showConfirm('删除步骤', '确定要删除此步骤吗？', '删除', 'btn-danger');
+        if (!ok) return;
         
         try {
             const result = await ApiClient.delete('/ui_automation/api/recording/action', {
@@ -1299,26 +1744,695 @@ else loadDevices();
     }
     
     function editStep(stepNum) {
-        const desc = prompt('修改步骤描述:', '');
-        if (desc) {
-             updateStepDescription(stepNum, desc);
+        const modalEl = document.getElementById('editStepModal');
+        if (!modalEl || typeof bootstrap === 'undefined') return;
+        const action = (currentSteps || []).find(a => a.step_num === stepNum);
+        if (!action) { showToast('未找到该步骤', 'error'); return; }
+
+        const descInput = document.getElementById('editStepDesc');
+        const waitInput = document.getElementById('editStepWaitAfter');
+        const dyn = document.getElementById('editStepDynamicFields');
+        const type = action.action_type;
+
+        descInput.value = action.description || '';
+        waitInput.value = action.wait_after != null ? action.wait_after : 1000;
+
+        // 按动作类型渲染专属字段
+        let dynHtml = '';
+        if (type === 'input') {
+            dynHtml = `
+                <div class="mb-3">
+                    <label class="form-label">输入值</label>
+                    <input type="text" class="form-control" id="editStepValue" placeholder="输入文本内容">
+                </div>`;
+        } else if (type === 'assertion') {
+            const parts = (action.value || '').split(':');
+            const aType = parts[0] || 'text_contains';
+            dynHtml = `
+                <div class="mb-3">
+                    <label class="form-label">断言类型</label>
+                    <select class="form-select" id="editStepAssertType">
+                        <option value="exists" ${aType==='exists'?'selected':''}>元素存在</option>
+                        <option value="not_exists" ${aType==='not_exists'?'selected':''}>元素不存在</option>
+                        <option value="text_contains" ${aType==='text_contains'?'selected':''}>文本包含</option>
+                        <option value="text_matches" ${aType==='text_matches'?'selected':''}>文本匹配</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">断言期望值</label>
+                    <input type="text" class="form-control" id="editStepValue" placeholder="期望出现的文本">
+                </div>`;
+        } else if (type === 'wait') {
+            dynHtml = `
+                <div class="mb-3">
+                    <label class="form-label">等待秒数</label>
+                    <input type="number" class="form-control" id="editStepValue" min="0" step="0.1" placeholder="等待秒数">
+                </div>`;
         }
-    }
-    
-    async function updateStepDescription(stepNum, newDesc) {
-        try {
-            const result = await ApiClient.put('/ui_automation/api/recording/action', {
+        dyn.innerHTML = dynHtml;
+
+        // 回填专属字段值
+        if (type === 'input' || type === 'wait') {
+            const vEl = document.getElementById('editStepValue');
+            if (vEl) vEl.value = action.value || '';
+        } else if (type === 'assertion') {
+            const vEl = document.getElementById('editStepValue');
+            if (vEl) vEl.value = (action.value || '').includes(':') ? action.value.split(':').slice(1).join(':') : '';
+        }
+
+        const saveBtn = document.getElementById('editStepSaveBtn');
+        const delBtn = document.getElementById('editStepDeleteBtn');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+        function onSave() {
+            cleanup();
+            const payload = {
                 recording_id: currentRecordingId,
                 index: stepNum - 1,
-                description: newDesc
-            });
-            
+                description: descInput.value.trim()
+            };
+            if (type === 'input' || type === 'wait') {
+                const vEl = document.getElementById('editStepValue');
+                payload.value = vEl ? vEl.value : '';
+            } else if (type === 'assertion') {
+                const aType = document.getElementById('editStepAssertType').value;
+                const aExp = document.getElementById('editStepValue').value;
+                payload.value = aExp ? `${aType}:${aExp}` : aType;
+            }
+            const wEl = document.getElementById('editStepWaitAfter');
+            payload.wait_after = wEl ? (parseInt(wEl.value, 10) || 0) : 0;
+            saveStepEdit(payload);
+            modal.hide();
+        }
+        function onDelete() {
+            cleanup();
+            modal.hide();
+            deleteStep(stepNum);
+        }
+        function cleanup() {
+            saveBtn.removeEventListener('click', onSave);
+            delBtn.removeEventListener('click', onDelete);
+        }
+        saveBtn.addEventListener('click', onSave);
+        delBtn.addEventListener('click', onDelete);
+        modal.show();
+    }
+
+    async function saveStepEdit(payload) {
+        try {
+            const result = await ApiClient.put('/ui_automation/api/recording/action', payload);
             if (result && result.success) {
                 refreshRecordingSteps();
+                showToast('步骤已更新', 'success');
+            } else {
+                showToast('更新失败: ' + (result?.message || '未知错误'), 'error');
             }
         } catch (error) {
             showToast('更新失败: ' + error.message, 'error');
         }
     }
+</script>
+
+{# ===== 纯原生权威实现：连接设备 + 开始预览（最后加载，覆盖前面任何半残定义）===== #}
+<script>
+(function(){
+    'use strict';
+
+    function vToast(msg, type){
+        var colors={success:'#198754',error:'#dc3545',info:'#0d6efd',warning:'#ffc107'};
+        var box=document.getElementById('vToastBox');
+        if(!box){box=document.createElement('div');box.id='vToastBox';
+            box.style.cssText='position:fixed;top:56px;right:16px;z-index:10001;max-width:340px;';
+            document.body.appendChild(box);}
+        var el=document.createElement('div');
+        el.style.cssText='background:'+(colors[type]||'#0d6efd')+';color:#fff;padding:10px 14px;border-radius:6px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.3);font-size:14px;word-break:break-all;';
+        if(type==='warning'){el.style.color='#212529';}
+        el.textContent=msg;box.appendChild(el);
+        setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},4500);
+    }
+
+    function clearStuckOverlays(){
+        try{
+            document.querySelectorAll('.loading-overlay').forEach(function(el){ el.remove(); });
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow='';
+            document.body.style.paddingRight='';
+        }catch(e){}
+    }
+
+    function setHint(text, kind){
+        var hint=document.getElementById('previewStatusHint');
+        if(!hint) return;
+        hint.textContent=text||'';
+        hint.className='small '+(kind==='ok'?'text-success':(kind==='err'?'text-danger':'text-warning'));
+        hint.style.color='#fff';
+        hint.style.background= kind==='ok' ? 'rgba(25,135,84,.75)' : (kind==='err' ? 'rgba(220,53,69,.75)' : 'rgba(0,0,0,.55)');
+    }
+
+    function ensureSelectOption(deviceId){
+        if(!deviceId) return;
+        var sel=document.getElementById('deviceSelect');
+        if(!sel) return;
+        var exists=Array.prototype.some.call(sel.options||[], function(o){ return o.value===deviceId; });
+        if(!exists){
+            var opt=document.createElement('option');
+            opt.value=deviceId; opt.textContent=deviceId;
+            sel.appendChild(opt);
+        }
+        sel.value=deviceId;
+    }
+
+    function resolveDeviceId(){
+        var sel=document.getElementById('deviceSelect');
+        if(sel && sel.value) return sel.value;
+        if(window.currentDeviceId) return String(window.currentDeviceId);
+        if(sel){
+            for(var i=0;i<(sel.options||[]).length;i++){
+                if(sel.options[i].value){
+                    sel.value=sel.options[i].value;
+                    return sel.options[i].value;
+                }
+            }
+        }
+        var badge=document.querySelector('#connectedDevicesList [data-device-id]');
+        if(badge && badge.getAttribute('data-device-id')) return badge.getAttribute('data-device-id');
+        var green=document.querySelector('#connectedDevicesList .badge.bg-success');
+        if(green){
+            var t=(green.textContent||'').replace(/（.*?）/g,'').trim();
+            if(t) return t;
+        }
+        return '';
+    }
+
+    function updatePreviewImage(imageBase64, meta){
+        if(!imageBase64) return;
+        if(meta){
+            if(meta.device_width) window.__deviceWidth=Number(meta.device_width)||window.__deviceWidth;
+            if(meta.device_height) window.__deviceHeight=Number(meta.device_height)||window.__deviceHeight;
+        }
+        var mime=(String(imageBase64).indexOf('/9j/')===0)?'image/jpeg':'image/png';
+        var img=document.getElementById('screenPreview');
+        if(img){
+            // 先清空再赋值，确保浏览器一定重绘
+            var next='data:'+mime+';base64,'+imageBase64;
+            if(img.src === next){
+                img.src='';
+            }
+            img.src=next;
+        }
+        setHint('预览已更新'+(window.__deviceWidth?(' '+window.__deviceWidth+'x'+window.__deviceHeight):''),'ok');
+    }
+
+    var previewBusy=false;
+    var pollTimer=null;
+
+    async function pullPreviewOnce(deviceId){
+        var ctrl=typeof AbortController!=='undefined' ? new AbortController() : null;
+        var timer=ctrl ? setTimeout(function(){ try{ctrl.abort();}catch(e){} }, 45000) : null;
+        try{
+            // force=1：跳过服务端旧帧缓存，保证点击后画面跟着变
+            var resp=await fetch('/ui_automation/api/device/screenshot/latest?device_id='+encodeURIComponent(deviceId)+'&force=1&_t='+Date.now(),{
+                method:'GET', cache:'no-store', signal: ctrl ? ctrl.signal : undefined
+            });
+            var result=await resp.json();
+            if(result && (result.success||result.ok) && result.data && result.data.image){
+                updatePreviewImage(result.data.image, result.data);
+                return true;
+            }
+            throw new Error((result && result.message) || ('HTTP '+resp.status));
+        } finally {
+            if(timer) clearTimeout(timer);
+        }
+    }
+
+    function refreshPreviewSoon(deviceId, delay){
+        var d=typeof delay==='number' ? delay : 120;
+        // 取消上一次预约，避免连点堆积多帧截图把体感拖慢
+        if(window.__previewRefreshTimers){
+            window.__previewRefreshTimers.forEach(function(id){ clearTimeout(id); });
+        }
+        window.__previewRefreshTimers=[];
+        window.__previewRefreshTimers.push(setTimeout(function(){
+            pullPreviewOnce(deviceId).catch(function(){});
+        }, d));
+    }
+
+    function startPolling(deviceId){
+        if(pollTimer) clearInterval(pollTimer);
+        pollTimer=setInterval(function(){
+            if(!deviceId || deviceId!==window.currentDeviceId || previewBusy) return;
+            pullPreviewOnce(deviceId).catch(function(){});
+        }, 2000);
+    }
+
+    // 权威入口：始终覆盖前面的定义
+    window.startPreview=async function(){
+        if(previewBusy){
+            setHint('预览进行中，请稍候…','info');
+            return;
+        }
+        clearStuckOverlays();
+        var deviceId=resolveDeviceId();
+        var btn=document.getElementById('btnStartPreview');
+        var overlay=document.getElementById('loadingOverlay');
+
+        if(!deviceId){
+            setHint('请先选择或连接设备','err');
+            vToast('请先在下拉框选择设备，或先点「连接设备」','warning');
+            alert('请先选择设备后再点「开始预览」');
+            return;
+        }
+
+        ensureSelectOption(deviceId);
+        window.currentDeviceId=deviceId;
+        previewBusy=true;
+        setHint('正在拉取预览 '+deviceId+' …','info');
+        if(btn){ btn.disabled=true; btn.dataset._oldHtml=btn.innerHTML; btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>预览中'; }
+        if(overlay) overlay.classList.remove('d-none');
+        vToast('开始预览: '+deviceId,'info');
+
+        try{
+            await pullPreviewOnce(deviceId);
+            vToast('预览已启动','success');
+            // 只用轮询，不开 SSE，避免抢截图锁
+            startPolling(deviceId);
+        }catch(e){
+            var msg=(e && e.name==='AbortError') ? '预览超时，请重试' : (e && e.message ? e.message : String(e));
+            setHint('预览失败: '+msg,'err');
+            vToast('预览失败: '+msg,'error');
+            startPolling(deviceId);
+        }finally{
+            previewBusy=false;
+            if(overlay) overlay.classList.add('d-none');
+            if(btn){ btn.disabled=false; if(btn.dataset._oldHtml) btn.innerHTML=btn.dataset._oldHtml; }
+        }
+    };
+
+    window.refreshPreview=async function(){
+        clearStuckOverlays();
+        var deviceId=resolveDeviceId();
+        if(!deviceId){ vToast('请先选择设备','warning'); alert('请先选择设备'); return; }
+        window.currentDeviceId=deviceId;
+        setHint('正在刷新预览…','info');
+        try{
+            await pullPreviewOnce(deviceId);
+            vToast('预览已刷新','success');
+        }catch(e){
+            setHint('刷新失败: '+(e.message||e),'err');
+            vToast('刷新失败: '+(e.message||e),'error');
+        }
+    };
+
+    // 兼容主脚本里的 connectDevice 调用
+    window.connectDevice=function(deviceId){
+        if(deviceId){
+            ensureSelectOption(deviceId);
+            window.currentDeviceId=deviceId;
+        }
+        return window.startPreview();
+    };
+
+    function bindPreviewBtn(){
+        var btn=document.getElementById('btnStartPreview');
+        if(btn && !btn.__nativePreviewBound){
+            btn.__nativePreviewBound=true;
+            btn.addEventListener('click', function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                window.startPreview();
+            }, true);
+        }
+        var sel=document.getElementById('deviceSelect');
+        if(sel && !sel.__nativePreviewBound){
+            sel.__nativePreviewBound=true;
+            sel.addEventListener('change', function(){
+                if(sel.value) window.startPreview();
+            });
+        }
+    }
+
+    function vShowConnect(){
+        var ip=document.getElementById('connectIp');var port=document.getElementById('connectPort');
+        if(ip)ip.value='';if(port)port.value='8787';
+        var m=document.getElementById('connectDeviceModal');
+        if(!m){vToast('无法找到设备连接弹窗组件','error');return;}
+        if(m.parentNode!==document.body)document.body.appendChild(m);
+        m.classList.add('show');m.style.display='block';m.setAttribute('aria-hidden','false');
+        var bd=document.getElementById('vConnectBackdrop');
+        if(!bd){bd=document.createElement('div');bd.id='vConnectBackdrop';
+            bd.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1040;';
+            document.body.appendChild(bd);bd.addEventListener('click',vHideConnect);}
+    }
+    function vHideConnect(){
+        var m=document.getElementById('connectDeviceModal');
+        if(m){m.classList.remove('show');m.style.display='none';m.setAttribute('aria-hidden','true');}
+        var bd=document.getElementById('vConnectBackdrop');if(bd&&bd.parentNode)bd.parentNode.removeChild(bd);
+    }
+
+    window.showConnectModal=vShowConnect;
+    window.hideConnectModalFallback=vHideConnect;
+    window.submitConnectDevice=async function(){
+        var ipEl=document.getElementById('connectIp');var portEl=document.getElementById('connectPort');
+        var ip=ipEl?ipEl.value.trim():'';var port=portEl?(parseInt(portEl.value,10)||8787):8787;
+        if(!ip){vToast('请输入 IP 地址','error');return;}
+        var btn=document.querySelector('#connectDeviceModal .btn-primary');
+        if(btn){btn.textContent='连接中...';btn.disabled=true;}
+        try{
+            var resp=await fetch('/ui_automation/api/connect',{method:'POST',
+                headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:ip,port:port})});
+            var r=await resp.json();
+            if(r&&r.success){
+                vToast(r.message||'连接成功','success');
+                vHideConnect();
+                var devId=(r.data&&r.data.device_id)||(r.device_id)||(ip+':'+port);
+                ensureSelectOption(devId);
+                // 刷新设备徽章（不依赖 jQuery）
+                if(typeof window.loadDevices==='function'){
+                    try{ await window.loadDevices(); ensureSelectOption(devId); }catch(e2){}
+                }
+                // 连接成功后直接预览，不依赖 change 事件
+                window.startPreview();
+            }
+            else{vToast((r&&r.message)||'连接失败','error');}
+        }catch(e){vToast('连接异常：'+(e&&e.message?e.message:e),'error');}
+        finally{if(btn){btn.textContent='连接';btn.disabled=false;}}
+    };
+
+    function mapPoint(clientX, clientY){
+        var img=document.getElementById('screenPreview');
+        if(!img) return null;
+        var rect=img.getBoundingClientRect();
+        // 点在图片外（黑边）时，钳制到图片边缘，保证仍可操作
+        var cx=Math.min(Math.max(clientX-rect.left, 0), Math.max(rect.width, 1));
+        var cy=Math.min(Math.max(clientY-rect.top, 0), Math.max(rect.height, 1));
+        var deviceW=Number(window.__deviceWidth||0) || img.naturalWidth || 0;
+        var deviceH=Number(window.__deviceHeight||0) || img.naturalHeight || 0;
+        if(!deviceW || !deviceH){
+            // 兜底：按常见盒子竖屏
+            deviceW=1080; deviceH=1920;
+        }
+        if(!rect.width || !rect.height) return null;
+        return {
+            x: Math.round(cx / rect.width * deviceW),
+            y: Math.round(cy / rect.height * deviceH)
+        };
+    }
+
+    async function nativeTap(x, y){
+        var deviceId=window.currentDeviceId || resolveDeviceId();
+        if(!deviceId){ vToast('请先选择设备','warning'); return; }
+        window.currentDeviceId=deviceId;
+        setHint('点击下发 ('+x+', '+y+') …','info');
+        try{
+            var resp=await fetch('/ui_automation/api/control/click',{
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({device_id:deviceId, x:x, y:y})
+            });
+            var r=await resp.json();
+            if(!(r&&(r.success||r.ok))){
+                setHint('点击失败: '+((r&&r.message)||''),'err');
+                vToast((r&&r.message)||'点击失败','error');
+                return;
+            }
+            setHint('点击成功 ('+x+', '+y+')','ok');
+            if(window.isRecording && window.currentRecordingId){
+                try{
+                    var rr=await fetch('/ui_automation/api/recording/step',{
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({
+                            recording_id:window.currentRecordingId,
+                            x:x, y:y, description:'', action_type:'click'
+                        })
+                    });
+                    var rj=await rr.json();
+                    if(rj&&(rj.success||rj.ok)){
+                        if(typeof window.addRecordingStep==='function'){
+                            window.addRecordingStep('click', '点击 ('+x+', '+y+')', true);
+                        }
+                        vToast('已录制点击','success');
+                    } else {
+                        vToast((rj&&rj.message)||'录制点击失败','error');
+                    }
+                }catch(re){ vToast('录制点击异常: '+(re.message||re),'error'); }
+            }
+            refreshPreviewSoon(deviceId, 80);
+        }catch(e){
+            setHint('点击异常: '+(e.message||e),'err');
+            vToast('点击异常: '+(e.message||e),'error');
+        }
+    }
+
+    async function nativeSwipe(x1,y1,x2,y2){
+        var deviceId=window.currentDeviceId || resolveDeviceId();
+        if(!deviceId){ vToast('请先选择设备','warning'); return; }
+        window.currentDeviceId=deviceId;
+        setHint('滑动下发 …','info');
+        try{
+            var resp=await fetch('/ui_automation/api/control/swipe',{
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({device_id:deviceId, x1:x1, y1:y1, x2:x2, y2:y2, duration:300})
+            });
+            var r=await resp.json();
+            if(!(r&&(r.success||r.ok))){
+                setHint('滑动失败','err');
+                vToast((r&&r.message)||'滑动失败','error');
+                return;
+            }
+            setHint('滑动成功','ok');
+            if(window.isRecording && window.currentRecordingId){
+                try{
+                    var rr=await fetch('/ui_automation/api/recording/swipe',{
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({
+                            recording_id:window.currentRecordingId,
+                            x1:x1, y1:y1, x2:x2, y2:y2, duration:300, description:''
+                        })
+                    });
+                    var rj=await rr.json();
+                    if(rj&&(rj.success||rj.ok)){
+                        if(typeof window.addRecordingStep==='function'){
+                            window.addRecordingStep('swipe', '滑动 ('+x1+','+y1+') -> ('+x2+','+y2+')', true);
+                        }
+                        vToast('已录制滑动','success');
+                    } else {
+                        vToast((rj&&rj.message)||'录制滑动失败','error');
+                    }
+                }catch(re){ vToast('录制滑动异常: '+(re.message||re),'error'); }
+            }
+            refreshPreviewSoon(deviceId, 100);
+        }catch(e){ vToast('滑动异常: '+(e.message||e),'error'); }
+    }
+
+    function bindNativeScreenControl(){
+        var layer=document.getElementById('screenHitLayer') || document.getElementById('screenContainer');
+        if(!layer || layer.__nativeCtrlBound) return;
+        layer.__nativeCtrlBound=true;
+        var dragging=false, startPt=null, startClient=null;
+
+        function ptFromEvent(e){
+            var t=(e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;
+            return mapPoint(t.clientX, t.clientY);
+        }
+        function clientFromEvent(e){
+            var t=(e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;
+            return {x:t.clientX, y:t.clientY};
+        }
+
+        function onDown(e){
+            clearStuckOverlays();
+            if(!window.currentDeviceId && !resolveDeviceId()){
+                vToast('请先选择设备并开始预览','warning');
+                return;
+            }
+            var pt=ptFromEvent(e);
+            if(!pt){
+                vToast('无法计算点击坐标，请等预览图加载完成','warning');
+                return;
+            }
+            dragging=true;
+            startPt=pt;
+            startClient=clientFromEvent(e);
+            try{ e.preventDefault(); }catch(err){}
+            try{ e.stopPropagation(); }catch(err){}
+        }
+
+        function onUp(e){
+            if(!dragging || !startPt){ dragging=false; startPt=null; startClient=null; return; }
+            var endPt=ptFromEvent(e) || startPt;
+            var endClient=clientFromEvent(e);
+            var cdx=(endClient&&startClient)?(endClient.x-startClient.x):0;
+            var cdy=(endClient&&startClient)?(endClient.y-startClient.y):0;
+            var pixelDist=Math.sqrt(cdx*cdx+cdy*cdy);
+            dragging=false;
+            var s=startPt; startPt=null; startClient=null;
+            // 屏幕像素位移 > 8 视为滑动，否则点击
+            if(pixelDist>8){
+                window.__lastNativeTapAt=Date.now();
+                nativeSwipe(s.x, s.y, endPt.x, endPt.y);
+            } else {
+                nativeTap(s.x, s.y);
+            }
+            try{ e.preventDefault(); }catch(err){}
+            try{ e.stopPropagation(); }catch(err){}
+        }
+
+        layer.addEventListener('pointerdown', onDown, true);
+        layer.addEventListener('mousedown', onDown, true);
+        layer.addEventListener('touchstart', onDown, {capture:true, passive:false});
+        window.addEventListener('pointerup', onUp, true);
+        window.addEventListener('mouseup', onUp, true);
+        window.addEventListener('touchend', onUp, {capture:true, passive:false});
+
+        // 单击兜底：部分浏览器只可靠触发 click
+        layer.addEventListener('click', function(e){
+            if(dragging) return;
+            if(!window.currentDeviceId && !resolveDeviceId()) return;
+            var pt=ptFromEvent(e);
+            if(!pt) return;
+            // 若刚刚 pointerup 已处理，200ms 内忽略
+            var now=Date.now();
+            if(window.__lastNativeTapAt && now-window.__lastNativeTapAt < 250) return;
+            window.__lastNativeTapAt=now;
+            nativeTap(pt.x, pt.y);
+        }, true);
+    }
+
+    // 给 nativeTap 打时间戳，避免 click 与 pointerup 重复触发
+    var _rawNativeTap = nativeTap;
+    nativeTap = async function(x, y){
+        window.__lastNativeTapAt = Date.now();
+        return _rawNativeTap(x, y);
+    };
+
+    function boot(){
+        clearStuckOverlays();
+        bindPreviewBtn();
+        bindNativeScreenControl();
+        bindRecordingButtons();
+        var b=document.getElementById('btnConnectDevice');
+        if(b && !b.__nativeConnectBound){
+            b.__nativeConnectBound=true;
+            b.addEventListener('click',function(e){e.preventDefault();vShowConnect();});
+        }
+        document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(function(x){
+            x.addEventListener('click',vHideConnect);});
+        // 页面已有在线设备时自动预览
+        setTimeout(function(){
+            if(resolveDeviceId()) window.startPreview();
+        }, 700);
+    }
+
+    function bindRecordingButtons(){
+        var startBtn=document.getElementById('btnStartRecording');
+        if(startBtn && !startBtn.__nativeRecBound){
+            startBtn.__nativeRecBound=true;
+            startBtn.addEventListener('click', function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                // 优先主脚本实现；否则走原生兜底
+                if(typeof window.startRecording==='function'){
+                    window.startRecording();
+                } else {
+                    nativeStartRecording();
+                }
+            }, true);
+        }
+        var stopBtn=document.getElementById('btnStopRecording');
+        if(stopBtn && !stopBtn.__nativeRecBound){
+            stopBtn.__nativeRecBound=true;
+            stopBtn.addEventListener('click', function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                if(typeof window.stopRecording==='function'){
+                    window.stopRecording();
+                } else {
+                    nativeStopRecording();
+                }
+            }, true);
+        }
+    }
+
+    async function nativeStartRecording(){
+        clearStuckOverlays();
+        var deviceId=resolveDeviceId();
+        if(!deviceId){
+            vToast('请先选择设备并开始预览','warning');
+            alert('请先选择设备并开始预览');
+            return;
+        }
+        window.currentDeviceId=deviceId;
+        var nameEl=document.getElementById('recordingName');
+        var pkgEl=document.getElementById('recordingPackage');
+        var descEl=document.getElementById('recordingDescription');
+        var projEl=document.getElementById('recordingProject');
+        var btn=document.getElementById('btnStartRecording');
+        if(btn){ btn.disabled=true; btn.textContent='启动中...'; }
+        vToast('正在开始录制…','info');
+        try{
+            var resp=await fetch('/ui_automation/api/recording/start',{
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    device_id:deviceId,
+                    name:(nameEl&&nameEl.value||'').trim(),
+                    package_name:(pkgEl&&pkgEl.value||'').trim(),
+                    description:descEl?descEl.value:'',
+                    project_id:projEl?projEl.value:''
+                })
+            });
+            var r=await resp.json();
+            if(r&&(r.success||r.ok)&&r.data&&r.data.recording_id){
+                window.currentRecordingId=r.data.recording_id;
+                window.isRecording=true;
+                if(btn){ btn.style.display='none'; btn.disabled=false; btn.innerHTML='<i class="fas fa-circle me-1"></i>开始录制'; }
+                var stopBtn=document.getElementById('btnStopRecording');
+                if(stopBtn){ stopBtn.style.display=''; stopBtn.disabled=false; }
+                var st=document.getElementById('recordingStatus');
+                if(st) st.innerHTML='<span class="text-danger"><i class="fas fa-circle fa-beat"></i> 录制中</span>';
+                if(typeof window.setRecordingGuideVisible==='function') window.setRecordingGuideVisible(true);
+                var steps=document.getElementById('recordingSteps');
+                if(steps){
+                    steps.innerHTML='<div class="text-center py-4"><div class="text-danger mb-2"><i class="fas fa-hand-pointer fa-2x"></i></div><p class="fw-semibold mb-2">录制已开始，请操作左侧预览画面</p><p class="small text-muted mb-0">点击 / 滑动画面，步骤会出现在这里。</p></div>';
+                }
+                var cnt=document.getElementById('stepCount');
+                if(cnt) cnt.textContent='0';
+                vToast('录制中：请在左侧预览画面上点击/滑动','success');
+            } else {
+                vToast((r&&r.message)||'开始录制失败','error');
+                alert((r&&r.message)||'开始录制失败');
+            }
+        }catch(e){
+            vToast('开始录制异常: '+(e.message||e),'error');
+            alert('开始录制异常: '+(e.message||e));
+        }finally{
+            if(btn){ btn.disabled=false; if(btn.style.display!=='none') btn.innerHTML='<i class="fas fa-circle me-1"></i>开始录制'; }
+        }
+    }
+
+    async function nativeStopRecording(){
+        var rid=window.currentRecordingId;
+        if(!rid){ vToast('当前没有进行中的录制','warning'); return; }
+        try{
+            var resp=await fetch('/ui_automation/api/recording/stop',{
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({recording_id:rid})
+            });
+            var r=await resp.json();
+            if(r&&(r.success||r.ok)){
+                window.isRecording=false;
+                if(typeof window.setRecordingGuideVisible==='function') window.setRecordingGuideVisible(false);
+                vToast('录制已停止，共 '+(r.data&&r.data.action_count!=null?r.data.action_count:'?')+' 步','success');
+                var stopBtn=document.getElementById('btnStopRecording');
+                var startBtn=document.getElementById('btnStartRecording');
+                if(stopBtn) stopBtn.style.display='none';
+                if(startBtn) startBtn.style.display='';
+            } else {
+                vToast((r&&r.message)||'停止录制失败','error');
+            }
+        }catch(e){ vToast('停止录制异常: '+(e.message||e),'error'); }
+    }
+
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+})();
 </script>
 {% endblock %}

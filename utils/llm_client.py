@@ -9,9 +9,9 @@ import json
 import requests
 from typing import List, Dict, Any, Optional, Iterator
 
-# 默认配置路径（用例管理模块）
+# 平台级单一配置：位于项目根的 config/，不属于任何模块，全平台共用（Flask + 后续 Mastra 对齐）
 DEFAULT_LLM_CONFIG = os.path.join(
-    os.path.dirname(__file__), '..', 'modules', 'test_case', 'llm_config.json'
+    os.path.dirname(__file__), '..', 'config', 'llm_config.json'
 )
 
 import threading
@@ -297,6 +297,142 @@ def call_llm(
             max_tokens=max_tokens,
             temperature=temperature,
         )
+
+
+def call_llm_with_tools(
+    messages: List[Dict[str, str]],
+    tools: Optional[List[Dict[str, Any]]] = None,
+    config_path: Optional[str] = None,
+    config_override: Optional[Dict[str, Any]] = None,
+    timeout: int = 120,
+    max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
+) -> Dict[str, Any]:
+    """调用支持 function calling 的 LLM（OpenAI 兼容：DeepSeek/OpenAI 等）。
+
+    返回结构化 dict：
+        {
+            "content": str,            # 模型文本回复（可能为空）
+            "tool_calls": [            # 模型请求调用的工具列表
+                {"id": str, "name": str, "arguments": dict}
+            ],
+            "finish_reason": str,      # stop / tool_calls / length ...
+            "degraded": bool,          # 是否因 provider 不支持 tools 而降级
+        }
+    Gemini 暂不走 function calling 路径，降级为普通文本（tool_calls=[]）。
+    任何 provider 不支持 tools 或调用异常时，降级为 call_llm 纯文本，tool_calls=[]，degraded=True。
+    本函数完全独立，不改 call_llm / stream_llm 的签名与行为，其他模块零回归。
+    """
+    if config_override:
+        config = config_override
+    else:
+        config = load_llm_config(config_path)
+    provider = (config.get('llm_provider') or 'deepseek').lower()
+    api_key = _resolve_api_key(config)
+    base_url = (config.get('base_url') or _default_base_url(provider)).rstrip('/')
+    model = (config.get('model') or '').strip() or _default_model(provider)
+    if not api_key:
+        raise ValueError('API Key 未配置')
+
+    if provider == 'gemini':
+        # Gemini function calling 需不同 payload（functionDeclarations），
+        # 当前显式降级为纯文本，保证不报错、不阻塞分析链路。
+        try:
+            text = _call_gemini(
+                messages, api_key, model, False, timeout,
+                max_tokens=max_tokens, temperature=temperature,
+            )
+        except Exception:
+            text = ""
+        return {"content": text, "tool_calls": [], "finish_reason": "stop", "degraded": True}
+
+    # OpenAI 兼容路径：优先走 tools；失败时降级为纯文本。
+    try:
+        return _call_openai_compatible_with_tools(
+            messages, api_key, base_url, model, timeout, tools,
+            max_tokens=max_tokens, temperature=temperature,
+        )
+    except Exception:
+        try:
+            text = call_llm(
+                messages, config_path=config_path, config_override=config_override,
+                stream=False, timeout=timeout, max_tokens=max_tokens, temperature=temperature,
+            )
+        except Exception:
+            text = ""
+        return {"content": text, "tool_calls": [], "finish_reason": "stop", "degraded": True}
+
+
+def _call_openai_compatible_with_tools(
+    messages: List[Dict[str, str]],
+    api_key: str,
+    base_url: str,
+    model: str,
+    timeout: int,
+    tools: Optional[List[Dict[str, Any]]],
+    max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
+) -> Dict[str, Any]:
+    """OpenAI 兼容接口的 function calling 调用，返回结构化结果。"""
+    url = base_url if 'chat/completions' in base_url else f"{base_url}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+    }
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
+    if temperature is not None:
+        payload["temperature"] = temperature
+
+    session = requests.Session()
+    session.trust_env = False
+    req_timeout = (10, int(timeout or 120))
+
+    try:
+        r = session.post(url, json=payload, headers=headers, timeout=req_timeout)
+        try:
+            r.raise_for_status()
+        except Exception as e:
+            try:
+                body = (r.text or "")[:1200]
+            except Exception:
+                body = ""
+            raise type(e)(str(e) + (f" | response={body}" if body else ""))
+        data = r.json()
+        choice = data.get('choices', [{}])[0]
+        message = choice.get('message') or {}
+        content = (message.get('content') or '').strip()
+        raw_calls = message.get('tool_calls') or []
+        tool_calls = []
+        for tc in raw_calls:
+            func = tc.get('function') or {}
+            name = func.get('name') or ''
+            args_raw = func.get('arguments') or '{}'
+            try:
+                arguments = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
+            except (json.JSONDecodeError, ValueError):
+                arguments = {"_raw": args_raw}
+            tool_calls.append({
+                "id": tc.get('id') or '',
+                "name": name,
+                "arguments": arguments,
+            })
+        return {
+            "content": content,
+            "tool_calls": tool_calls,
+            "finish_reason": choice.get('finish_reason') or 'stop',
+            "degraded": False,
+        }
+    except Exception:
+        raise
 
 
 def _call_gemini(

@@ -1497,7 +1497,7 @@
 
     async function loadLLMProfileSelect() {
         try {
-            const res = await ApiClient.get('/test_case/api/llm_config', { showLoading: false });
+            const res = await ApiClient.get('/api/llm_config', { showLoading: false });
             if (res && res.data) updateLLMProfileSelect(res.data);
         } catch (e) { /* ignore */ }
     }
@@ -1543,7 +1543,7 @@
 
     window.openLLMConfig = async function openLLMConfig() {
         try {
-            const res = await ApiClient.get('/test_case/api/llm_config', { showLoading: false });
+            const res = await ApiClient.get('/api/llm_config', { showLoading: false });
             if (res && res.data) {
                 $('#llmProvider').val(res.data.llm_provider || 'deepseek');
                 $('#llmBaseUrl').val(res.data.base_url || 'https://api.deepseek.com/v1');
@@ -1591,7 +1591,7 @@
         };
 
         try {
-            await ApiClient.post('/test_case/api/llm_config', data);
+            await ApiClient.post('/api/llm_config', data);
             toast.success('配置已保存');
             if (llmConfigModal) llmConfigModal.hide();
         } catch (error) {

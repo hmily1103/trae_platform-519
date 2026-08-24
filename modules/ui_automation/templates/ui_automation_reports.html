@@ -3,30 +3,29 @@
 {% block module_content %}
 <div class="d-flex justify-content-between flex-wrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2"><i class="fas fa-chart-bar me-2"></i>执行记录</h1>
-    <a href="/ui_automation/" class="btn btn-sm btn-outline-secondary">
-        <i class="fas fa-arrow-left me-1"></i> 返回仪表盘
-    </a>
+    <div>
+        <button class="btn btn-sm btn-outline-primary me-2" onclick="loadReports()">
+            <i class="fas fa-sync-alt me-1"></i> 刷新
+        </button>
+        <a href="/ui_automation/" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> 返回工作台
+        </a>
+    </div>
 </div>
 
 <div class="card shadow-sm">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">全部执行记录</h5>
-        <button class="btn btn-sm btn-outline-primary" onclick="loadReports()">
-            <i class="fas fa-sync-alt me-1"></i> 刷新
-        </button>
-    </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="bg-light">
                     <tr>
-                        <th class="ps-4">#</th>
+                        <th class="ps-3" style="width:36px;"></th>
                         <th>任务名称</th>
                         <th>项目</th>
                         <th>触发时间</th>
                         <th>耗时</th>
-                        <th>通过率</th>
-                        <th>状态</th>
+                        <th>结果</th>
+                        <th class="text-end pe-3">操作</th>
                     </tr>
                 </thead>
                 <tbody id="reportList">
@@ -41,11 +40,16 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
+{{ super() }}
 <script>
 $(document).ready(function() {
     loadReports();
 });
+
+let expandedReports = {};
 
 async function loadReports() {
     const tbody = $('#reportList');
@@ -62,37 +66,176 @@ async function loadReports() {
         }
 
         reports.forEach((report, idx) => {
-            const startTime = report.start_time ? new Date(report.start_time * 1000).toLocaleString() : '-';
+            const jobId = report.job_id || ('rpt_' + idx);
+            const startTime = report.start_time ? new Date(report.start_time * 1000).toLocaleString('zh-CN') : '-';
             const duration = (report.end_time && report.start_time) ? ((report.end_time - report.start_time).toFixed(1) + 's') : '-';
             const passRate = report.pass_rate != null ? report.pass_rate.toFixed(1) + '%' : '-';
 
-            let statusBadge = '<span class="badge bg-secondary">未知</span>';
+            let statusClass = 'bg-secondary';
+            let statusText = '未知';
+            let statusIcon = 'fa-circle';
             if (report.status === 'completed') {
-                statusBadge = '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>完成</span>';
+                statusClass = 'bg-success';
+                statusText = '通过';
+                statusIcon = 'fa-check-circle';
             } else if (report.status === 'running') {
-                statusBadge = '<span class="badge bg-primary"><i class="spinner-border spinner-border-sm me-1" style="width: 0.7em; height: 0.7em;"></i>运行中</span>';
+                statusClass = 'bg-primary';
+                statusText = '运行中';
+                statusIcon = 'fa-spinner fa-spin';
             } else if (report.status === 'failed' || report.status === 'error') {
-                statusBadge = '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>失败</span>';
+                statusClass = 'bg-danger';
+                statusText = '失败';
+                statusIcon = 'fa-times-circle';
             } else if (report.status === 'stopped') {
-                statusBadge = '<span class="badge bg-warning text-dark"><i class="fas fa-pause-circle me-1"></i>停止</span>';
+                statusClass = 'bg-warning text-dark';
+                statusText = '已停止';
+                statusIcon = 'fa-pause-circle';
             }
 
+            const expandIcon = expandedReports[jobId] ? 'fa-chevron-down' : 'fa-chevron-right';
+            const results = report.results || [];
+            const totalCases = report.total_cases || results.length;
+            const failedCases = results.filter(function(r) { return r.status === 'failed' || r.status === 'error'; }).length;
+            const passedCases = results.filter(function(r) { return r.status === 'completed'; }).length;
+
             const tr = `
-                <tr>
-                    <td class="ps-4 text-muted">${idx + 1}</td>
-                    <td><span class="fw-bold">${report.suite_name || '未命名套件'}</span></td>
-                    <td><span class="badge bg-light text-secondary border">${report.project_name || '-'}</span></td>
+                <tr class="report-row" style="cursor:pointer;" onclick="toggleReportDetail('${jobId}', ${idx})" data-job="${jobId}">
+                    <td class="ps-3"><i class="fas ${expandIcon} text-muted row-expand-icon" id="icon_${jobId}"></i></td>
+                    <td>
+                        <span class="fw-bold">${escapeHtml(report.suite_name || '未命名执行')}</span>
+                        <div class="text-muted small">${totalCases} 个用例 &middot; ${passedCases} 通过 ${failedCases > 0 ? '&middot; <span class="text-danger">' + failedCases + ' 失败</span>' : ''}</div>
+                    </td>
+                    <td><span class="badge bg-light text-secondary border">${escapeHtml(report.project_name || '-')}</span></td>
                     <td class="text-muted small">${startTime}</td>
                     <td class="text-muted small">${duration}</td>
-                    <td>${passRate}</td>
-                    <td>${statusBadge}</td>
+                    <td><span class="badge ${statusClass}"><i class="fas ${statusIcon} me-1" style="font-size:0.7em;"></i>${statusText}</span></td>
+                    <td class="text-end pe-3">
+                        ${results.length === 0 ? '' : '<a href="/ui_automation/report/' + jobId + '" class="btn btn-sm btn-outline-info rounded-pill me-1" onclick="event.stopPropagation();"><i class="fas fa-search-plus me-1"></i>详情</a>'}
+                        ${failedCases > 0 ? '<button class="btn btn-sm btn-outline-primary rounded-pill me-1" onclick="event.stopPropagation(); rerunReport(\'' + jobId + '\')"><i class="fas fa-redo me-1"></i>重跑</button>' : ''}
+                    </td>
                 </tr>
-            `;
+                <tr class="report-detail" id="detail_${jobId}" style="display:none;">
+                    <td colspan="7" class="bg-light p-0">
+                        <div class="p-3" id="detailContent_${jobId}">
+                            <div class="text-center py-3 text-muted">
+                                <div class="spinner-border spinner-border-sm me-2"></div>加载详情...
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
             tbody.append(tr);
         });
     } catch (error) {
-        tbody.html('<tr><td colspan="7" class="text-center py-5 text-danger">加载失败: ' + (error.message || '未知错误') + '</td></tr>');
+        tbody.html('<tr><td colspan="7" class="text-center py-5 text-danger">加载失败: ' + escapeHtml(error.message || '未知错误') + '</td></tr>');
     }
+}
+
+async function toggleReportDetail(jobId, idx) {
+    if (expandedReports[jobId]) {
+        // Collapse
+        expandedReports[jobId] = false;
+        $('#detail_' + jobId).hide();
+        $('#icon_' + jobId).removeClass('fa-chevron-down').addClass('fa-chevron-right');
+        return;
+    }
+
+    // Expand
+    expandedReports[jobId] = true;
+    $('#detail_' + jobId).show();
+    $('#icon_' + jobId).removeClass('fa-chevron-right').addClass('fa-chevron-down');
+
+    // Load detail content
+    loadReportDetail(jobId);
+}
+
+async function loadReportDetail(jobId) {
+    const container = $('#detailContent_' + jobId);
+    try {
+        const result = await ApiClient.get('/ui_automation/api/reports', { showLoading: false });
+        const reports = (result && result.data && result.data.reports) || [];
+        const report = reports.find(function(r) { return r.job_id === jobId; });
+        if (!report) {
+            container.html('<div class="text-center text-muted py-3">详情数据不可用</div>');
+            return;
+        }
+
+        const results = report.results || [];
+        let html = '<h6 class="fw-bold mb-3"><i class="fas fa-list-check me-2 text-primary"></i>执行详情</h6>';
+
+        html += '<div class="row mb-3">';
+        html += '<div class="col-md-3"><small class="text-muted">开始时间</small><div class="fw-medium">' + (report.start_time ? new Date(report.start_time * 1000).toLocaleString('zh-CN') : '-') + '</div></div>';
+        html += '<div class="col-md-3"><small class="text-muted">耗时</small><div class="fw-medium">' + ((report.end_time && report.start_time) ? ((report.end_time - report.start_time).toFixed(1) + 's') : '-') + '</div></div>';
+        html += '<div class="col-md-3"><small class="text-muted">用例数</small><div class="fw-medium">' + results.length + '</div></div>';
+        html += '<div class="col-md-3"><small class="text-muted">通过率</small><div class="fw-medium">' + (report.pass_rate != null ? report.pass_rate.toFixed(1) + '%' : '-') + '</div></div>';
+        html += '</div>';
+
+        if (results.length === 0) {
+            html += '<div class="text-center text-muted py-3">暂无执行记录</div>';
+        } else {
+            html += '<div class="table-responsive"><table class="table table-sm mb-0"><thead class="table-light"><tr><th>#</th><th>用例</th><th>设备</th><th>耗时</th><th>结果</th><th>详情</th></tr></thead><tbody>';
+
+            results.forEach(function(res, i) {
+                let sBadge = 'bg-secondary';
+                if (res.status === 'completed') sBadge = 'bg-success';
+                else if (res.status === 'failed' || res.status === 'error') sBadge = 'bg-danger';
+                else if (res.status === 'stopped') sBadge = 'bg-warning text-dark';
+
+                let detail = '';
+                if (res.error) {
+                    detail += '<small class="text-danger d-block" style="max-width:250px;">' + escapeHtml(res.error).substring(0, 100) + '</small>';
+                }
+                if (res.screenshot) {
+                    const ssUrl = '/static/ui_automation/screenshots/' + res.screenshot;
+                    detail += '<a href="' + ssUrl + '" target="_blank" class="btn btn-xs btn-outline-danger mt-1" style="font-size:0.7rem;"><i class="fas fa-image me-1"></i>查看截图</a>';
+                }
+                if (res.failed_step) {
+                    detail += '<small class="text-warning d-block mt-1">失败步骤: 第' + res.failed_step + '步</small>';
+                }
+
+                const duration = (res.end_time && res.start_time) ? ((res.end_time - res.start_time).toFixed(1) + 's') : '-';
+
+                html += '<tr>';
+                html += '<td class="text-muted small">#' + (i + 1) + '</td>';
+                html += '<td><span class="fw-medium">' + escapeHtml(res.case_name || res.case_id || '-') + '</span></td>';
+                html += '<td class="text-muted small">' + escapeHtml(res.device_id || '-') + '</td>';
+                html += '<td class="text-muted small">' + duration + '</td>';
+                html += '<td><span class="badge ' + sBadge + '">' + (res.status || '未知') + '</span></td>';
+                html += '<td>' + detail + '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+        }
+
+        // Action buttons
+        if (report.status === 'failed' || report.status === 'error') {
+            html += '<div class="mt-3 pt-3 border-top">';
+            html += '<button class="btn btn-sm btn-outline-primary rounded-pill me-2" onclick="rerunReport(\'' + jobId + '\')"><i class="fas fa-redo me-1"></i>重跑全部</button>';
+            html += '<button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="markAsBusinessFailure(\'' + jobId + '\')"><i class="fas fa-flag me-1"></i>标记为业务失败</button>';
+            html += '</div>';
+        }
+
+        container.html(html);
+    } catch (error) {
+        container.html('<div class="text-center text-danger py-3">加载详情失败: ' + escapeHtml(error.message || '') + '</div>');
+    }
+}
+
+function rerunReport(jobId) {
+    showToast('重跑功能开发中，即将支持');
+    // TODO: Implement rerun by loading the suite and re-executing
+}
+
+function markAsBusinessFailure(jobId) {
+    showToast('标记功能开发中');
+}
+
+
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 </script>
 {% endblock %}

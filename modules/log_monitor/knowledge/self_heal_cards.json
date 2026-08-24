@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "sh_seed_npe_animplayer",
+      "alert_type": "crash",
+      "rule_name": "空指针异常",
+      "severity": "high",
+      "keywords": [
+        "NullPointerException",
+        "空指针异常",
+        "AnimPlayer",
+        "未初始化",
+        "mPlayer"
+      ],
+      "root_cause": "播放器核心对象（mPlayer / AnimPlayer）未初始化或被提前释放，调用 start() / play() 时触发 NullPointerException。常见于切歌、退后台、资源加载竞态场景。",
+      "suggestions": [
+        "在调用播放接口前增加判空保护（if (mPlayer != null)），并校验播放器状态。",
+        "统一播放器生命周期管理，避免在 onDestroy / 退后台后继续调用播放方法。",
+        "对资源加载完成回调做幂等保护，防止重复初始化或竞态释放。",
+        "补充单元测试覆盖切歌、快速进出播放页等边界场景。"
+      ],
+      "suggested_patch": "if (mPlayer != null && mPlayer.isPrepared()) {\n    mPlayer.start();\n} else {\n    Log.w(TAG, \"player not ready, skip start\");\n}",
+      "evidence": [],
+      "device_id": "192.168.1.140",
+      "resolved": true,
+      "source": "seed",
+      "hit_count": 4,
+      "created_at": "2026-07-29T09:10:00"
+    },
+    {
+      "id": "sh_seed_npe_harddecoder",
+      "alert_type": "exception",
+      "rule_name": "FATAL EXCEPTION",
+      "severity": "high",
+      "keywords": [
+        "NullPointerException",
+        "HardDecoder",
+        "intValue",
+        "Integer",
+        "未初始化"
+      ],
+      "root_cause": "在 AnimPlayer.HardDecoder 类中，对一个为 null 的 Integer 对象调用了 intValue() 方法，导致 NullPointerException。通常是整型变量未初始化或获取值为 null（网络/解码返回异常）。",
+      "suggestions": [
+        "检查 HardDecoder 中调用 intValue() 的代码行，确认 Integer 变量在调用前已被正确赋值。",
+        "在调用 intValue() 前添加判空处理：if (value != null) value.intValue(); 或使用 Objects.requireNonNull。",
+        "回溯该 Integer 变量的来源，确认是否来自网络、数据库或外部配置且可能返回 null。",
+        "复现问题场景（特定视频/码率播放操作），抓取更详细日志或添加断点调试。"
+      ],
+      "suggested_patch": "Integer width = decoder.getWidth();\nif (width != null) {\n    configure(width.intValue());\n} else {\n    Log.e(TAG, \"decoder width is null, use default\");\n    configure(DEFAULT_WIDTH);\n}",
+      "evidence": [],
+      "device_id": "192.168.1.140",
+      "resolved": true,
+      "source": "seed",
+      "hit_count": 1,
+      "created_at": "2026-07-29T09:10:00"
+    },
+    {
+      "id": "sh_20260729092835231087",
+      "alert_type": "exception",
+      "rule_name": "FATAL EXCEPTION / 应用崩溃",
+      "severity": "high",
+      "keywords": [
+        "原因",
+        "堆栈信息及抛",
+        "容中确定根本",
+        "的异常导致崩",
+        "推测为应用主",
+        "应用崩溃",
+        "到进程",
+        "异常",
+        "的异常类型",
+        "出位置",
+        "无法从日志内",
+        "线程中未捕获",
+        "但未包含具体",
+        "日志中仅捕获"
+      ],
+      "root_cause": "日志中仅捕获到进程8509的FATAL EXCEPTION: main异常，但未包含具体的异常类型、堆栈信息及抛出位置，无法从日志内容中确定根本原因。推测为应用主线程中未捕获的异常导致崩溃。",
+      "suggestions": [
+        "1. 启用UncaughtExceptionHandler全局捕获未处理异常，并输出到文件。",
+        "2. 检查所有异步回调（如AudioRecordManagerAdapter回调）中是否有可能的主线程UI操作。",
+        "3. 对关键变量进行判空保护，尤其是在HardDecoder类中处理intValue()时。",
+        "4. 针对讯飞SDK版本，确认API调用是否符合规范，避免在主线程执行长时间操作。",
+        "5. 增加try-catch块在可能抛异常的代码外层，避免直接崩溃。"
+      ],
+      "suggested_patch": "",
+      "evidence": [],
+      "device_id": "192.168.1.140:8787",
+      "resolved": true,
+      "source": "acknowledge",
+      "hit_count": 0,
+      "created_at": "2026-07-29T09:28:35"
+    }
+  ]
+}

@@ -27,7 +27,7 @@ def _ensure_dir() -> None:
         os.makedirs(d, exist_ok=True)
 
 
-def add_order(musicno: str, musicname: str, success: bool = True) -> None:
+def add_order(musicno: str, musicname: str, success: bool = True, precision_context: Dict[str, Any] = None) -> None:
     """追加一条点歌记录"""
     with _LOCK:
         _ensure_dir()
@@ -40,12 +40,21 @@ def add_order(musicno: str, musicname: str, success: bool = True) -> None:
             except Exception:
                 pass
         entries: List[Dict[str, Any]] = data.get("entries") or []
-        entries.insert(0, {
+        entry = {
             "musicno": musicno,
             "musicname": musicname or "",
             "success": success,
             "ts": time.time(),
-        })
+        }
+        if isinstance(precision_context, dict) and precision_context:
+            entry.update({
+                "precision_analysis_id": str(precision_context.get("analysis_id") or ""),
+                "precision_test_point_id": str(precision_context.get("test_point_id") or ""),
+                "precision_execution_id": str(precision_context.get("execution_id") or ""),
+                "summary": "点歌请求成功" if success else "点歌请求失败",
+                "status": "success" if success else "failed",
+            })
+        entries.insert(0, entry)
         data["entries"] = entries[:_MAX_ENTRIES]
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)

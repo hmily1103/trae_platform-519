@@ -30,9 +30,13 @@ class TvPlaybackWatcher:
             1.0,
             float(config.get("tv_evidence_screenshot_interval_seconds", 2.0)),
         )
+        self.micro_stall_threshold_ms = max(
+            300.0,
+            float(config.get("tv_micro_stall_frame_gap_threshold_ms", 250.0)),
+        )
         self.stall_threshold_ms = max(
-            100.0,
-            float(config.get("tv_stall_frame_gap_threshold_ms", 250.0)),
+            self.micro_stall_threshold_ms,
+            float(config.get("tv_stall_frame_gap_threshold_ms", 800.0)),
         )
         self.start_confirmations = max(
             2,
@@ -52,7 +56,7 @@ class TvPlaybackWatcher:
         )
         self.confirm_gap_ms = max(
             self.stall_threshold_ms,
-            float(config.get("tv_stall_confirm_frame_gap_threshold_ms", 1200.0)),
+            float(config.get("tv_stall_confirm_frame_gap_threshold_ms", 1000.0)),
         )
         self.confirm_duration_ms = max(
             500.0,
@@ -118,6 +122,7 @@ class TvPlaybackWatcher:
                 sample["ignore_video_metrics"] = bool(
                     self.monitor.is_ignoring_video_metrics()
                 )
+                self.monitor.record_tv_frame_gap_sample(sample, now=started)
                 self.process_sample(sample, now=started)
                 self._capture_periodic_screenshot(started)
                 self._capture_cpu_on_schedule(started)
@@ -137,9 +142,9 @@ class TvPlaybackWatcher:
 
         reason = ""
         if not ignored and audio_active and surface:
-            if max_gap_ms >= self.stall_threshold_ms:
+            if max_gap_ms >= self.micro_stall_threshold_ms:
                 reason = f"frame_gap_{max_gap_ms:.1f}ms"
-            elif not frame_advanced:
+            elif not frame_advanced and max_gap_ms >= 300.0:
                 reason = "surface_not_advancing"
 
         if reason:
@@ -236,6 +241,13 @@ class TvPlaybackWatcher:
         event["end_timestamp"] = now
         event["end_time"] = datetime.fromtimestamp(now).isoformat(timespec="milliseconds")
         event["duration_ms"] = int(max(0.0, now - event["start_timestamp"]) * 1000)
+    def _finish_event(self, now: float, recovery_reason: str):
+        event = self._active_event
+        if not event:
+            return
+        event["end_timestamp"] = now
+        event["end_time"] = datetime.fromtimestamp(now).isoformat(timespec="milliseconds")
+        event["duration_ms"] = int(max(0.0, now - event["start_timestamp"]) * 1000)
         event["recovery_reason"] = recovery_reason
         self._capture_screenshot(os.path.join(event["evidence_dir"], "after.png"))
         event["cpu_after"] = self._collect_cpu_evidence()
@@ -246,7 +258,11 @@ class TvPlaybackWatcher:
         )
         event["cpu_contention"] = self._analyze_cpu_contention(event)
         self._refresh_event_assessment(None, now)
-        event["type"] = "TV_STALL" if bool(event.get("confirmed", False)) else "TV_STALL_RISK"
+        self._assess_visual_motion(event)
+        if bool(event.get("ignored_as_static_content", False)):
+            event["type"] = "TV_STALL_IGNORED"
+        else:
+            event["type"] = "TV_STALL" if bool(event.get("confirmed", False)) else "TV_STALL_RISK"
         self._write_time_window_evidence(now, force=True)
         self._write_event_summary()
         self._write_event_json()
@@ -255,7 +271,7 @@ class TvPlaybackWatcher:
         self._log(f"[TV Stall] ended after {event['duration_ms']}ms")
         self._active_event = None
         self._healthy_samples = 0
-
+        self._healthy_samples = 0
     def _latest_monitor_snapshot(self) -> Dict:
         history = getattr(self.monitor, "history", None) or []
         if not history:
@@ -273,7 +289,9 @@ class TvPlaybackWatcher:
             return
         latest = self._latest_monitor_snapshot()
         sample = sample or {}
-        duration_ms = int(max(0.0, now - float(event.get("start_timestamp", now) or now)) * 1000)
+        duration_ms = int(
+            max(0.0, now - float(event.get("start_timestamp", now) or now)) * 1000
+        )
         event["duration_ms"] = duration_ms
 
         max_gap_ms = float(
@@ -296,12 +314,20 @@ class TvPlaybackWatcher:
             system_cpu >= 85.0 and player_cpu <= 15.0
         )
         fps_low = bool(video_fps > 0 and video_fps < max(24.0, expected_fps * 0.85))
+        micro_gap = bool(max_gap_ms >= self.micro_stall_threshold_ms)
+        perceptible_gap = bool(max_gap_ms >= self.stall_threshold_ms)
         severe_gap = bool(max_gap_ms >= self.confirm_gap_ms)
         surface_not_advancing = (
             str(sample.get("reason", event.get("reason", "")) or "") == "surface_not_advancing"
             or not frame_advanced
         )
         decode_drop_confirmed = bool(decode_reliable and decode_drop_ratio >= 0.15)
+        surface_locked = bool(
+            latest.get("tv_surface_name", sample.get("tv_surface_name", "")) or ""
+        )
+        physical_surface_freeze = bool(
+            surface_locked and max_gap_ms >= 2000.0 and frame_advanced
+        )
 
         corroborations = []
         if decoder_confirmed:
@@ -315,32 +341,83 @@ class TvPlaybackWatcher:
         if decode_drop_confirmed:
             corroborations.append("decode_drop")
 
+        missing_evidence = []
+        promotion_hints = []
+        if duration_ms < self.confirm_duration_ms:
+            missing_evidence.append(
+                f"事件持续 {duration_ms:.0f} ms，不足确认阈值 {self.confirm_duration_ms:.0f} ms"
+            )
+            promotion_hints.append(
+                f"建议事件持续达到 {self.confirm_duration_ms:.0f} ms 以上再判定"
+            )
+        if not decoder_confirmed:
+            missing_evidence.append("缺少解码器卡死确认证据")
+            promotion_hints.append("补充 MPP / decoder 卡死确认证据")
+        if not decode_drop_confirmed:
+            missing_evidence.append("缺少解码丢帧证据")
+            promotion_hints.append("关注 decode_drop_ratio 是否超过阈值")
+        if not fps_low:
+            missing_evidence.append("缺少有效电视端 FPS 证据")
+            promotion_hints.append("对比 video_fps 与 expected_stream_fps 是否匹配")
+        if not log_signal:
+            missing_evidence.append("缺少 droppedFrames/underrun/buffer starvation 日志信号")
+            promotion_hints.append("建议持续观测 10 秒以上再确认")
+        if not cpu_pressure:
+            missing_evidence.append("缺少整机 CPU 压力证据")
+            promotion_hints.append("查看 CPU Top 进程是否存在异常占用")
+        if perceptible_gap and len(corroborations) < 1:
+            missing_evidence.append("感知级卡顿至少需要 1 个旁证信号")
+        if severe_gap and len(corroborations) < 2:
+            missing_evidence.append("严重卡顿至少需要 2 个旁证信号")
+        if surface_not_advancing and len(corroborations) < 1:
+            missing_evidence.append("Surface 未推进且缺少旁证信号")
+
+        if physical_surface_freeze and "physical_surface_freeze" not in corroborations:
+            corroborations.append("physical_surface_freeze")
+
         confirmed = bool(
-            decoder_confirmed
+            physical_surface_freeze
+            or decoder_confirmed
             or (
                 duration_ms >= self.confirm_duration_ms
                 and (
-                    (surface_not_advancing and len(corroborations) >= 1)
+                    (surface_not_advancing and perceptible_gap and len(corroborations) >= 1)
                     or (severe_gap and len(corroborations) >= 2)
                 )
             )
         )
-        confidence_level = "confirmed" if confirmed else "risk"
+        if confirmed:
+            confidence_level = "confirmed"
+        elif perceptible_gap or surface_not_advancing:
+            confidence_level = "risk"
+        else:
+            confidence_level = "micro"
+
         if confirmed:
             assessment_reason = "已形成多源证据闭环，可按确认级电视端卡顿处理"
-        elif severe_gap or surface_not_advancing:
+        elif severe_gap or surface_not_advancing or perceptible_gap:
             assessment_reason = "仅检测到帧间隔/Surface 异常，缺少解码、日志或CPU共振证据，先按风险提示"
         else:
             assessment_reason = "检测到轻微播放波动，暂不建议按肉眼卡顿处理"
 
         event["confirmed"] = confirmed
         event["confidence_level"] = confidence_level
+        event["perceptual_level"] = (
+            "confirmed" if confirmed else
+            "risk" if (perceptible_gap or surface_not_advancing) else
+            "micro"
+        )
         event["assessment_reason"] = assessment_reason
         event["corroboration_count"] = len(corroborations)
         event["corroboration_signals"] = corroborations
+        event["confirmation_gap_reasons"] = missing_evidence[:6] if not confirmed else []
+        event["promotion_hints"] = promotion_hints[:5] if not confirmed else []
         event["evidence_flags"] = {
+            "micro_frame_gap": micro_gap,
+            "perceptible_frame_gap": perceptible_gap,
             "severe_frame_gap": severe_gap,
             "surface_not_advancing": surface_not_advancing,
+            "physical_surface_freeze": physical_surface_freeze,
             "decoder_confirmed": decoder_confirmed,
             "cpu_pressure": cpu_pressure,
             "fps_low": fps_low,
@@ -348,6 +425,63 @@ class TvPlaybackWatcher:
             "log_signal": log_signal,
             "mpp_reliable": decode_reliable,
         }
+
+    def _assess_visual_motion(self, event: Dict):
+        if not event:
+            return
+        event_dir = str(event.get("evidence_dir", "") or "")
+        before_path = os.path.join(event_dir, "before.png")
+        during_path = os.path.join(event_dir, "during.png")
+        after_path = os.path.join(event_dir, "after.png")
+        before_during = self._compare_screenshot_similarity(before_path, during_path)
+        during_after = self._compare_screenshot_similarity(during_path, after_path)
+        event["screen_motion_assessment"] = {
+            "before_during": before_during,
+            "during_after": during_after,
+        }
+        static_pairs = 0
+        for item in (before_during, during_after):
+            if item.get("available") and item.get("is_static"):
+                static_pairs += 1
+        corroborations = list(event.get("corroboration_signals", []) or [])
+        has_strong_playback_evidence = bool(
+            event.get("confirmed", False)
+            or "decoder_confirmed" in corroborations
+            or "decode_drop" in corroborations
+            or "fps_low" in corroborations
+        )
+        if static_pairs >= 2 and not has_strong_playback_evidence:
+            event["ignored_as_static_content"] = True
+            event["assessment_reason"] = (
+                "前后多帧对比均为静态画面，且缺少解码/丢帧/FPS 等播放链路直证，按静态内容误判剔除"
+            )
+        else:
+            event["ignored_as_static_content"] = False
+
+    def _compare_screenshot_similarity(self, path_a: str, path_b: str) -> Dict:
+        result = {
+            "available": False,
+            "avg_diff": None,
+            "is_static": False,
+        }
+        if not path_a or not path_b or not os.path.exists(path_a) or not os.path.exists(path_b):
+            return result
+        try:
+            from PIL import Image, ImageChops, ImageStat
+
+            img_a = Image.open(path_a).convert("RGB")
+            img_b = Image.open(path_b).convert("RGB")
+            if img_a.size != img_b.size:
+                return result
+            diff = ImageChops.difference(img_a, img_b)
+            stat = ImageStat.Stat(diff)
+            avg_diff = sum(stat.mean) / max(1, len(stat.mean))
+            result["available"] = True
+            result["avg_diff"] = round(float(avg_diff), 4)
+            result["is_static"] = avg_diff < 1.0
+            return result
+        except Exception:
+            return result
 
     def _capture_cpu_on_schedule(self, now: float):
         if self._active_event:
@@ -589,19 +723,29 @@ class TvPlaybackWatcher:
         event = self._active_event
         cpu_candidate = ((event.get("cpu_contention") or {}).get("top_candidate") or {})
         summary_lines = [
-            f"事件类型: {event.get('type', 'TV_STALL')}",
-            f"开始时间: {event.get('start_time', '')}",
-            f"结束时间: {event.get('end_time', '')}",
-            f"事件持续: {event.get('duration_ms', 0)} ms",
-            f"当前判断: {'已确认' if bool(event.get('confirmed', False)) else '风险提示'}",
-            f"判定依据: {event.get('assessment_reason', '') or event.get('reason', '')}",
-            f"最大帧间隔: {float(event.get('max_frame_gap_ms', 0) or 0.0):.1f} ms",
-            f"最低 FPS: {float(event.get('min_fps', 0) or 0.0):.1f}",
-            f"相关信号: {', '.join(event.get('corroboration_signals', []) or []) or '-'}",
-            f"CPU 嫌疑进程: {cpu_candidate.get('process', '-')}",
-            f"CPU 峰值: {cpu_candidate.get('peak_cpu_percent', '-')}",
-            f"建议查看: time_window_logcat.txt / decoder_window.txt / top_before.txt / top_after.txt",
+            f"Event type: {event.get('type', 'TV_STALL')}",
+            f"Start time: {event.get('start_time', '')}",
+            f"End time: {event.get('end_time', '')}",
+            f"Duration: {event.get('duration_ms', 0)} ms",
+            f"Assessment: {'confirmed' if bool(event.get('confirmed', False)) else 'risk'}",
+            f"Reason: {event.get('assessment_reason', '') or event.get('reason', '')}",
+            f"Max frame gap: {float(event.get('max_frame_gap_ms', 0) or 0.0):.1f} ms",
+            f"Min FPS: {float(event.get('min_fps', 0) or 0.0):.1f}",
+            f"Signals: {', '.join(event.get('corroboration_signals', []) or []) or '-'}",
+            f"CPU suspect: {cpu_candidate.get('process', '-')}",
+            f"CPU peak: {cpu_candidate.get('peak_cpu_percent', '-')}",
         ]
+        gap_reasons = list(event.get("confirmation_gap_reasons", []) or [])
+        promotion_hints = list(event.get("promotion_hints", []) or [])
+        if gap_reasons:
+            summary_lines.append("Confirmation gaps:")
+            summary_lines.extend(f"- {item}" for item in gap_reasons[:5])
+        if promotion_hints:
+            summary_lines.append("Promotion hints:")
+            summary_lines.extend(f"- {item}" for item in promotion_hints[:4])
+        summary_lines.append(
+            "建议查看 / Check: time_window_logcat.txt / decoder_window.txt / top_before.txt / top_after.txt"
+        )
         self._write_text_file("event_summary.txt", "\n".join(summary_lines))
 
     def _write_json_file(self, filename: str, data):

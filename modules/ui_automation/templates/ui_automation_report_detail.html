@@ -1,0 +1,427 @@
+{% extends "ui_automation_base.html" %}
+
+{% block title %}执行详情 - Trae Platform{% endblock %}
+
+{% block module_content %}
+<div class="d-flex justify-content-between flex-wrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="/ui_automation/reports">执行记录</a></li>
+                <li class="breadcrumb-item active" id="breadcrumbJobName">加载中...</li>
+            </ol>
+        </nav>
+        <h1 class="h2 mb-0" id="detailTitle"><i class="fas fa-clipboard-check me-2 text-primary"></i>执行详情</h1>
+    </div>
+    <div>
+        <button class="btn btn-sm btn-outline-primary me-2" onclick="location.reload()">
+            <i class="fas fa-sync-alt me-1"></i> 刷新
+        </button>
+        <a href="/ui_automation/reports" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> 返回列表
+        </a>
+    </div>
+</div>
+
+<!-- 概要卡片 -->
+<div class="row mb-4" id="summaryCards">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-primary border-4">
+            <div class="card-body py-3">
+                <small class="text-muted text-uppercase">执行时间</small>
+                <div class="fw-bold mt-1" id="sumStartTime">-</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-success border-4">
+            <div class="card-body py-3">
+                <small class="text-muted text-uppercase">总耗时</small>
+                <div class="fw-bold mt-1" id="sumDuration">-</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-info border-4">
+            <div class="card-body py-3">
+                <small class="text-muted text-uppercase">用例结果</small>
+                <div class="fw-bold mt-1" id="sumCases">-</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-warning border-4">
+            <div class="card-body py-3">
+                <small class="text-muted text-uppercase">执行状态</small>
+                <div id="sumStatus">-</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 用例级结果 -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-list-check me-2 text-primary"></i>用例执行结果</h5>
+        <span class="badge bg-secondary" id="resultCount">0 个用例</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="list-group list-group-flush" id="caseResultList">
+            <div class="list-group-item text-center text-muted py-5">
+                <div class="spinner-border spinner-border-sm me-2"></div>加载中...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 步骤详情区（选中某个用例后展开） -->
+<div class="card shadow-sm" id="stepDetailCard" style="display:none;">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-list-ul me-2 text-primary"></i>步骤详情 - <span id="stepDetailCaseName" class="fw-bold">-</span>
+        </h5>
+        <button class="btn btn-sm btn-outline-secondary" onclick="collapseStepDetail()">
+            <i class="fas fa-times me-1"></i>关闭
+        </button>
+    </div>
+    <div class="card-body p-0" id="stepDetailBody">
+        <!-- 动态填充 -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+const jobId = '{{ job_id }}';
+let reportDetail = null;
+
+$(document).ready(function() {
+    loadDetail();
+});
+
+async function loadDetail() {
+    try {
+        const result = await ApiClient.get('/ui_automation/api/report/' + jobId + '/detail', { showLoading: true });
+        if (!result || !result.success || !result.data || !result.data.detail) {
+            showError('报告数据不可用');
+            return;
+        }
+        reportDetail = result.data.detail;
+        renderSummary();
+        renderCaseResults();
+
+        // 如果还在执行中，自动轮询
+        if (reportDetail.status === 'running') {
+            setTimeout(pollDetail, 2000);
+        }
+    } catch (error) {
+        showError('加载失败: ' + (error.message || '未知错误'));
+    }
+}
+
+async function pollDetail() {
+    try {
+        const result = await ApiClient.get('/ui_automation/api/report/' + jobId + '/detail', { showLoading: false });
+        if (!result || !result.success || !result.data || !result.data.detail) return;
+        reportDetail = result.data.detail;
+        renderSummary();
+        renderCaseResults();
+
+        if (reportDetail.status === 'running') {
+            setTimeout(pollDetail, 2000);
+        }
+    } catch (e) {
+        // 静默重试
+        setTimeout(pollDetail, 3000);
+    }
+}
+
+function showError(msg) {
+    $('#summaryCards').html('<div class="col-12"><div class="alert alert-danger">' + escapeHtml(msg) + '</div></div>');
+    $('#caseResultList').html('<div class="list-group-item text-center text-danger py-5">' + escapeHtml(msg) + '</div>');
+}
+
+function renderSummary() {
+    const r = reportDetail;
+    $('#breadcrumbJobName').text(r.suite_name || r.job_id || '详情');
+    
+    const startTime = r.start_time ? new Date(r.start_time * 1000).toLocaleString('zh-CN') : '-';
+    $('#sumStartTime').text(startTime);
+
+    const duration = (r.end_time && r.start_time) ? (r.end_time - r.start_time).toFixed(1) + 's' : '-';
+    $('#sumDuration').text(duration);
+
+    const results = r.results || [];
+    const passed = results.filter(function(rr) { return rr.status === 'completed'; }).length;
+    const failed = results.filter(function(rr) { return rr.status === 'failed' || rr.status === 'error'; }).length;
+    $('#sumCases').html(passed + ' <span class="text-success">通过</span> / ' + failed + ' <span class="text-danger">失败</span>');
+
+    let statusBadge = 'bg-secondary';
+    let statusText = '未知';
+    if (r.status === 'completed') { statusBadge = 'bg-success'; statusText = '已完成'; }
+    else if (r.status === 'running') { statusBadge = 'bg-primary'; statusText = '运行中'; }
+    else if (r.status === 'failed' || r.status === 'error') { statusBadge = 'bg-danger'; statusText = '失败'; }
+    else if (r.status === 'stopped') { statusBadge = 'bg-warning text-dark'; statusText = '已停止'; }
+    $('#sumStatus').html('<span class="badge ' + statusBadge + ' fs-6">' + statusText + '</span>');
+
+    $('#resultCount').text(results.length + ' 个用例');
+}
+
+function renderCaseResults() {
+    const listEl = $('#caseResultList');
+    listEl.empty();
+    const results = reportDetail.results || [];
+
+    if (results.length === 0) {
+        listEl.append('<div class="list-group-item text-center text-muted py-4">暂无用例执行记录</div>');
+        return;
+    }
+
+    results.forEach(function(res, idx) {
+        let badgeClass = 'bg-secondary';
+        let statusText = res.status || '未知';
+        if (res.status === 'completed') { badgeClass = 'bg-success'; statusText = '通过'; }
+        else if (res.status === 'failed' || res.status === 'error') { badgeClass = 'bg-danger'; statusText = '失败'; }
+        else if (res.status === 'stopped') { badgeClass = 'bg-warning text-dark'; statusText = '已停止'; }
+
+        const stepCount = res.step_count || 0;
+        const stepDetails = res.step_details || [];
+        const hasDetails = stepDetails.length > 0;
+        const duration = (res.end_time && res.start_time) ? (res.end_time - res.start_time).toFixed(1) + 's' : '-';
+
+        let errorInfo = '';
+        if (res.error) {
+            errorInfo = '<small class="text-danger d-block mt-1">' + escapeHtml(res.error).substring(0, 120) + '</small>';
+        }
+        if (res.failed_step) {
+            errorInfo += '<small class="text-warning d-block mt-1"><i class="fas fa-exclamation-triangle me-1"></i>第 ' + res.failed_step + ' 步失败</small>';
+        }
+
+        let screenshotLink = '';
+        if (res.screenshot) {
+            screenshotLink = '<a href="/static/ui_automation/screenshots/' + res.screenshot + '" target="_blank" class="btn btn-sm btn-outline-danger ms-2"><i class="fas fa-image"></i></a>';
+        }
+        if (res.failed_screenshot) {
+            screenshotLink += '<a href="/static/ui_automation/screenshots/' + res.failed_screenshot + '" target="_blank" class="btn btn-sm btn-outline-danger ms-1"><i class="fas fa-camera"></i></a>';
+        }
+
+        const itemClass = res.status === 'failed' || res.status === 'error' ? 'list-group-item list-group-item-danger' : 'list-group-item';
+        
+        const detailBtn = hasDetails
+            ? '<button class="btn btn-sm btn-outline-primary rounded-pill me-1" onclick="viewCaseSteps(' + idx + ')"><i class="fas fa-list-ul me-1"></i>查看步骤</button>'
+            : '';
+        const diagBtn = (res.status === 'failed' || res.status === 'error')
+            ? '<button class="btn btn-sm btn-outline-warning rounded-pill" onclick="runAiDiagnose(' + idx + ')"><i class="fas fa-stethoscope me-1"></i>AI 归因</button>'
+            : '';
+        
+        const html = 
+            '<div class="' + itemClass + '">' +
+                '<div class="d-flex justify-content-between align-items-start">' +
+                    '<div class="flex-grow-1">' +
+                        '<div class="d-flex align-items-center">' +
+                            '<span class="badge ' + badgeClass + ' me-2" style="min-width:40px;">' + statusText + '</span>' +
+                            '<span class="fw-bold">' + escapeHtml(res.case_name || res.case_id || '用例 #' + (idx + 1)) + '</span>' +
+                            screenshotLink +
+                        '</div>' +
+                        '<div class="text-muted small mt-1">' +
+                            '设备: ' + escapeHtml(res.device_id || '-') + ' &middot; ' +
+                            '步骤: ' + stepCount + ' 步 &middot; ' +
+                            '耗时: ' + duration +
+                        '</div>' +
+                        errorInfo +
+                        '<div id="aiDiagBox_' + idx + '" class="mt-2"></div>' +
+                    '</div>' +
+                    '<div class="ms-3 flex-shrink-0">' + detailBtn + diagBtn + '</div>' +
+                '</div>' +
+            '</div>';
+        listEl.append(html);
+    });
+}
+
+function viewCaseSteps(caseIdx) {
+    const results = reportDetail.results || [];
+    const res = results[caseIdx];
+    if (!res) return;
+
+    $('#stepDetailCaseName').text(res.case_name || res.case_id || '用例 #' + (caseIdx + 1));
+    const steps = res.step_details || [];
+    const body = $('#stepDetailBody');
+    body.empty();
+
+    if (steps.length === 0) {
+        body.html('<div class="text-center text-muted py-5">暂无步骤记录</div>');
+    } else {
+        let tableHtml = '<div class="table-responsive"><table class="table table-sm mb-0"><thead class="table-light"><tr>' +
+            '<th style="width:50px;">步骤</th>' +
+            '<th>操作</th>' +
+            '<th style="width:80px;">耗时</th>' +
+            '<th style="width:70px;">结果</th>' +
+            '<th>详情</th>' +
+            '</tr></thead><tbody>';
+
+        steps.forEach(function(s, i) {
+            const stepNum = s.step_num || (i + 1);
+            const actionType = s.action_type || 'action';
+            const success = s.success !== false;
+            const durationMs = s.duration_ms || 0;
+            const error = s.error || '';
+            const strategy = s.selector_strategy || '';
+
+            let actionIcon = 'fa-circle';
+            let actionDesc = String(actionType);
+            if (actionType === 'click') { actionIcon = 'fa-mouse-pointer'; actionDesc = '点击'; }
+            else if (actionType === 'swipe') { actionIcon = 'fa-arrows-alt'; actionDesc = '滑动'; }
+            else if (actionType === 'input') { actionIcon = 'fa-keyboard'; actionDesc = '输入'; }
+            else if (actionType === 'key') { actionIcon = 'fa-stop-circle'; actionDesc = '按键'; }
+            else if (actionType === 'assertion') { actionIcon = 'fa-check-circle'; actionDesc = '断言'; }
+            else if (actionType === 'wait') { actionIcon = 'fa-clock'; actionDesc = '等待'; }
+
+            let rowClass = success ? '' : 'table-danger';
+            let statusBadge = success
+                ? '<span class="badge bg-success"><i class="fas fa-check"></i></span>'
+                : '<span class="badge bg-danger"><i class="fas fa-times"></i></span>';
+
+            let detailHtml = '';
+            // 定位策略
+            if (strategy) {
+                detailHtml += '<small class="text-info d-block"><i class="fas fa-bullseye me-1"></i>策略: ' + escapeHtml(strategy) + '</small>';
+            }
+            // fallback 策略
+            const fallback = s.fallback_strategy || '';
+            if (fallback) {
+                detailHtml += '<small class="text-warning d-block"><i class="fas fa-arrow-right me-1"></i>回退: ' + escapeHtml(fallback) + '</small>';
+            }
+            // bounds（元素坐标区域）
+            const bounds = s.bounds;
+            if (bounds) {
+                const b = typeof bounds === 'object' ? bounds : {};
+                if (b.x !== undefined) {
+                    detailHtml += '<small class="text-muted d-block"><i class="fas fa-vector-square me-1"></i>区域: (' + b.x + ',' + b.y + ') ' + (b.w || '') + 'x' + (b.h || '') + '</small>';
+                }
+            }
+            // 异常信息
+            if (error) {
+                detailHtml += '<small class="text-danger d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>' + escapeHtml(error).substring(0, 200) + '</small>';
+            }
+            // 步骤截图
+            if (s.screenshot) {
+                detailHtml += '<a href="/static/ui_automation/screenshots/' + s.screenshot + '" target="_blank" class="btn btn-xs btn-outline-secondary mt-1" style="font-size:0.7rem;"><i class="fas fa-image me-1"></i>步骤截图</a>';
+            }
+
+            tableHtml += '<tr class="' + rowClass + '">' +
+                '<td><span class="badge bg-light text-dark">' + stepNum + '</span></td>' +
+                '<td><i class="fas ' + actionIcon + ' me-1 text-muted"></i>' + escapeHtml(actionDesc) + '</td>' +
+                '<td class="text-muted small">' + (durationMs > 0 ? (durationMs + 'ms') : '-') + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td style="max-width:300px;">' + detailHtml + '</td>' +
+                '</tr>';
+        });
+
+        tableHtml += '</tbody></table></div>';
+        body.html(tableHtml);
+    }
+
+    $('#stepDetailCard').slideDown(300);
+    $('html, body').animate({ scrollTop: $('#stepDetailCard').offset().top - 20 }, 400);
+}
+
+function collapseStepDetail() {
+    $('#stepDetailCard').slideUp(300);
+}
+
+const _aiDiagCache = {};
+
+async function runAiDiagnose(caseIdx) {
+    const results = reportDetail.results || [];
+    const res = results[caseIdx];
+    if (!res || !res.case_id) {
+        showToast('缺少 case_id，无法归因', 'warning');
+        return;
+    }
+    const box = document.getElementById('aiDiagBox_' + caseIdx);
+    if (box) {
+        box.innerHTML = '<div class="small text-muted"><span class="spinner-border spinner-border-sm me-1"></span>AI 归因中…</div>';
+    }
+    try {
+        const result = await ApiClient.post('/ui_automation/api/ai/diagnose', {
+            case_id: res.case_id,
+            device_id: res.device_id || '',
+            failed_step: res.failed_step || null,
+            error: res.error || '',
+            step_details: res.step_details || [],
+            dump_live_ui: true
+        }, { showLoading: false, timeout: 180000, showError: false });
+        if (!result || !result.success) {
+            throw new Error((result && result.message) || '归因失败');
+        }
+        const d = result.data || {};
+        _aiDiagCache[caseIdx] = d;
+        const suggestions = (d.suggestions || []).map(function(s) {
+            return '<li>' + escapeHtml(s) + '</li>';
+        }).join('');
+        const patch = d.suggested_patch;
+        let patchHtml = '<p class="small text-muted mb-1">无可靠补丁建议，请人工修用例</p>';
+        if (patch) {
+            patchHtml =
+                '<pre class="bg-light border rounded p-2 small mb-2" style="max-height:160px;overflow:auto;">' +
+                escapeHtml(JSON.stringify(patch, null, 2)) +
+                '</pre>' +
+                '<button class="btn btn-sm btn-warning" onclick="applyAiPatch(' + caseIdx + ')">' +
+                '<i class="fas fa-check me-1"></i>人工确认并应用补丁</button>';
+        }
+        if (box) {
+            box.innerHTML =
+                '<div class="border rounded p-2 bg-white">' +
+                '<div class="fw-bold small mb-1"><i class="fas fa-stethoscope me-1 text-warning"></i>根因：' +
+                escapeHtml(d.root_cause || '-') +
+                ' <span class="badge bg-secondary">置信 ' + (d.confidence != null ? Number(d.confidence).toFixed(2) : '-') + '</span>' +
+                ' <span class="badge bg-info text-dark">' + escapeHtml(d.category || '') + '</span></div>' +
+                '<ul class="small mb-2">' + suggestions + '</ul>' +
+                '<div class="small text-muted mb-1">建议补丁（需人工确认，不会自动改用例）</div>' +
+                patchHtml +
+                '</div>';
+        }
+        showToast('归因完成', 'success');
+    } catch (e) {
+        if (box) {
+            box.innerHTML = '<div class="alert alert-danger py-1 small mb-0">' + escapeHtml(e.message || String(e)) + '</div>';
+        }
+        showToast(e.message || '归因失败', 'error');
+    }
+}
+
+async function applyAiPatch(caseIdx) {
+    const d = _aiDiagCache[caseIdx];
+    const results = reportDetail.results || [];
+    const res = results[caseIdx];
+    if (!d || !d.suggested_patch || !res || !res.case_id) {
+        showToast('没有可应用的补丁', 'warning');
+        return;
+    }
+    if (!window.confirm('确认将建议补丁写入用例？此操作会修改用例步骤，需人工在环确认。')) {
+        return;
+    }
+    try {
+        const result = await ApiClient.post('/ui_automation/api/ai/apply-patch', {
+            case_id: res.case_id,
+            suggested_patch: d.suggested_patch,
+            approved: true
+        }, { showLoading: true });
+        if (!result || !result.success) {
+            throw new Error((result && result.message) || '应用失败');
+        }
+        showToast('补丁已应用，可重新执行用例验证', 'success');
+    } catch (e) {
+        showToast(e.message || '应用失败', 'error');
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

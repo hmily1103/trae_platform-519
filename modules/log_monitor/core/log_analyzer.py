@@ -36,7 +36,7 @@ class LogAnalyzer:
         'MEDIA_SERVICE_RESTART': re.compile(r'I\/init: Starting service \'media\'.*'),
 
         # --- GC Events ---
-        'GARBAGE_COLLECTION': re.compile(r'I\/art: (?i)gc\s+((concurrent|semispace)\s+)?(freed|reclaimed)\s+\d+\(\d+[kKmMbB]?\)\s+\d+%\s+free'),
+        'GARBAGE_COLLECTION': re.compile(r'I\/art: gc\s+((concurrent|semispace)\s+)?(freed|reclaimed)\s+\d+\(\d+[kKmMbB]?\)\s+\d+%\s+free', re.IGNORECASE),
     }
 
     def __init__(self):

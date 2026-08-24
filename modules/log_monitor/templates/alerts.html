@@ -1,0 +1,693 @@
+{% extends "base.html" %}
+
+{% block title %}告警历史 - Trae Platform{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-database"></i> 告警历史</h2>
+            <p class="text-muted small mb-0">全部监控任务的告警与 AI 诊断分析记录，落盘保存，重启服务不丢失，可用于复盘。</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="/log_monitor/">
+            <i class="fas fa-arrow-left"></i> 返回监控
+        </a>
+        <button class="btn btn-outline-primary ms-2" onclick="generateTestReport()">
+            <i class="fas fa-file-lines"></i> 导出测试报告
+        </button>
+    </div>
+
+    <!-- 统计概览 -->
+    <div class="row g-2 mb-3" id="statBar">
+        <div class="col-auto"><span class="badge bg-secondary fs-6" id="statTotal">总计 0</span></div>
+        <div class="col-auto"><span class="badge bg-danger" id="statHigh">高 0</span></div>
+        <div class="col-auto"><span class="badge bg-warning text-dark" id="statMedium">中 0</span></div>
+        <div class="col-auto"><span class="badge bg-info" id="statLow">低 0</span></div>
+        <div class="col-auto"><span class="badge bg-success" id="statAck">已确认 0</span></div>
+        <div class="col-auto"><span class="badge bg-light text-dark border" id="statUnack">未确认 0</span></div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">设备</label>
+                    <input type="text" class="form-control form-control-sm" id="fDevice" placeholder="设备 ID，如 192.168.1.140">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">严重程度</label>
+                    <select class="form-select form-select-sm" id="fSeverity">
+                        <option value="">全部</option>
+                        <option value="high">high</option>
+                        <option value="medium">medium</option>
+                        <option value="low">low</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">确认状态</label>
+                    <select class="form-select form-select-sm" id="fAck">
+                        <option value="">全部</option>
+                        <option value="false">未确认</option>
+                        <option value="true">已确认</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">关键词</label>
+                    <input type="text" class="form-control form-control-sm" id="fKeyword" placeholder="规则名 / 日志内容">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button class="btn btn-primary btn-sm flex-fill" onclick="reload()">
+                        <i class="fas fa-search"></i> 查询
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="resetFilters()">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="card">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-list"></i> 告警记录</span>
+            <span class="text-muted small" id="resultCount"></span>
+        </div>
+        <div class="card-body p-2">
+            <div id="alertList">
+                <div class="text-muted text-center py-4">加载中…</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function fmtTime(ts) {
+    if (!ts) return '-';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return String(ts);
+    return d.toLocaleString('zh-CN', { hour12: false });
+}
+
+// #25 渲染证据链区块：区分「直接证据 / 模型推断 / 历史引用」（与主监控页同款）
+function renderEvidenceChain(ec) {
+    if (!ec) return '';
+    const d = ec.direct || [], inf = ec.inferred || [], refs = ec.references || [];
+    if (!d.length && !inf.length && !refs.length) return '';
+    let html = '<details class="small mt-2"><summary class="fw-semibold" style="cursor:pointer;color:#6f42c1;"><i class="fas fa-link me-1"></i>证据链（直接证据 ' + d.length + ' · 模型推断 ' + inf.length + ' · 历史引用 ' + refs.length + '）</summary>';
+    html += '<div class="mt-1 ps-2 border-start border-3" style="border-color:#6f42c1 !important;">';
+    d.forEach(function (e) {
+        html += '<div class="mb-1"><span class="badge bg-success me-1">直接证据</span><strong class="text-secondary">' + escapeHtml(e.label || '') + '：</strong>'
+              + '<span style="white-space:pre-wrap;word-break:break-all;">' + escapeHtml(e.detail || '') + '</span>'
+              + (e.source ? '<small class="text-muted ms-1">[' + escapeHtml(e.source) + ']</small>' : '') + '</div>';
+    });
+    inf.forEach(function (e) {
+        html += '<div class="mb-1"><span class="badge bg-warning text-dark me-1">模型推断</span><strong class="text-secondary">' + escapeHtml(e.label || '') + '：</strong>'
+              + escapeHtml(e.detail || '')
+              + (e.basis ? '<small class="text-muted ms-1">[依据：' + escapeHtml(e.basis) + ']</small>' : '') + '</div>';
+    });
+    refs.forEach(function (e) {
+        html += '<div class="mb-1"><span class="badge bg-info text-dark me-1">历史引用</span><strong class="text-secondary">' + escapeHtml(e.label || '') + '：</strong>'
+              + escapeHtml(e.detail || '')
+              + (e.source ? '<small class="text-muted ms-1">[' + escapeHtml(e.source) + ']</small>' : '') + '</div>';
+    });
+    html += '</div></details>';
+    return html;
+}
+
+function renderClusterAndVersionInfo(a) {
+    if (!a) return '';
+    const parts = [];
+    if ((a.occurrence_count || 1) > 1) parts.push('同类出现 ' + a.occurrence_count + ' 次');
+    if (a.current_version) parts.push('当前版本 ' + a.current_version);
+    const regMap = { new_issue: '首次发现', regression: '疑似回归', reopen: '已修复后再次出现', stable_fixed: '连续验证稳定修复' };
+    if (a.regression_hint) parts.push('回归判断 ' + (regMap[a.regression_hint] || a.regression_hint));
+    if (!(parts.length || (a.known_versions && a.known_versions.length) || (a.related_lines && a.related_lines.length))) return '';
+    let html = '<div class="small mt-2 ps-2 border-start border-3" style="border-color:#20c997 !important;">';
+    html += '<div class="fw-semibold text-success mb-1"><i class="fas fa-layer-group me-1"></i>聚类与版本信息</div>';
+    if (parts.length) html += '<div class="text-muted mb-1">' + escapeHtml(parts.join(' · ')) + '</div>';
+    if (a.known_versions && a.known_versions.length) {
+        html += '<div class="mb-1"><strong class="text-secondary">关联版本：</strong>' + escapeHtml(a.known_versions.join(', ')) + '</div>';
+    }
+    if (a.related_lines && a.related_lines.length) {
+        html += '<details class="small"><summary>同事件关联日志（' + a.related_lines.length + '）</summary>'
+              + '<pre class="bg-white p-2 mt-1 mb-0" style="white-space:pre-wrap;max-height:140px;overflow:auto;font-size:11px;">'
+              + escapeHtml(a.related_lines.slice(0, 20).join('\n'))
+              + '</pre></details>';
+    }
+    html += '</div>';
+    return html;
+}
+
+// Agent 2.0 诊断时间线渲染（与主监控页同款，从 self_heal 中提取 plan/execution）
+function renderAgentV2Timeline(sh) {
+    if (!sh || !sh.agent_v2) return '';
+    const plan = sh.plan;
+    const execution = sh.execution;
+    if (!plan && !execution) return '';
+    let html = '<div class="small mt-2 ps-2 border-start border-3" style="border-color:#6f42c1 !important;">';
+    html += '<div class="fw-bold mb-1" style="color:#6f42c1;"><i class="fas fa-sitemap me-1"></i>Agent 2.0 诊断时间线</div>';
+    if (plan) {
+        html += '<div class="mb-1"><span class="badge" style="background:#e2d9f3;color:#6f42c1;">计划</span> ';
+        html += '类型: ' + escapeHtml(plan.alert_type || '') + '</div>';
+        if (plan.agents && plan.agents.length > 0) {
+            html += '<div class="ms-2 mb-1"><small class="text-muted">派出:</small> ';
+            html += plan.agents.map(function(a) {
+                return '<span class="badge bg-success bg-opacity-25 text-dark">' + escapeHtml(a.display_name || a.name) + '</span>';
+            }).join(' ');
+            html += '</div>';
+        }
+        if (plan.skipped && plan.skipped.length > 0) {
+            html += '<div class="ms-2 mb-1"><small class="text-muted">跳过:</small> ';
+            html += plan.skipped.map(function(a) {
+                return '<span class="badge bg-light text-muted border">' + escapeHtml(a.display_name || a.name) + '</span>';
+            }).join(' ');
+            html += '</div>';
+        }
+    }
+    if (execution && execution.findings) {
+        const sc2 = {ok:'bg-success', failed:'bg-danger', timeout:'bg-warning text-dark', skipped:'bg-light text-muted border'};
+        const sl2 = {ok:'完成', failed:'失败', timeout:'超时', skipped:'跳过'};
+        html += '<div class="mb-1"><span class="badge" style="background:#e2d9f3;color:#6f42c1;">执行</span></div>';
+        html += '<div class="ms-2">';
+        execution.findings.forEach(function(f) {
+            html += '<div class="d-flex align-items-center mb-1">';
+            html += '<span class="badge ' + (sc2[f.status]||'bg-secondary') + ' me-1" style="min-width:36px;">' + (sl2[f.status]||f.status) + '</span>';
+            html += '<span class="me-1">' + escapeHtml(f.agent_name) + '</span>';
+            if (f.summary) { html += '<small class="text-muted">— ' + escapeHtml(f.summary.substring(0,60)) + '</small>'; }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+// #29 告警动作产物区块（截图预览 / 只读 shell 输出 / 拒绝原因，与主监控页同款）
+function renderActionBlock(actionTaken) {
+    if (!actionTaken) return '';
+    let act = null;
+    try { act = JSON.parse(actionTaken); } catch (e) { return ''; }
+    if (!act || !act.type) return '';
+    const statusMap = {
+        ok: ['bg-success', '已执行'],
+        failed: ['bg-danger', '执行失败'],
+        refused: ['bg-secondary', '已拒绝'],
+        skipped: ['bg-light text-dark border', '未执行']
+    };
+    const st = statusMap[act.status] || ['bg-light text-dark border', act.status || ''];
+    let html = '<div class="small mt-2 ps-2 border-start border-3" style="border-color:#fd7e14 !important;">';
+    html += '<div class="mb-1"><span class="badge text-white me-1" style="background:#fd7e14;"><i class="fas fa-bolt me-1"></i>告警动作</span>'
+          + '<span class="badge ' + st[0] + ' me-1">' + st[1] + '</span>'
+          + '<span class="text-muted">' + escapeHtml(act.summary || '') + '</span></div>';
+    if (act.status === 'ok' && act.type === 'screenshot' && act.artifact) {
+        html += '<a href="' + escapeHtml(act.artifact) + '" target="_blank" title="点击查看原图">'
+              + '<img src="' + escapeHtml(act.artifact) + '" alt="崩溃现场截图" '
+              + 'style="max-width:220px;max-height:130px;border-radius:4px;border:1px solid #dee2e6;" '
+              + 'onerror="this.parentNode.style.display=\'none\'"></a>';
+    } else if (act.status === 'ok' && act.output) {
+        html += '<details class="small"><summary style="cursor:pointer;">采集输出（' + escapeHtml('$ ' + (act.command || '')) + '）</summary>'
+              + '<pre class="bg-white p-2 mt-1 mb-0" style="white-space:pre-wrap;max-height:140px;overflow:auto;font-size:11px;">'
+              + escapeHtml(act.output) + '</pre></details>';
+    } else if (act.status === 'refused' && act.command) {
+        html += '<div class="text-muted" style="font-size:11px;">命令：<code>' + escapeHtml(act.command) + '</code></div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+// #30 置信度分项打分条形展示（综合 0-100 + 四维权重分布）
+function renderConfidenceBreakdown(sh) {
+    if (!sh || !sh.confidence_breakdown) return '';
+    const bd = sh.confidence_breakdown;
+    const W = bd.weights || {stack: 30, history: 40, context: 15, probe: 15};
+    const items = [
+        ['堆栈', bd.stack, W.stack, 'stack'],
+        ['历史', bd.history, W.history, 'history'],
+        ['上下文', bd.context, W.context, 'context'],
+        ['探针', bd.probe, W.probe, 'probe'],
+    ];
+    let html = '<div class="mt-2 p-2 rounded border" style="font-size:11px;background:#fafbfc;">';
+    html += '<div class="d-flex align-items-center mb-2"><span class="badge bg-info text-dark me-2">综合评分 ' + (sh.confidence_score || 0) + '/100</span>'
+          + '<span class="text-muted">权重：堆栈' + W.stack + '·历史' + W.history + '·上下文' + W.context + '·探针' + W.probe + '</span></div>';
+    for (const it of items) {
+        const label = it[0], val = Math.max(0, Math.min(100, it[1] || 0)), w = it[2], key = it[3];
+        const color = val >= 70 ? '#198754' : (val >= 40 ? '#fd7e14' : '#adb5bd');
+        const note = (bd.notes && bd.notes[key]) || '';
+        html += '<div class="d-flex align-items-center mb-1">'
+              + '<span style="width:42px;">' + label + '</span>'
+              + '<span class="text-muted me-1" style="width:40px;">权重' + w + '</span>'
+              + '<span class="progress flex-grow-1 me-2" style="height:8px;background:#e9ecef;">'
+              + '<span class="progress-bar" style="width:' + val + '%;background:' + color + ';"></span></span>'
+              + '<span style="width:30px;text-align:right;">' + val + '</span></div>';
+        if (note) {
+            html += '<div class="text-muted mb-1" style="margin-left:42px;">' + escapeHtml(note) + '</div>';
+        }
+    }
+    html += '</div>';
+    return html;
+}
+
+// 自愈详情块（与主监控页风格一致）
+function renderSelfHealBlock(sh, alertMeta) {
+    if (!sh) {
+        return '<div class="mt-1 small text-muted"><i class="fas fa-robot me-1"></i>AI 诊断中…</div>';
+    }
+    const statusBadge = sh.status === 'AUTO_RESOLVED'
+        ? '<span class="badge bg-primary me-2">自动关单</span>'
+        : sh.status === 'ANALYZED'
+            ? '<span class="badge bg-success me-2">AI 已诊断</span>'
+            : '<span class="badge bg-warning text-dark me-2">需人工确认</span>';
+    let html = '<div class="mt-2 p-2 rounded bg-light border border-warning-subtle">';
+    html += '<div class="d-flex flex-wrap align-items-center mb-1">' + statusBadge
+          + '<small class="text-muted fw-semibold me-2">' + escapeHtml(sh.agent_name || 'AI故障诊断 Agent') + '</small>'
+          + (sh.stage ? '<small class="text-muted me-2">阶段：' + escapeHtml(sh.stage) + '</small>' : '')
+          + (sh.roadmap ? '<small class="text-muted">规划：' + escapeHtml(sh.roadmap) + '</small>' : '');
+    // #25 三级置信度徽章（高/中/低），悬停显示评估依据（命中堆栈/历史案例/上下文充足度）
+    if (sh.confidence) {
+        const confMap = { high: ['高置信', 'bg-success'], medium: ['中置信', 'bg-warning text-dark'], low: ['低置信', 'bg-secondary'] };
+        const cf = confMap[sh.confidence] || [escapeHtml(sh.confidence) + ' 置信', 'bg-light text-dark border'];
+        html += '<span class="badge ' + cf[1] + ' ms-2" title="' + escapeHtml(sh.confidence_reason || '') + '">' + cf[0] + '</span>';
+    }
+    html += '</div>';
+    if (sh.confidence_reason) {
+        html += '<div class="small text-muted mb-1" style="font-size:11px;"><i class="fas fa-scale-balanced me-1"></i>置信依据：' + escapeHtml(sh.confidence_reason) + '</div>';
+    }
+    html += renderConfidenceBreakdown(sh);
+    if (sh.device_context) {
+        const dc = sh.device_context, parts = [];
+        if (dc.model) parts.push('型号 ' + dc.model);
+        if (dc.android_version) parts.push('Android ' + dc.android_version);
+        if (dc.firmware) parts.push('固件 ' + dc.firmware);
+        if (dc.apk_version) parts.push('APK ' + dc.apk_version);
+        if (parts.length) {
+            html += '<div class="small mb-1"><strong>上下文：</strong><span class="text-muted">' + escapeHtml(parts.join(' · ')) + '</span></div>';
+        }
+    }
+    if (sh.root_cause) {
+        html += '<div class="small mb-1"><strong>根因：</strong>' + escapeHtml(sh.root_cause) + '</div>';
+    }
+    html += renderClusterAndVersionInfo(alertMeta);
+    // L3 诊断决策结构化：问题定位 / 影响判断 / 排查路径（单独成块，视觉区分）
+    if (sh.problem_location || sh.impact || (sh.investigation_path && sh.investigation_path.length)) {
+        html += '<div class="small mb-2 mt-2 ps-2 border-start border-3 border-primary">';
+        html += '<div class="fw-semibold text-primary mb-1"><i class="fas fa-sitemap me-1"></i>诊断决策</div>';
+        if (sh.problem_location) {
+            html += '<div class="mb-1"><strong class="text-secondary">问题定位：</strong>' + escapeHtml(sh.problem_location) + '</div>';
+        }
+        if (sh.impact) {
+            html += '<div class="mb-1"><strong class="text-secondary">影响判断：</strong>' + escapeHtml(sh.impact) + '</div>';
+        }
+        if (sh.investigation_path && sh.investigation_path.length) {
+            html += '<div class="mb-1"><strong class="text-secondary">排查路径：</strong></div><ol class="small mb-0 ps-3">';
+            sh.investigation_path.forEach(function (p) { html += '<li>' + escapeHtml(p) + '</li>'; });
+            html += '</ol>';
+        }
+        html += '</div>';
+    }
+    if (sh.suggestions && sh.suggestions.length) {
+        html += '<div class="small mb-1"><strong>建议：</strong></div><ul class="small mb-1 ps-3">';
+        sh.suggestions.forEach(function (s) { html += '<li>' + escapeHtml(s) + '</li>'; });
+        html += '</ul>';
+    }
+    if (sh.evidence && sh.evidence.length) {
+        const sep = String.fromCharCode(10) + '--- 分隔 ---' + String.fromCharCode(10);
+        html += '<details class="small"><summary>采集证据（' + sh.evidence.length + '）</summary>'
+              + '<pre class="bg-white p-2 mt-1 mb-0" style="white-space:pre-wrap;max-height:160px;overflow:auto;font-size:11px;">'
+              + escapeHtml(sh.evidence.join(sep))
+              + '</pre></details>';
+    }
+    // #25 证据链：区分「直接证据 / 模型推断 / 历史引用」，结论可审计
+    html += renderEvidenceChain(sh.evidence_chain);
+    if (sh.historical_cases && sh.historical_cases.length) {
+        html += '<details class="small mt-2"><summary class="text-info fw-semibold" style="cursor:pointer;"><i class="fas fa-history me-1"></i>相似历史案例（' + sh.historical_cases.length + '）</summary>';
+        html += '<div class="mt-1 ps-2 border-start border-3 border-info">';
+        sh.historical_cases.forEach(function (c) {
+            const rc = c.root_cause || '';
+            const sugs = c.suggestions || [];
+            // #27 有人工确认的最终根因/处理方式即视为高质量案例
+            const lowQuality = !(c.final_root_cause || c.fix_action)
+                && (rc.length < 6 || sugs.length === 0 || (sugs.length === 1 && sugs[0].length < 6));
+            // #27 质量标识：人工已验证 > 已解决 > 误报（降权）> 待复盘
+            let resolvedBadge;
+            if (c.resolution === 'false_positive') {
+                resolvedBadge = '<span class="badge bg-danger me-1">曾判误报（已降权）</span>';
+            } else if (c.verified) {
+                resolvedBadge = '<span class="badge bg-success me-1"><i class="fas fa-user-check me-1"></i>人工已验证</span>';
+            } else if (c.resolved) {
+                resolvedBadge = '<span class="badge bg-success me-1">已解决</span>';
+            } else {
+                resolvedBadge = '<span class="badge bg-secondary me-1">待复盘</span>';
+            }
+            const score = (c._score != null) ? ('推荐分 ' + c._score) : '';
+            const hits = (c.hit_count > 0) ? '<span class="badge bg-info text-dark ms-1">复用 ' + c.hit_count + ' 次</span>' : '';
+            html += '<div class="mb-2 pb-2 border-bottom">';
+            html += '<div class="mb-1">' + resolvedBadge
+                  + '<span class="badge bg-light text-dark border me-1">' + escapeHtml(c.rule_name || c.alert_type || '未知') + '</span>'
+                  + (score ? '<small class="text-muted">' + escapeHtml(score) + '</small>' : '') + hits + '</div>';
+            if (lowQuality) {
+                html += '<div class="text-muted fst-italic">（该历史案例信息不全，建议人工补充后复用）</div>';
+            } else {
+                if (c.final_root_cause) html += '<div class="mb-1"><strong class="text-success">最终根因（人工确认）：</strong>' + escapeHtml(c.final_root_cause) + '</div>';
+                if (rc) html += '<div class="mb-1"><strong class="text-secondary">以往根因' + (c.final_root_cause ? '（AI）' : '') + '：</strong>' + escapeHtml(rc) + '</div>';
+                if (c.fix_action) html += '<div class="mb-1"><strong class="text-success">最终处理方式：</strong>' + escapeHtml(c.fix_action) + '</div>';
+                if (c.fixed_version || c.affected_versions || c.owner_module) {
+                    const meta = [];
+                    if (c.affected_versions) meta.push('影响版本 ' + c.affected_versions);
+                    if (c.fixed_version) meta.push('修复版本 ' + c.fixed_version);
+                    if (c.owner_module) meta.push('责任模块 ' + c.owner_module);
+                    html += '<div class="mb-1 text-muted small">' + escapeHtml(meta.join(' · ')) + '</div>';
+                }
+                    if (sugs.length) {
+                        html += '<div class="mb-1"><strong class="text-secondary">以往修复：</strong></div><ul class="small mb-0 ps-3">';
+                        sugs.slice(0, 2).forEach(function (s) { html += '<li>' + escapeHtml(s) + '</li>'; });
+                        if (sugs.length > 2) html += '<li class="text-muted">…共 ' + sugs.length + ' 条</li>';
+                        html += '</ul>';
+                    }
+                    const patch = c.suggested_patch || '';
+                    if (patch.trim()) {
+                        html += '<div class="mb-1"><strong class="text-secondary">以往修复代码（L4 生成）：</strong></div>';
+                        html += '<pre class="bg-dark text-light p-1 mt-1 mb-0" style="white-space:pre-wrap;max-height:140px;overflow:auto;font-size:10px;border-radius:4px;">' + escapeHtml(patch) + '</pre>';
+                    }
+            }
+            html += '</div>';
+        });
+        html += '</div></details>';
+    }
+    // L4 自动生成 Patch：展示 AI 给出的修复代码建议（仅片段，人工评审后落地，不自动改代码）
+    if (sh.suggested_patch && sh.suggested_patch.trim()) {
+        html += '<details class="small mt-2"><summary class="text-success fw-semibold" style="cursor:pointer;"><i class="fas fa-code me-1"></i>建议修复代码（L4 生成 · 需人工评审后落地）</summary>';
+        html += '<pre class="bg-dark text-light p-2 mt-1 mb-0" style="white-space:pre-wrap;max-height:220px;overflow:auto;font-size:11px;border-radius:4px;">' + escapeHtml(sh.suggested_patch) + '</pre>';
+        html += '</details>';
+    }
+    html += '<button class="btn btn-sm btn-outline-primary mt-2" onclick="generateBugReport(\'' + (sh.alert_id || '') + '\')"><i class="fas fa-bug me-1"></i>生成Bug单</button>';
+    html += '</div>';
+    return html;
+}
+
+const severityClass = { high: 'danger', medium: 'warning', low: 'info' };
+
+function renderList(alerts) {
+    const box = document.getElementById('alertList');
+    if (!alerts.length) {
+        box.innerHTML = '<div class="text-muted text-center py-4">暂无符合条件的告警</div>';
+        return;
+    }
+    let html = '<div class="list-group list-group-flush">';
+    alerts.forEach(function (a) {
+        const sev = severityClass[a.severity] || 'secondary';
+        const resMap = {
+            verified_fixed: ['已验证修复', 'bg-success'],
+            not_fixed: ['验证未修复', 'bg-danger'],
+            partially_fixed: ['部分修复', 'bg-warning text-dark'],
+            not_reproducible: ['当前未复现', 'bg-info text-dark'],
+            false_positive: ['误报', 'bg-secondary'],
+            known_issue: ['已知问题', 'bg-secondary']
+        };
+        const rr = resMap[a.resolution] || (a.acknowledged ? ['已确认', 'bg-success'] : ['未确认', 'bg-warning text-dark']);
+        const ackBadge = `<span class="badge ${rr[1]}">${rr[0]}</span>`;
+        html += `
+            <div class="list-group-item ${a.acknowledged ? 'opacity-50' : ''}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-1 flex-wrap gap-1">
+                            <span class="badge bg-${sev}">${escapeHtml(a.severity)}</span>
+                            <strong>${escapeHtml(a.rule_name)}</strong>
+                            <small class="text-muted">${fmtTime(a.timestamp)}</small>
+                            <small class="text-muted">设备: ${escapeHtml(a.device_id || '-')}</small>
+                            ${ackBadge}
+                        </div>
+                        <div class="text-muted small mb-1" style="font-family: monospace; white-space:pre-wrap; word-break:break-all;">
+                            ${escapeHtml((a.log_line || '').substring(0, 300))}
+                        </div>
+                        ${renderAgentV2Timeline(a.self_heal)}
+                        ${renderActionBlock(a.action_taken)}
+                        ${renderSelfHealBlock(a.self_heal, a)}
+                    </div>
+                    <div class="btn-group btn-group-sm ms-2 flex-shrink-0 align-self-start">
+                        ${!a.acknowledged ? `
+                            <button class="btn btn-outline-secondary" onclick="ack('${escapeHtml(a.id)}','${escapeHtml(a.task_id || '')}')" title="确认告警">
+                                <i class="fas fa-check"></i> 确认
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    box.innerHTML = html;
+}
+
+async function reload() {
+    const device = document.getElementById('fDevice').value.trim();
+    const severity = document.getElementById('fSeverity').value;
+    const ack = document.getElementById('fAck').value;
+    const keyword = document.getElementById('fKeyword').value.trim().toLowerCase();
+
+    const params = new URLSearchParams();
+    if (device) params.set('device_id', device);
+    if (severity) params.set('severity', severity);
+    if (ack) params.set('acknowledged', ack);
+    params.set('limit', '500');
+
+    const box = document.getElementById('alertList');
+    box.innerHTML = '<div class="text-muted text-center py-4">加载中…</div>';
+    try {
+        const r = await fetch('/log_monitor/api/alerts?' + params.toString());
+        const j = await r.json();
+        let alerts = (j.data && j.data.alerts) || [];
+
+        if (keyword) {
+            alerts = alerts.filter(a =>
+                (a.rule_name || '').toLowerCase().includes(keyword) ||
+                (a.log_line || '').toLowerCase().includes(keyword)
+            );
+        }
+
+        renderList(alerts);
+        document.getElementById('resultCount').textContent = '共 ' + alerts.length + ' 条';
+
+        // 概览统计：从当前加载结果聚合（含本地关键词过滤）
+        const total = alerts.length;
+        const by = { high: 0, medium: 0, low: 0 };
+        let ackCount = 0;
+        alerts.forEach(a => {
+            if (by[a.severity] !== undefined) by[a.severity]++;
+            if (a.acknowledged) ackCount++;
+        });
+        document.getElementById('statTotal').textContent = '总计 ' + total;
+        document.getElementById('statHigh').textContent = '高 ' + by.high;
+        document.getElementById('statMedium').textContent = '中 ' + by.medium;
+        document.getElementById('statLow').textContent = '低 ' + by.low;
+        document.getElementById('statAck').textContent = '已确认 ' + ackCount;
+        document.getElementById('statUnack').textContent = '未确认 ' + (total - ackCount);
+    } catch (e) {
+        box.innerHTML = '<div class="text-danger text-center py-4">加载失败：' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+// #31 测试视角确认弹窗：验证结论 + 版本/复现/回归信息
+function ack(alertId, taskId) {
+    const html = '<div class="modal fade" id="ackModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">'
+        + '<div class="modal-header bg-success text-white"><h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>确认验证结论（闭环）</h5>'
+        + '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>'
+        + '<div class="modal-body">'
+        + '<p class="small text-muted">确认后 AI 诊断与修复建议将沉淀为知识库，供相似问题复用。</p>'
+        + '<details class="mb-2 small"><summary class="text-primary" style="cursor:pointer;"><i class="fas fa-pen me-1"></i>补充结构化信息（选填，填得越全知识库越准）</summary>'
+        + '<div class="mt-2">'
+        + '<div class="mb-2"><label class="form-label small mb-0">最终根因（人工确认，优先于 AI 根因）</label><textarea class="form-control form-control-sm" id="akFinalRootCause" rows="2"></textarea></div>'
+        + '<div class="mb-2"><label class="form-label small mb-0">最终处理方式</label><input class="form-control form-control-sm" id="akFixAction"></div>'
+        + '<div class="row g-2 mb-2"><div class="col-6"><label class="form-label small mb-0">影响版本</label><input class="form-control form-control-sm" id="akAffected"></div>'
+        + '<div class="col-6"><label class="form-label small mb-0">修复版本</label><input class="form-control form-control-sm" id="akFixed"></div></div>'
+        + '<div class="row g-2 mb-2"><div class="col-6"><label class="form-label small mb-0">验证版本</label><input class="form-control form-control-sm" id="akVerificationVersion" placeholder="例：5.1.2.2003"></div>'
+        + '<div class="col-6"><label class="form-label small mb-0">复现次数</label><input class="form-control form-control-sm" id="akReproducedCount" type="number" min="0" value="0"></div></div>'
+        + '<div class="row g-2 mb-2"><div class="col-6"><label class="form-label small mb-0">回归判断</label>'
+        + '<select class="form-select form-select-sm" id="akRegressionStatus"><option value="">未填写</option><option value="new_issue">首次发现</option><option value="regression">疑似回归</option><option value="reopen">已修复后再次出现</option><option value="stable_fixed">连续验证稳定修复</option></select></div>'
+        + '<div class="col-6"><label class="form-label small mb-0">验证人</label><input class="form-control form-control-sm" id="akVerifier" placeholder="默认 web"></div></div>'
+        + '<div class="mb-1"><label class="form-label small mb-0">责任模块</label><input class="form-control form-control-sm" id="akOwnerModule"></div>'
+        + '<div class="mt-2"><label class="form-label small mb-0">验证备注</label><textarea class="form-control form-control-sm" id="akVerificationNote" rows="2" placeholder="例：Android 12 设备已过，低内存设备仍偶发"></textarea></div>'
+        + '</div></details>'
+        + '<div class="d-grid gap-2">'
+        + '<button class="btn btn-outline-success" onclick="ackSubmit(\'' + alertId + '\',\'' + (taskId || '') + '\',\'verified_fixed\')"><i class="fas fa-check me-1"></i>已验证修复</button>'
+        + '<button class="btn btn-outline-danger" onclick="ackSubmit(\'' + alertId + '\',\'' + (taskId || '') + '\',\'not_fixed\')"><i class="fas fa-xmark me-1"></i>验证未修复</button>'
+        + '<button class="btn btn-outline-warning" onclick="ackSubmit(\'' + alertId + '\',\'' + (taskId || '') + '\',\'partially_fixed\')"><i class="fas fa-circle-half-stroke me-1"></i>部分修复</button>'
+        + '<button class="btn btn-outline-info" onclick="ackSubmit(\'' + alertId + '\',\'' + (taskId || '') + '\',\'not_reproducible\')"><i class="fas fa-eye-slash me-1"></i>当前未复现</button>'
+        + '<button class="btn btn-outline-warning" onclick="ackSubmit(\'' + alertId + '\',\'' + (taskId || '') + '\',\'false_positive\')"><i class="fas fa-ban me-1"></i>误报 / 非问题（将降权，不再推荐）</button>'
+        + '<button class="btn btn-outline-secondary" onclick="ackSubmit(\'' + alertId + '\',\'' + (taskId || '') + '\',\'known_issue\')"><i class="fas fa-book me-1"></i>已知问题</button>'
+        + '</div></div></div></div></div>';
+    const old = document.getElementById('ackModal');
+    if (old) old.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('ackModal')).show();
+}
+
+async function ackSubmit(alertId, taskId, resolution) {
+    const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    const body = {
+        user: 'web', resolution,
+        final_root_cause: val('akFinalRootCause'),
+        fix_action: val('akFixAction'),
+        affected_versions: val('akAffected'),
+        fixed_version: val('akFixed'),
+        verification_version: val('akVerificationVersion'),
+        reproduced_count: val('akReproducedCount'),
+        regression_status: val('akRegressionStatus'),
+        verifier: val('akVerifier'),
+        owner_module: val('akOwnerModule'),
+        verification_note: val('akVerificationNote')
+    };
+    const m = bootstrap.Modal.getInstance(document.getElementById('ackModal'));
+    if (m) m.hide();
+    const params = new URLSearchParams();
+    if (taskId) params.set('task_id', taskId);
+    try {
+        const r = await fetch('/log_monitor/api/alerts/' + encodeURIComponent(alertId) + '/acknowledge?' + params.toString(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const j = await r.json();
+        if (r.ok && j.success) {
+            reload();
+        } else {
+            alert('确认失败：' + (j.message || r.status));
+        }
+    } catch (e) {
+        alert('确认失败：' + e.message);
+    }
+}
+
+function resetFilters() {
+    document.getElementById('fDevice').value = '';
+    document.getElementById('fSeverity').value = '';
+    document.getElementById('fAck').value = '';
+    document.getElementById('fKeyword').value = '';
+    reload();
+}
+
+document.addEventListener('DOMContentLoaded', reload);
+
+let _bugReport = { title: '', description: '' };
+let _testReport = { title: '', description: '' };
+function generateBugReport(alertId) {
+    if (!alertId) { alert('该记录缺少告警ID，无法生成Bug单'); return; }
+    fetch('/log_monitor/api/alerts/' + encodeURIComponent(alertId) + '/bug_report', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (!d || !d.data || !d.data.title) { alert('生成失败：' + ((d && d.message) || '未知错误')); return; }
+            _bugReport = d.data;
+            document.getElementById('bugTitle').textContent = d.data.title || '';
+            document.getElementById('bugDesc').value = d.data.description || '';
+            var modalEl = document.getElementById('bugReportModal');
+            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        })
+        .catch(function (e) { alert('请求失败：' + e); });
+}
+function copyBugReport() {
+    var t = document.getElementById('bugDesc');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t.value).then(function () { alert('已复制到剪贴板'); }, function () { fallbackCopy(t); });
+    } else { fallbackCopy(t); }
+}
+function fallbackCopy(t) {
+    t.select(); document.execCommand('copy'); alert('已复制到剪贴板');
+}
+function exportBugReport() {
+    var content = '# ' + (_bugReport.title || 'Bug') + '\n\n' + (_bugReport.description || '');
+    var blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = (_bugReport.title || 'bug_report') + '.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function generateTestReport() {
+    const params = new URLSearchParams();
+    const device = document.getElementById('fDevice').value.trim();
+    const severity = document.getElementById('fSeverity').value;
+    const ack = document.getElementById('fAck').value;
+    if (device) params.set('device_id', device);
+    if (severity) params.set('severity', severity);
+    if (ack) params.set('acknowledged', ack);
+    params.set('limit', '500');
+    fetch('/log_monitor/api/alerts/test_report?' + params.toString())
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (!d || !d.data || !d.data.title) { alert('生成失败：' + ((d && d.message) || '未知错误')); return; }
+            _testReport = d.data;
+            document.getElementById('testReportTitle').textContent = d.data.title || '';
+            document.getElementById('testReportDesc').value = d.data.description || '';
+            var modalEl = document.getElementById('testReportModal');
+            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        })
+        .catch(function (e) { alert('请求失败：' + e); });
+}
+
+function copyTestReport() {
+    var t = document.getElementById('testReportDesc');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t.value).then(function () { alert('已复制到剪贴板'); }, function () { fallbackCopy(t); });
+    } else { fallbackCopy(t); }
+}
+
+function exportTestReport() {
+    var content = '# ' + (_testReport.title || 'test_report') + '\n\n' + (_testReport.description || '');
+    var blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = (_testReport.title || 'test_report') + '.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+</script>
+
+<div class="modal fade" id="bugReportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-bug me-1"></i>生成 Bug 单</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2"><strong>标题：</strong><span id="bugTitle" class="text-break"></span></div>
+        <textarea id="bugDesc" class="form-control font-monospace" rows="16" readonly style="font-size:12px;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" onclick="copyBugReport()"><i class="fas fa-copy me-1"></i>复制</button>
+        <button type="button" class="btn btn-primary" onclick="exportBugReport()"><i class="fas fa-download me-1"></i>导出 MD</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="testReportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-file-lines me-1"></i>测试回归报告</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2"><strong>标题：</strong><span id="testReportTitle" class="text-break"></span></div>
+        <textarea id="testReportDesc" class="form-control font-monospace" rows="16" readonly style="font-size:12px;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" onclick="copyTestReport()"><i class="fas fa-copy me-1"></i>复制</button>
+        <button type="button" class="btn btn-primary" onclick="exportTestReport()"><i class="fas fa-download me-1"></i>导出 MD</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

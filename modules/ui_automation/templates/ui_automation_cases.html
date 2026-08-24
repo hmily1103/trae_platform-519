@@ -16,33 +16,38 @@
 
 <div class="row">
     <!-- 左侧：项目列表 -->
-    <div class="col-md-3">
-        <div class="card mb-4">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">项目列表</h5>
-                <button class="btn btn-sm btn-link" onclick="refreshProjects()">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
+    <div class="col-md-2">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                <h6 class="mb-0">项目</h6>
+                <div>
+                    <button class="btn btn-sm btn-link p-0" onclick="refreshProjects()" title="刷新">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="btn btn-sm btn-link p-0 ms-1" data-bs-toggle="modal" data-bs-target="#createProjectModal" title="新建">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
             </div>
-            <div class="list-group list-group-flush" id="projectList">
-                <div class="text-center py-3 text-muted">加载中...</div>
+            <div class="list-group list-group-flush" id="projectList" style="max-height: 420px; overflow-y: auto;">
+                <div class="text-center py-3 text-muted small">加载中...</div>
             </div>
         </div>
     </div>
 
     <!-- 右侧：内容区域 -->
-    <div class="col-md-9">
-        <div class="card">
-            <div class="card-header bg-light">
-                <ul class="nav nav-tabs card-header-tabs">
+    <div class="col-md-10">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white py-2">
+                <ul class="nav nav-tabs card-header-tabs" id="casesTabs">
                     <li class="nav-item">
-                        <a class="nav-link active" id="tab-cases-link" data-bs-toggle="tab" href="#tab-cases" role="tab">
-                            <i class="fas fa-file-alt"></i> 测试用例
+                        <a class="nav-link active" id="tab-cases-link" data-bs-toggle="tab" href="#tab-cases" role="tab" onclick="switchToCasesTab()">
+                            <i class="fas fa-file-alt me-1"></i> 测试用例
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="tab-suites-link" data-bs-toggle="tab" href="#tab-suites" role="tab">
-                            <i class="fas fa-layer-group"></i> 测试套件
+                        <a class="nav-link" id="tab-suites-link" data-bs-toggle="tab" href="#tab-suites" role="tab" onclick="switchToSuitesTab()">
+                            <i class="fas fa-layer-group me-1"></i> 测试套件
                         </a>
                     </li>
                 </ul>
@@ -61,14 +66,14 @@
                             </div>
                         </div>
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead>
+                            <table class="table table-striped table-hover align-middle">
+                                <thead class="table-light">
                                     <tr>
-                                        <th>用例名称</th>
-                                        <th>描述</th>
-                                        <th>操作数</th>
-                                        <th>创建时间</th>
-                                        <th>操作</th>
+                                        <th style="width:36%;">用例名称</th>
+                                        <th style="width:18%;">平台 / 目标</th>
+                                        <th style="width:8%;">步骤</th>
+                                        <th style="width:16%;">最近执行</th>
+                                        <th style="width:22%;">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="caseList">
@@ -232,8 +237,35 @@
                     <p class="mb-0" id="viewCaseDesc">-</p>
                 </div>
                 <div class="mb-3">
+                    <h6 class="text-muted mb-1">平台</h6>
+                    <p class="mb-0" id="viewCasePlatform">-</p>
+                </div>
+                <div class="mb-3">
+                    <h6 class="text-muted mb-1">目标</h6>
+                    <p class="mb-0 font-monospace small" id="viewCaseTarget">-</p>
+                </div>
+                <div class="mb-3">
                     <h6 class="text-muted mb-1">包名</h6>
                     <p class="mb-0 font-monospace small" id="viewCasePackage">-</p>
+                </div>
+                <div class="mb-3">
+                    <h6 class="text-muted mb-1">入口地址</h6>
+                    <p class="mb-0 font-monospace small" id="viewCaseEntryUrl">-</p>
+                </div>
+                <div class="mb-3">
+                    <div class="alert alert-warning py-2 px-3 small d-none" id="viewCasePlatformNotice"></div>
+                </div>
+                <div class="mb-3">
+                    <h6 class="text-muted mb-2">用例体检</h6>
+                    <div class="border rounded p-3 bg-light small" id="viewCaseQuality">
+                        加载中...
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <h6 class="text-muted mb-2">最近失败归因</h6>
+                    <div class="border rounded p-3 bg-light small" id="viewCaseDiagnosis">
+                        加载中...
+                    </div>
                 </div>
                 <div>
                     <h6 class="text-muted mb-2">操作步骤 (<span id="viewCaseStepCount">0</span>)</h6>
@@ -244,7 +276,7 @@
             </div>
             <div class="modal-footer">
                 <a id="viewCaseEditLink" href="#" class="btn btn-outline-primary me-auto" target="_blank">
-                    <i class="fas fa-edit me-1"></i>在录制工坊中编辑
+                    <i class="fas fa-edit me-1"></i>在录制中编辑
                 </a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
             </div>
@@ -291,9 +323,37 @@
 </div>
 
 
+<!-- 快速执行模态框 -->
+<div class="modal fade" id="quickRunModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="fas fa-play me-2 text-success"></i>快速执行</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">选择执行设备（可多选）</p>
+                <div class="border rounded" style="max-height: 200px; overflow-y: auto;">
+                    <div class="list-group list-group-flush" id="quickRunDeviceList">
+                        <div class="text-center text-muted py-2"><div class="spinner-border spinner-border-sm me-2"></div>检测设备...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success btn-sm" id="quickRunStartBtn" onclick="startQuickRun()" disabled>
+                    <i class="fas fa-play me-1"></i>开始执行
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 {% endblock %}
 
 {% block extra_js %}
+{{ super() }}
 <script>
     let currentProjectId = null;
     let projects = [];
@@ -319,7 +379,7 @@
                 showToast('已恢复对运行中套件「' + (job.suite_name || '') + '」的监控', 'info');
             }
         } catch (e) {
-            console.error('checkRunningSuiteJobs:', e);
+            console.error('检查运行中任务失败:', e);
         }
     }
 
@@ -400,7 +460,7 @@
         const description = $('#projectDescription').val();
         
         if (!name) {
-            alert('请输入项目名称');
+            showToast('请输入项目名称', 'warning');
             return;
         }
         
@@ -425,9 +485,99 @@
         }
     }
 
+    // --- 快速执行单个用例 ---
+    let quickRunCaseId = null;
+
+    async function quickRunCase(caseId) {
+        quickRunCaseId = caseId;
+        // 加载设备并显示选择弹层
+        const listEl = $('#quickRunDeviceList');
+        listEl.html('<div class="text-center text-muted py-2"><div class="spinner-border spinner-border-sm me-2"></div>检测设备...</div>');
+
+        try {
+            const result = await ApiClient.get('/ui_automation/api/devices', { showLoading: false });
+            listEl.empty();
+            const allDevices = (result && result.data && result.data.all_devices) || [];
+            const plainDevices = (result && result.data && result.data.devices) || [];
+            const list = allDevices.length ? allDevices : plainDevices.map(function(id) { return { id: id, status: 'device' }; });
+            if (list.length === 0) {
+                listEl.html('<div class="text-center text-muted py-2">未发现设备</div>');
+            } else {
+                list.forEach(function(d) {
+                    const id = d.id || d;
+                    const status = d.status || 'device';
+                    if (status === 'device') {
+                        listEl.append('<label class="list-group-item d-flex gap-2 py-2">' +
+                            '<input class="form-check-input flex-shrink-0 quick-run-device" type="radio" name="quickRunDevice" value="' + id + '">' +
+                            '<span class="flex-grow-1"><i class="fas fa-mobile-alt me-2"></i>' + escapeHtml(id) + '</span>' +
+                            '</label>');
+                    } else {
+                        const tip = status === 'unauthorized' ? '需授权' : (status === 'offline' ? '离线' : status);
+                        listEl.append('<div class="list-group-item d-flex gap-2 py-2 text-muted">' +
+                            '<i class="fas fa-mobile-alt me-2"></i>' + escapeHtml(id) +
+                            '<span class="badge bg-warning text-dark ms-1">' + tip + '</span></div>');
+                    }
+                });
+            }
+        } catch (e) {
+            listEl.html('<div class="text-center text-danger py-2">获取设备失败</div>');
+        }
+
+        $('#quickRunDeviceSection').show();
+        $('#quickRunStartBtn').prop('disabled', true);
+
+        // 设备选择变化时启用按钮
+        $('#quickRunDeviceList').off('change', '.quick-run-device').on('change', '.quick-run-device', function() {
+            $('#quickRunStartBtn').prop('disabled', false);
+        });
+
+        const modal = new bootstrap.Modal(document.getElementById('quickRunModal'));
+        modal.show();
+    }
+
+    async function startQuickRun() {
+        const selected = $('#quickRunDeviceList input.quick-run-device:checked').val();
+        if (!selected || !quickRunCaseId) return;
+
+        $('#quickRunStartBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>执行中...');
+
+        try {
+            const result = await ApiClient.post('/ui_automation/api/case/quick-run', {
+                case_id: quickRunCaseId,
+                device_ids: [selected]
+            });
+
+            if (result && result.success && result.data && result.data.job_id) {
+                suiteJobId = result.data.job_id;
+                // 关闭快速执行弹窗
+                bootstrap.Modal.getInstance(document.getElementById('quickRunModal')).hide();
+                // 打开状态监控
+                const statusModal = new bootstrap.Modal(document.getElementById('suiteStatusModal'));
+                statusModal.show();
+                startSuiteStatusPolling();
+                showToast('已开始执行', 'success');
+            } else {
+                showToast('执行失败: ' + (result.message || '未知错误'), 'error');
+                $('#quickRunStartBtn').prop('disabled', false).html('<i class="fas fa-play me-1"></i>开始执行');
+            }
+        } catch (error) {
+            showToast('执行失败: ' + error.message, 'error');
+            $('#quickRunStartBtn').prop('disabled', false).html('<i class="fas fa-play me-1"></i>开始执行');
+        }
+    }
+
+    function switchToCasesTab() {
+        refreshCases();
+    }
+
+    function switchToSuitesTab() {
+        refreshSuites();
+    }
+
     // 删除项目
     async function deleteProject(projectId, projectName) {
-        if (!confirm(`确定要删除项目 "${projectName}" 吗？\n注意：项目下的用例不会被删除，但会变为未分类。`)) {
+        if (!await showConfirm(`确定要删除项目 "${projectName}" 吗？
+注意：项目下的用例不会被删除，但会变为未分类。`, { danger: true, title: '删除项目' })) {
             return;
         }
         
@@ -467,7 +617,7 @@
     }
 
     // 渲染用例列表
-    function renderCaseList(cases) {
+    async function renderCaseList(cases) {
         const listEl = $('#caseList');
         listEl.empty();
         $('#caseCount').text(`${cases.length} 个用例`);
@@ -477,27 +627,71 @@
             return;
         }
 
-        cases.forEach(c => {
-            const date = new Date(c.created_at).toLocaleString();
-            listEl.append(`
-                <tr>
-                    <td>
-                        <div class="fw-bold">${c.name || c.id}</div>
-                        <small class="text-muted">${c.package_name || '-'}</small>
-                    </td>
-                    <td>${c.description || '-'}</td>
-                    <td>${c.action_count}</td>
-                    <td>${date}</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" onclick="viewCase('${c.id}')">
-                            <i class="fas fa-eye"></i> 查看
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteCase('${c.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `);
+        // 批量查询执行状态
+        const caseIds = cases.map(function(c) { return c.id; });
+        let execStatusMap = {};
+        try {
+            const sr = await ApiClient.post('/ui_automation/api/cases/execution-status', { case_ids: caseIds });
+            if (sr && sr.success && sr.data) {
+                execStatusMap = sr.data.status_map || {};
+            }
+        } catch (e) { /* 静默降级 */ }
+
+        cases.forEach(function(c) {
+            const platform = (c.platform || 'android').toLowerCase();
+            const platformLabel = platform === 'web' ? 'Web' : 'Android';
+            const targetText = platform === 'web'
+                ? (c.entry_url || c.target || '待配置地址')
+                : (c.target || c.device_id || c.package_name || '未指定设备');
+            const targetTitle = platform === 'web' ? targetText : (c.package_name || '未指定包名');
+            const actionCount = c.action_count || 0;
+
+            // 最近执行状态
+            const exec = execStatusMap[c.id];
+            let execHtml = '<span class="text-muted small">-</span>';
+            if (exec) {
+                const timeStr = exec.start_time ? new Date(exec.start_time * 1000).toLocaleDateString('zh-CN') : '';
+                if (exec.status === 'completed') {
+                    execHtml = '<span class="badge bg-success me-1" title="通过">✓</span><small class="text-muted">' + timeStr + '</small>';
+                    if (exec.job_id) {
+                        execHtml += ' <a href="/ui_automation/report/' + exec.job_id + '" class="ms-1 small" title="查看详情"><i class="fas fa-external-link-alt"></i></a>';
+                    }
+                } else if (exec.status === 'failed' || exec.status === 'error') {
+                    execHtml = '<span class="badge bg-danger me-1" title="失败">✗</span><small class="text-muted">' + timeStr + '</small>';
+                    if (exec.job_id) {
+                        execHtml += ' <a href="/ui_automation/report/' + exec.job_id + '" class="ms-1 small text-danger" title="查看详情"><i class="fas fa-external-link-alt"></i></a>';
+                    }
+                } else if (exec.status === 'running') {
+                    execHtml = '<span class="badge bg-primary me-1"><i class="fas fa-spinner fa-spin"></i></span><small>运行中</small>';
+                } else {
+                    execHtml = '<small class="text-muted">' + timeStr + '</small>';
+                }
+            }
+
+            listEl.append('<tr>' +
+                '<td><div class="fw-bold">' + escapeHtml(c.name || c.id) + '</div></td>' +
+                '<td>' +
+                    '<div><span class="badge ' + (platform === 'web' ? 'bg-info text-dark' : 'bg-success') + '">' + escapeHtml(platformLabel) + '</span></div>' +
+                    '<small class="text-muted font-monospace d-block">' + escapeHtml(targetText) + '</small>' +
+                    '<small class="text-muted">' + escapeHtml(targetTitle) + '</small>' +
+                '</td>' +
+                '<td><span class="badge bg-light text-dark">' + actionCount + '</span></td>' +
+                '<td>' + execHtml + '</td>' +
+                '<td>' +
+                    '<button class="btn btn-sm btn-outline-success me-1" onclick="quickRunCase(\'' + c.id + '\')" title="快速执行">' +
+                        '<i class="fas fa-play"></i>' +
+                    '</button>' +
+                    '<button class="btn btn-sm btn-outline-primary me-1" onclick="viewCase(\'' + c.id + '\')" title="查看详情">' +
+                        '<i class="fas fa-eye"></i>' +
+                    '</button>' +
+                    '<a href="/ui_automation/recorder?load=' + encodeURIComponent(c.id) + '" class="btn btn-sm btn-outline-secondary me-1" title="编辑">' +
+                        '<i class="fas fa-edit"></i>' +
+                    '</a>' +
+                    '<button class="btn btn-sm btn-outline-danger" onclick="deleteCase(\'' + c.id + '\')" title="删除">' +
+                        '<i class="fas fa-trash"></i>' +
+                    '</button>' +
+                '</td>' +
+            '</tr>');
         });
     }
 
@@ -506,7 +700,13 @@
         const modal = document.getElementById('viewCaseModal');
         const nameEl = document.getElementById('viewCaseName');
         const descEl = document.getElementById('viewCaseDesc');
+        const platformEl = document.getElementById('viewCasePlatform');
+        const targetEl = document.getElementById('viewCaseTarget');
         const pkgEl = document.getElementById('viewCasePackage');
+        const entryUrlEl = document.getElementById('viewCaseEntryUrl');
+        const platformNoticeEl = document.getElementById('viewCasePlatformNotice');
+        const qualityEl = document.getElementById('viewCaseQuality');
+        const diagnosisEl = document.getElementById('viewCaseDiagnosis');
         const stepsEl = document.getElementById('viewCaseSteps');
         const placeholderEl = document.getElementById('viewCaseStepsPlaceholder');
         const countEl = document.getElementById('viewCaseStepCount');
@@ -514,7 +714,14 @@
 
         nameEl.textContent = '-';
         descEl.textContent = '-';
+        platformEl.textContent = '-';
+        targetEl.textContent = '-';
         pkgEl.textContent = '-';
+        entryUrlEl.textContent = '-';
+        platformNoticeEl.classList.add('d-none');
+        platformNoticeEl.textContent = '';
+        qualityEl.innerHTML = '加载中...';
+        diagnosisEl.innerHTML = '加载中...';
         stepsEl.innerHTML = '';
         placeholderEl.style.display = 'block';
         countEl.textContent = '0';
@@ -526,9 +733,19 @@
         try {
             const result = await ApiClient.get(`/ui_automation/api/recording/${caseId}`, { showLoading: false });
             const rec = (result && result.data && result.data.recording) || {};
+            const platform = (rec.platform || 'android').toLowerCase();
             nameEl.textContent = rec.name || rec.id || '未命名';
             descEl.textContent = rec.description || '无';
+            platformEl.textContent = platform === 'web' ? 'Web' : 'Android';
+            targetEl.textContent = rec.target || rec.device_id || rec.package_name || '未指定';
             pkgEl.textContent = rec.package_name || '未指定';
+            entryUrlEl.textContent = rec.entry_url || '未指定';
+            if (platform !== 'android') {
+                platformNoticeEl.textContent = '这个用例已被标记为 Web 用例。当前页面已支持识别和展示，但执行器仍是 Android 链路，后续需要单独接入 Playwright。';
+                platformNoticeEl.classList.remove('d-none');
+            }
+
+            renderCaseInsights(rec.insights || {}, qualityEl, diagnosisEl);
 
             const actions = rec.actions || [];
             countEl.textContent = String(actions.length);
@@ -547,7 +764,61 @@
             }
         } catch (e) {
             placeholderEl.textContent = '加载失败: ' + (e.message || '未知错误');
-            console.error('viewCase:', e);
+            console.error('查看用例失败:', e);
+        }
+    }
+
+    function renderCaseInsights(insights, qualityEl, diagnosisEl) {
+        const quality = (insights && insights.quality) || null;
+        const diagnosis = (insights && insights.latest_diagnosis) || null;
+
+        if (quality) {
+            const badgeClass = quality.level === 'high'
+                ? 'bg-success'
+                : (quality.level === 'medium' ? 'bg-warning text-dark' : 'bg-danger');
+            const risks = (quality.risks || []).map(function(x) {
+                return '<li>' + escapeHtml(x) + '</li>';
+            }).join('');
+            const suggestions = (quality.suggestions || []).map(function(x) {
+                return '<li>' + escapeHtml(x) + '</li>';
+            }).join('');
+            const counts = quality.counts || {};
+            qualityEl.innerHTML =
+                '<div class="d-flex align-items-center justify-content-between mb-2">' +
+                    '<div class="fw-bold">可回归评分</div>' +
+                    '<span class="badge ' + badgeClass + '">' + escapeHtml((quality.level_label || '-') + ' / ' + String(quality.score || 0) + '分') + '</span>' +
+                '</div>' +
+                '<div class="mb-2 text-muted">' + escapeHtml(quality.summary || '') + '</div>' +
+                '<div class="mb-2">' +
+                    '<span class="me-2">总步骤: <strong>' + String(counts.total_steps || 0) + '</strong></span>' +
+                    '<span class="me-2">坐标: <strong>' + String(counts.coordinate_steps || 0) + '</strong></span>' +
+                    '<span class="me-2">XPath: <strong>' + String(counts.xpath_steps || 0) + '</strong></span>' +
+                    '<span class="me-2">断言: <strong>' + String(counts.assertion_steps || 0) + '</strong></span>' +
+                '</div>' +
+                (risks ? '<div class="mb-1 fw-bold">主要风险</div><ul class="mb-2">' + risks + '</ul>' : '') +
+                (suggestions ? '<div class="mb-1 fw-bold">优化建议</div><ul class="mb-0">' + suggestions + '</ul>' : '');
+        } else {
+            qualityEl.innerHTML = '<span class="text-muted">暂无体检结果</span>';
+        }
+
+        if (diagnosis) {
+            const statusClass = diagnosis.category === 'passed'
+                ? 'bg-success'
+                : 'bg-danger';
+            const actions = (diagnosis.next_actions || []).map(function(x) {
+                return '<li>' + escapeHtml(x) + '</li>';
+            }).join('');
+            diagnosisEl.innerHTML =
+                '<div class="d-flex align-items-center justify-content-between mb-2">' +
+                    '<div class="fw-bold">' + escapeHtml(diagnosis.label || '最近执行') + '</div>' +
+                    '<span class="badge ' + statusClass + '">' + escapeHtml(diagnosis.status || '') + '</span>' +
+                '</div>' +
+                '<div class="mb-2 text-muted">' + escapeHtml(diagnosis.summary || '') + '</div>' +
+                (diagnosis.failed_step ? '<div class="mb-2">失败步骤: <strong>' + String(diagnosis.failed_step) + '</strong></div>' : '') +
+                (diagnosis.error ? '<div class="mb-2"><span class="fw-bold">错误:</span> ' + escapeHtml(diagnosis.error) + '</div>' : '') +
+                (actions ? '<div class="mb-1 fw-bold">建议下一步</div><ul class="mb-0">' + actions + '</ul>' : '');
+        } else {
+            diagnosisEl.innerHTML = '<span class="text-muted">暂无执行记录，先跑一次用例后这里会显示失败归因。</span>';
         }
     }
 
@@ -559,7 +830,7 @@
 
     // 删除用例
     async function deleteCase(caseId) {
-        if (!confirm('确定要删除这个用例吗？')) {
+        if (!await showConfirm('确定要删除这个用例吗？', { danger: true, title: '删除用例' })) {
             return;
         }
         
@@ -568,7 +839,7 @@
             if (result && result.success) {
                 showToast('用例删除成功', 'success');
                 refreshCases();
-                refreshDashboardStats(); // 如果有仪表盘统计，也刷新一下
+                refreshDashboardStats(); // 如果有工作台统计，也刷新一下
             } else {
                 showToast('删除失败: ' + (result.message || '未知错误'), 'error');
             }
@@ -698,12 +969,12 @@
         });
         
         if (!name) {
-            alert('请输入套件名称');
+            showToast('请输入套件名称', 'warning');
             return;
         }
         
         if (selectedCases.length === 0) {
-            if(!confirm('未选择任何用例，确定要创建空套件吗？')) return;
+            if (!await showConfirm('未选择任何用例，确定要创建空套件吗？', { title: '创建空套件' })) return;
         }
         
         try {
@@ -729,7 +1000,7 @@
 
     // 删除套件
     async function deleteSuite(suiteId) {
-        if (!confirm('确定要删除这个测试套件吗？')) {
+        if (!await showConfirm('确定要删除这个测试套件吗？', { danger: true, title: '删除套件' })) {
             return;
         }
         
@@ -790,7 +1061,7 @@
         });
 
         if (selectedDevices.length === 0) {
-            alert('请至少选择一个执行设备');
+            showToast('请至少选择一个执行设备', 'warning');
             return;
         }
 
@@ -904,10 +1175,25 @@
                     errorHtml += `<a href="${screenshotUrl}" target="_blank" class="ms-2 btn btn-xs btn-outline-danger"><i class="fas fa-image"></i> 截图</a>`;
                 }
 
+                let stepDetail = '';
+                if (res.step_count) {
+                    stepDetail = `<small class="text-muted d-block">${res.step_count} 步</small>`;
+                }
+                if (res.failed_step) {
+                    stepDetail += `<small class="text-danger d-block">第 ${res.failed_step} 步失败: ${escapeHtml(res.failed_error || '').substring(0, 60)}</small>`;
+                }
+                if (res.failed_screenshot) {
+                    const ssUrl = `/static/ui_automation/screenshots/${res.failed_screenshot}`;
+                    stepDetail += `<a href="${ssUrl}" target="_blank" class="btn btn-xs btn-outline-danger mt-1" style="font-size:0.75rem;"><i class="fas fa-image"></i> 失败截图</a>`;
+                }
+
                 resultsEl.append(`
                     <tr>
                         <td><small class="text-muted">#${idx + 1}</small></td>
-                        <td>${displayName}</td>
+                        <td>
+                            <span class="fw-medium">${displayName}</span>
+                            ${stepDetail}
+                        </td>
                         <td><span class="badge ${badgeClass}">${res.status}</span></td>
                         <td>${errorHtml}</td>
                     </tr>
@@ -918,7 +1204,7 @@
 
     // 停止执行
     async function stopSuiteExecution() {
-        if (!confirm('确定要停止当前任务吗？')) return;
+        if (!await showConfirm('确定要停止当前任务吗？', { danger: true, title: '停止任务' })) return;
         
         try {
             await ApiClient.post(`/ui_automation/api/suite/job/${suiteJobId}/stop`);
@@ -930,14 +1216,45 @@
 
 
 
-    function showToast(message, type = 'info') {
-        if (typeof toast !== 'undefined' && toast) {
-            if (type === 'success') return toast.success(message);
-            if (type === 'error') return toast.error(message);
-            if (type === 'warning') return toast.warning(message);
-            return toast.info(message);
-        }
-        alert(message);
+
+    function showConfirm(message, opts = {}) {
+        return new Promise((resolve) => {
+            const modalEl = document.getElementById('confirmModal');
+            if (!modalEl || typeof bootstrap === 'undefined') { resolve(true); return; }
+            document.getElementById('confirmModalTitle').textContent = opts.title || '确认操作';
+            document.getElementById('confirmModalBody').textContent = message;
+            const okBtn = document.getElementById('confirmModalOkBtn');
+            okBtn.textContent = opts.okText || '确认';
+            okBtn.className = 'btn btn-sm ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            function onOk() { cleanup(); modal.hide(); resolve(true); }
+            function onCancel() { cleanup(); modal.hide(); resolve(false); }
+            function cleanup() {
+                okBtn.removeEventListener('click', onOk);
+                modalEl.removeEventListener('hidden.bs.modal', onCancel);
+            }
+            okBtn.addEventListener('click', onOk);
+            modalEl.addEventListener('hidden.bs.modal', onCancel);
+            modal.show();
+        });
     }
 </script>
+
+<!-- 通用确认弹窗 -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title" id="confirmModalTitle">确认操作</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body" id="confirmModalBody" style="white-space: pre-line;">确定要执行此操作吗？</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-sm btn-primary" id="confirmModalOkBtn">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

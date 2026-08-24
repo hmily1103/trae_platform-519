@@ -67,10 +67,10 @@ def test_load_llm_config_robust():
 
 
 def test_pick_llm_config_path():
-    """_pick_llm_config_path：统一使用 modules/test_case/llm_config.json"""
+    """_pick_llm_config_path：统一使用平台级 config/llm_config.json"""
     from modules.prd_audit.views import _pick_llm_config_path
     path = _pick_llm_config_path()
-    assert "test_case" in path.replace("\\", "/") and path.endswith("llm_config.json"), path
+    assert "config" in path.replace("\\", "/") and path.endswith("llm_config.json"), path
     print("[OK] _pick_llm_config_path: %s" % path)
 
 

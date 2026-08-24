@@ -2,18 +2,29 @@
 
 {% block extra_css %}
 <style>
-    .page-shell { max-width: 1500px; }
-    .card { border: 0; }
     .sticky-input { position: sticky; top: 16px; }
     .code-textarea { font: 12px/1.5 Consolas, "Courier New", monospace; background: #f8fafc; }
-    .metric { border-left: 4px solid #2563eb; background: #fff; }
-    .risk-P0 { border-left: 4px solid #dc2626; }
-    .risk-P1 { border-left: 4px solid #f59e0b; }
-    .risk-P2 { border-left: 4px solid #64748b; }
+    .metric { border-left: 4px solid var(--tp-accent, #2563eb); min-height: 84px; }
+    .metric strong { font-size: 20px; line-height: 1.2; }
+    .metric-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: rgba(37,99,235,.08); color: var(--tp-accent, #2563eb); }
+    .risk-P0 { border-left: 5px solid #dc2626; }
+    .risk-P1 { border-left: 5px solid #f59e0b; }
+    .risk-P2 { border-left: 5px solid #64748b; }
     .gate-PASS { background: #dcfce7; color: #166534; }
     .gate-CONDITIONAL_PASS { background: #fef3c7; color: #92400e; }
     .gate-BLOCKED { background: #fee2e2; color: #991b1b; }
     .gate-REVIEW_REQUIRED { background: #dbeafe; color: #1e40af; }
+    .decision-pill { border-radius: 10px; padding: 6px 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+    .brief-card { background: var(--tp-surface-2, #f8f9fa); border: 1px solid var(--tp-border, #dee2e6); }
+    .brief-focus .badge { white-space: normal; text-align: left; line-height: 1.45; }
+    .timeline { display: flex; gap: 8px; flex-wrap: wrap; }
+    .timeline-step { flex: 1 1 120px; border: 1px solid var(--tp-border, #dee2e6); border-radius: 10px; padding: 10px; background: var(--tp-surface, #fff); }
+    .timeline-step.done { border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.06); }
+    .timeline-step.active { border-color: rgba(37,99,235,.35); background: rgba(37,99,235,.06); }
+    .risk-card-title { font-size: 15px; }
+    .test-card { border: 1px solid var(--tp-border, #dee2e6); transition: border-color .12s ease; }
+    .test-card:hover { border-color: rgba(13, 110, 253, .45); }
+    .executor-chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; background: var(--tp-surface-2, #f8f9fa); border: 1px solid var(--tp-border, #dee2e6); padding: 4px 9px; font-size: 12px; }
     .table td, .table th { vertical-align: middle; font-size: 13px; }
     .executor-link { text-decoration: none; font-weight: 600; }
     .markdown-body { line-height: 1.65; font-size: 14px; }
@@ -23,26 +34,39 @@
     .nav-pills .nav-link { color: #475569; }
     .nav-pills .nav-link.active { background: #1d4ed8; }
     .small-label { font-size: 12px; color: #64748b; }
+    .section-title { font-size: 15px; font-weight: 700; color: #0f172a; }
+    .input-help { background: var(--tp-surface-2, #f8f9fa); border: 1px dashed var(--tp-border, #dee2e6); border-radius: 10px; padding: 10px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid page-shell py-3">
-    <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between flex-wrap align-items-center pt-3 pb-2 mb-3 border-bottom">
         <div>
-            <div class="h4 mb-1"><i class="fas fa-bullseye me-2"></i>精准回归</div>
-            <div class="text-muted small">从变更到最小验证集，再到确定性门禁与可追溯证据</div>
+            <h1 class="h2"><i class="fas fa-bullseye me-2"></i>精准回归</h1>
+            <p class="text-muted small mb-0">从代码变更出发，收敛风险、最小验证集、执行器映射和上线结论。</p>
+            <div class="d-flex flex-wrap gap-2 mt-2 small">
+                <span class="badge text-bg-light border">Git Diff</span>
+                <span class="badge text-bg-light border">风险建模</span>
+                <span class="badge text-bg-light border">最小验证集</span>
+                <span class="badge text-bg-light border">执行同步</span>
+                <span class="badge text-bg-light border">质量门禁</span>
+            </div>
         </div>
         <div class="d-flex align-items-center gap-2">
-            <a class="btn btn-sm btn-outline-primary" href="/unified/reports"><i class="fas fa-file-lines me-1"></i>报告中心</a>
+            <a class="btn btn-sm btn-outline-info" href="/unified/reports"><i class="fas fa-file-lines me-1"></i>报告中心</a>
         </div>
     </div>
 
     <div class="row g-4">
-        <div class="col-xl-4">
+        <div class="col-xxl-3 col-xl-4">
             <section class="card shadow-sm sticky-input">
                 <div class="card-header bg-white fw-bold py-3">需求与代码变更</div>
                 <div class="card-body">
+                    <div class="input-help small text-muted mb-3">
+                        <div class="fw-semibold text-dark mb-1">推荐用法</div>
+                        <div>先粘贴 GitLab 分支链接读取 Diff，再补一句需求目标；不知道上个发布 Commit 时可先用“仅对比本次提交”。</div>
+                    </div>
                     <div class="border rounded p-3 mb-3 bg-light">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <strong class="small">只读 Git 代码来源</strong>
@@ -136,7 +160,7 @@
             </section>
         </div>
 
-        <div class="col-xl-8">
+        <div class="col-xxl-9 col-xl-8">
             <div id="emptyState" class="card shadow-sm empty-panel">
                 <div class="text-center">
                     <i class="fas fa-diagram-project fa-3x mb-3 opacity-50"></i>
@@ -147,11 +171,13 @@
 
             <div id="workspace" class="d-none">
                 <div class="row g-3 mb-3">
-                    <div class="col-md-3"><div class="card metric shadow-sm p-3"><span class="small-label">分析任务</span><strong id="analysisId">-</strong></div></div>
-                    <div class="col-md-3"><div class="card metric shadow-sm p-3"><span class="small-label">风险</span><strong id="riskMetric">0</strong></div></div>
-                    <div class="col-md-3"><div class="card metric shadow-sm p-3"><span class="small-label">测试点</span><strong id="testMetric">0</strong></div></div>
-                    <div class="col-md-3"><div id="gateMetricCard" class="card shadow-sm p-3"><span class="small-label">质量门禁</span><strong id="gateMetric">-</strong></div></div>
+                    <div class="col-md-3"><div class="card metric shadow-sm p-3"><div class="d-flex justify-content-between"><span class="small-label">分析任务</span><span class="metric-icon"><i class="fas fa-fingerprint"></i></span></div><strong id="analysisId">-</strong></div></div>
+                    <div class="col-md-3"><div class="card metric shadow-sm p-3"><div class="d-flex justify-content-between"><span class="small-label">风险</span><span class="metric-icon"><i class="fas fa-triangle-exclamation"></i></span></div><strong id="riskMetric">0</strong><small id="riskBreakdown" class="text-muted"></small></div></div>
+                    <div class="col-md-3"><div class="card metric shadow-sm p-3"><div class="d-flex justify-content-between"><span class="small-label">测试点</span><span class="metric-icon"><i class="fas fa-list-check"></i></span></div><strong id="testMetric">0</strong><small id="autoBreakdown" class="text-muted"></small></div></div>
+                    <div class="col-md-3"><div id="gateMetricCard" class="card shadow-sm p-3"><div class="d-flex justify-content-between"><span class="small-label">质量门禁</span><span class="metric-icon"><i class="fas fa-shield-halved"></i></span></div><strong id="gateMetric">-</strong><small id="coverageMetric" class="text-muted"></small></div></div>
                 </div>
+
+                <div id="overviewPanel" class="card shadow-sm mb-3"></div>
 
                 <div class="card shadow-sm">
                     <div class="card-header bg-white">
@@ -167,6 +193,16 @@
                         <section id="testPanel" class="workspace-panel d-none"></section>
                         <section id="executionPanel" class="workspace-panel d-none"></section>
                         <section id="reportPanel" class="workspace-panel d-none"></section>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mt-3" id="agentTraceCard">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">Agent 推导链（可审计）</span>
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#agentTraceBody" aria-expanded="false">展开 / 收起</button>
+                    </div>
+                    <div class="collapse" id="agentTraceBody">
+                        <div class="card-body small" id="agentTrace"></div>
                     </div>
                 </div>
             </div>
@@ -392,15 +428,163 @@ function renderWorkspace(model) {
     document.getElementById('analysisId').textContent = model.analysis_id;
     document.getElementById('riskMetric').textContent = model.risks.length;
     document.getElementById('testMetric').textContent = model.test_points.length;
+    renderMetricDetails(model);
     renderGate(model.quality_gate);
+    renderOverview(model);
     renderRisks(model);
     renderTests(model);
     renderExecution(model);
     renderReport(model);
-    document.getElementById('sourceHint').textContent = model.analysis_source === 'llm'
-        ? '分析来源：AI + VOD规则校验'
-        : '分析来源：VOD规则降级。' + (model.llm_error || '');
+    renderAgentTrace(model);
+    var hintEl = document.getElementById('sourceHint');
+    if (model.analysis_source === 'agent_mastra') {
+        hintEl.textContent = '分析来源：Mastra 多步 Agent 分析（远程）';
+    } else if (model.analysis_source === 'agent') {
+        var steps = (model.agent_trace && model.agent_trace.length) ? (' · 共 ' + model.agent_trace.length + ' 步') : '';
+        hintEl.textContent = '分析来源：多步 Agent 分析（粗分→细化→校验）' + steps;
+    } else if (model.analysis_source === 'llm') {
+        hintEl.textContent = '分析来源：AI + VOD规则校验';
+    } else {
+        hintEl.textContent = '分析来源：VOD规则降级。' + (model.llm_error || '');
+    }
     history.replaceState(null, '', '?analysis_id=' + encodeURIComponent(model.analysis_id));
+}
+
+function countBy(items, getter) {
+    return (items || []).reduce(function(acc, item) {
+        var key = getter(item) || '-';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+    }, {});
+}
+
+function renderMetricDetails(model) {
+    var riskCounts = countBy(model.risks, function(r) { return r.priority; });
+    document.getElementById('riskBreakdown').textContent =
+        'P0 ' + (riskCounts.P0 || 0) + ' · P1 ' + (riskCounts.P1 || 0) + ' · P2 ' + (riskCounts.P2 || 0);
+    var execCounts = countBy(model.execution_plan, function(e) { return e.mode; });
+    document.getElementById('autoBreakdown').textContent =
+        'auto ' + (execCounts.auto || 0) + ' · semi ' + (execCounts.semi_auto || 0) + ' · manual ' + (execCounts.manual || 0);
+    document.getElementById('coverageMetric').textContent =
+        '执行覆盖率 ' + ((model.quality_gate || {}).coverage_rate || 0) + '%';
+}
+
+function renderOverview(model) {
+    var gate = model.quality_gate || {};
+    var brief = model.tester_brief || {};
+    var summary = model.change.diff_summary || {};
+    var execCounts = countBy(model.execution_plan, function(e) { return e.status; });
+    var decisionClass = 'gate-' + (gate.decision || 'REVIEW_REQUIRED');
+    var mustConfirm = brief.must_confirm || [];
+    var plain = brief.plain_summary || [];
+    var focus = brief.verification_focus || [];
+    var steps = [
+        ['已分析', true, '风险 ' + model.risks.length],
+        ['已生成', true, '测试点 ' + model.test_points.length],
+        ['待执行', (execCounts.PENDING || 0) === 0, 'PENDING ' + (execCounts.PENDING || 0)],
+        ['可定稿', !!model.report_markdown, gate.decision || '-']
+    ];
+    var html = '<div class="card-body">'
+        + '<div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">'
+        + '<div><div class="section-title mb-2">30 秒概览</div>'
+        + '<div class="small text-muted">变更类型：' + escapeHtml(summary.change_type || 'unknown')
+        + ' · 运行时影响：' + escapeHtml(summary.runtime_impact || 'unknown')
+        + ' · 来源：' + escapeHtml(model.analysis_source || '-') + '</div></div>'
+        + '<span class="decision-pill ' + decisionClass + '">' + escapeHtml(gate.decision || '-') + '</span></div>';
+    if (plain.length) {
+        html += '<div class="mt-3">';
+        plain.slice(0, 3).forEach(function(item) {
+            html += '<div class="mb-1">· ' + escapeHtml(item) + '</div>';
+        });
+        html += '</div>';
+    }
+    if (mustConfirm.length) {
+        html += '<div class="alert alert-danger py-2 mt-3 mb-0"><strong>上线前需确认：</strong>'
+            + escapeHtml(mustConfirm[0]) + '</div>';
+    }
+    if ((model.confirmations || []).length) {
+        var openCount = (model.confirmations || []).filter(function(item) { return item.status === 'OPEN'; }).length;
+        html += '<div class="small text-muted mt-2">研发确认项：OPEN ' + openCount + ' / 共 ' + model.confirmations.length + '</div>';
+    }
+    if (focus.length) {
+        html += '<div class="brief-focus mt-3"><div class="small fw-semibold text-muted mb-2">优先验证</div>';
+        focus.slice(0, 6).forEach(function(item) {
+            html += '<span class="badge text-bg-light border me-1 mb-1">' + escapeHtml(item) + '</span>';
+        });
+        html += '</div>';
+    }
+    html += '<div class="timeline mt-3">';
+    steps.forEach(function(step) {
+        html += '<div class="timeline-step ' + (step[1] ? 'done' : 'active') + '">'
+            + '<div class="fw-semibold">' + escapeHtml(step[0]) + '</div>'
+            + '<div class="small text-muted">' + escapeHtml(step[2]) + '</div></div>';
+    });
+    html += '</div></div>';
+    document.getElementById('overviewPanel').innerHTML = html;
+}
+
+function renderAgentTrace(model) {
+    var box = document.getElementById('agentTrace');
+    if (!box) return;
+    var trace = model.agent_trace;
+    if (!trace || !trace.length) {
+        box.innerHTML = '<span class="text-muted">本次分析未产生 Agent 推导链记录。</span>';
+        return;
+    }
+    var rows = trace.map(function (s) {
+        // 新 ReAct 格式：含 type 字段（think / tool / final）
+        if (s.type) {
+            if (s.type === 'think') {
+                var tools = (s.tool_calls && s.tool_calls.length)
+                    ? ' <span class="badge text-bg-info">调用 ' + escapeHtml(s.tool_calls.join('、')) + '</span>' : '';
+                var txt = (s.content || '').slice(0, 400);
+                return '<div class="border-start border-3 border-primary ps-2 py-1 mb-1 bg-light">'
+                    + '<div class="small fw-semibold text-primary">💭 思考 (轮 ' + s.step + ')' + tools + '</div>'
+                    + '<div class="small text-muted">' + escapeHtml(txt) + '</div></div>';
+            }
+            if (s.type === 'tool') {
+                var args = s.arguments ? ' ' + escapeHtml(JSON.stringify(s.arguments)) : '';
+                var obs = s.observation || '';
+                return '<div class="border-start border-3 border-warning ps-2 py-1 mb-1 bg-light">'
+                    + '<div class="small fw-semibold text-warning">🔧 工具 ' + escapeHtml(s.name || '') + '<span class="text-muted">' + args + '</span></div>'
+                    + '<div class="small text-muted">↳ ' + escapeHtml(obs) + '</div></div>';
+            }
+            if (s.type === 'final') {
+                return '<div class="border-start border-3 border-success ps-2 py-1 mb-1 bg-light">'
+                    + '<div class="small fw-semibold text-success">✅ 最终产出 · 风险 ' + (s.risks != null ? s.risks : '?') + ' · 测试点 ' + (s.test_points != null ? s.test_points : '?') + '</div></div>';
+            }
+            return '';
+        }
+        // 旧三步链格式（向后兼容）
+        if (s.step === 'react') {
+            var rBadge = String(s.status || '').indexOf('fallback') === 0
+                ? '<span class="badge text-bg-warning">降级</span>'
+                : '<span class="badge text-bg-secondary">错误</span>';
+            return '<div class="border-start border-3 border-secondary ps-2 py-1 mb-1 bg-light">'
+                + '<div class="small">ReAct ' + rBadge + ' ' + escapeHtml(s.detail || s.error || '') + '</div></div>';
+        }
+        var badge = s.status === 'ok'
+            ? '<span class="badge text-bg-success">成功</span>'
+            : (String(s.status).indexOf('fallback') === 0
+                ? '<span class="badge text-bg-warning">降级</span>'
+                : '<span class="badge text-bg-secondary">跳过</span>');
+        var detail = [];
+        if (s.risks != null) detail.push('风险 ' + s.risks);
+        if (s.test_points != null) detail.push('测试点 ' + s.test_points);
+        if (s.candidates != null) detail.push('候选 ' + s.candidates);
+        if (s.duration_ms != null) detail.push(s.duration_ms + 'ms');
+        if (s.error) detail.push('<span class="text-danger">异常: ' + escapeHtml(s.error) + '</span>');
+        var label = { candidate: '① 粗分', classify: '② 细化', validate: '③ 校验', mastra: 'Mastra 远程' }[s.step] || s.step;
+        return '<div class="d-flex justify-content-between border-bottom py-1">'
+            + '<span>' + label + ' ' + badge + '</span>'
+            + '<span class="text-muted">' + detail.join(' · ') + '</span></div>';
+    }).filter(Boolean).join('');
+    var srcNote = model.analysis_source === 'agent_mastra'
+        ? '<div class="text-muted mt-2">远程 Mastra 完成多步分析，本地未重复调用 LLM。</div>'
+        : (model.analysis_source === 'agent_react'
+            ? '<div class="text-muted mt-2">ReAct 工具调用链路：Agent 自主决定调用只读工具核实代码影响后产出结论。</div>'
+            : '');
+    box.innerHTML = rows + srcNote;
 }
 
 function renderGate(gate) {
@@ -416,20 +600,67 @@ function renderRisks(model) {
         + '<div class="small text-muted">版本 ' + escapeHtml(model.change.version)
         + ' · 文件 ' + (summary.file_count || 0) + ' · +' + (summary.additions || 0) + ' / -' + (summary.deletions || 0) + '</div></div>'
         + '<span class="badge text-bg-secondary">' + escapeHtml(model.analysis_source) + '</span></div>';
+    var brief = model.tester_brief || {};
+    if ((brief.plain_summary || []).length || (brief.verification_focus || []).length || (brief.must_confirm || []).length) {
+        html += '<div class="alert alert-info border-0 shadow-sm">'
+            + '<div class="fw-semibold mb-2">测试负责人解读</div>';
+        (brief.plain_summary || []).forEach(function(item) {
+            html += '<div>· ' + escapeHtml(item) + '</div>';
+        });
+        if ((brief.must_confirm || []).length) {
+            html += '<div class="mt-2 text-danger fw-semibold">需研发确认</div>';
+            brief.must_confirm.forEach(function(item) {
+                html += '<div class="text-danger">· ' + escapeHtml(item) + '</div>';
+            });
+        }
+        if ((brief.verification_focus || []).length) {
+            html += '<div class="mt-2 fw-semibold">建议优先验证</div>';
+            brief.verification_focus.forEach(function(item) {
+                html += '<span class="badge text-bg-light border me-1 mb-1">' + escapeHtml(item) + '</span>';
+            });
+        }
+        html += '</div>';
+    }
     var env = model.change.environment || {};
     if (env.device_id || env.stb_model || env.firmware || env.server) {
         html += '<div class="alert alert-light border py-2 small"><strong>环境：</strong>'
             + escapeHtml([env.device_id, env.stb_model, env.firmware, env.server, env.network].filter(Boolean).join(' · '))
             + '</div>';
     }
+    if ((model.confirmations || []).length) {
+        html += '<div class="card border mb-3"><div class="card-body">'
+            + '<div class="section-title mb-2">研发确认项</div>';
+        model.confirmations.forEach(function(item) {
+            var badge = item.status === 'OPEN' ? 'text-bg-danger' : (item.status === 'CONFIRMED' ? 'text-bg-success' : 'text-bg-secondary');
+            html += '<div class="border rounded p-2 mb-2" data-confirmation-id="' + escapeHtml(item.id) + '">'
+                + '<div class="d-flex justify-content-between gap-2"><div><strong>' + escapeHtml(item.id + ' · ' + item.title) + '</strong>'
+                + '<div class="small text-muted">优先级 ' + escapeHtml(item.priority) + ' · 负责人 ' + escapeHtml(item.assignee || '-') + '</div></div>'
+                + '<span class="badge ' + badge + '">' + escapeHtml(item.status) + '</span></div>';
+            if (item.status === 'OPEN') {
+                html += '<div class="input-group input-group-sm mt-2">'
+                    + '<input class="form-control confirmation-response" placeholder="填写研发确认结论/设计说明">'
+                    + '<button class="btn btn-outline-success" onclick="confirmRequirement(&quot;' + escapeHtml(item.id) + '&quot;, &quot;CONFIRMED&quot;)">确认关闭</button>'
+                    + '<button class="btn btn-outline-secondary" onclick="confirmRequirement(&quot;' + escapeHtml(item.id) + '&quot;, &quot;REJECTED&quot;)">拒绝/需修改</button></div>';
+            } else {
+                html += '<div class="small mt-2">结论：' + escapeHtml(item.response || '-') + '</div>'
+                    + '<div class="small text-muted">确认人：' + escapeHtml(item.confirmed_by || '-') + '</div>';
+            }
+            html += '</div>';
+        });
+        html += '</div></div>';
+    }
     model.risks.forEach(function(risk) {
         html += '<article class="card border mb-3 risk-' + risk.priority + '"><div class="card-body">'
-            + '<div class="d-flex justify-content-between"><strong>' + escapeHtml(risk.id + ' · ' + risk.title) + '</strong>'
+            + '<div class="d-flex justify-content-between gap-3 align-items-start"><div>'
+            + '<div class="small text-muted mb-1">' + escapeHtml(risk.id) + ' · ' + escapeHtml(risk.category) + ' · '
+            + (risk.impact_type === 'direct' ? '直接影响' : '间接影响') + '</div>'
+            + '<strong class="risk-card-title">' + escapeHtml(risk.title) + '</strong></div>'
             + '<span class="badge ' + (risk.priority === 'P0' ? 'text-bg-danger' : risk.priority === 'P1' ? 'text-bg-warning' : 'text-bg-secondary') + '">' + risk.priority + '</span></div>'
-            + '<div class="small text-muted my-2">' + escapeHtml(risk.category) + ' · '
-            + (risk.impact_type === 'direct' ? '直接影响' : '间接影响') + ' · 置信度 ' + escapeHtml(risk.confidence) + '</div>'
-            + '<p class="mb-2">' + escapeHtml(risk.scope) + '</p>'
-            + '<div class="small"><strong>证据：</strong>' + escapeHtml((risk.evidence || []).join('；')) + '</div>'
+            + '<p class="my-3">' + escapeHtml(risk.scope) + '</p>'
+            + '<div class="d-flex flex-wrap gap-2 align-items-center small mb-2">'
+            + '<span class="badge text-bg-light border">置信度 ' + escapeHtml(risk.confidence) + '</span>'
+            + '<span class="badge text-bg-light border">影响用户：' + escapeHtml(risk.affected_users || '相关用户') + '</span></div>'
+            + '<div class="small bg-light rounded p-2"><strong>证据：</strong>' + escapeHtml((risk.evidence || []).join('；')) + '</div>'
             + '</div></article>';
     });
     document.getElementById('riskPanel').innerHTML = html;
@@ -438,21 +669,55 @@ function renderRisks(model) {
 function renderTests(model) {
     var executions = {};
     model.execution_plan.forEach(function(item) { executions[item.test_point_id] = item; });
+    var counts = {llm: 0, template: 0, custom: 0};
+    model.test_points.forEach(function(p) {
+        var s = p.source === 'llm' ? 'llm' : p.source === 'template' ? 'template' : 'custom';
+        counts[s] += 1;
+    });
+    var metrics = model.metrics || {};
     var html = '<div class="alert alert-primary py-2">仅保留 ' + model.test_points.length
-        + ' 条最小验证集。自动执行表示已有模块可承接，不代表已经执行成功。</div>'
-        + '<div class="table-responsive"><table class="table table-hover"><thead><tr>'
-        + '<th>编号</th><th>等级</th><th>测试点</th><th>步骤 / 预期</th><th>执行方式</th></tr></thead><tbody>';
+        + ' 条最小验证集。'
+        + '<span class="ms-2">AI 生成 <strong>' + counts.llm + '</strong> · 模板补充 <strong>' + counts.template + '</strong>'
+        + ' · 已采纳 <strong>' + (metrics.adoption_rate || 0) + '%</strong></span>'
+        + '<div class="small text-muted mt-1">自动执行表示已有模块可承接，不代表已经执行成功。</div></div>';
+    if (model.codegraph_impact && model.codegraph_impact.enabled) {
+        var cg = model.codegraph_impact;
+        var cgMsg = '<strong>CodeGraph 代码影响透视</strong>：改动 ' + cg.changed_files.length
+            + ' 个文件 → 建议必跑测试 <strong>' + cg.affected_tests.length + '</strong> 个；影响符号 <strong>'
+            + cg.impact_symbols.length + '</strong> 个';
+        if (cg.error) { cgMsg += '（' + escapeHtml(cg.error) + '）'; }
+        html += '<div class="alert alert-info py-2 small">' + cgMsg + '</div>';
+    }
+    if (model.mastra_analysis && typeof model.mastra_analysis === 'object') {
+        html += '<div class="alert alert-secondary py-2 small">已委托 Mastra 多步分析 Agent 生成补充建议（见报告）。</div>';
+    }
+    html += '<div class="row g-3">';
     model.test_points.forEach(function(point) {
         var execution = executions[point.id];
-        var executor = execution.executor_url
-            ? '<a class="executor-link" target="_blank" href="' + escapeHtml(execution.executor_url) + '">' + escapeHtml(execution.executor_name) + '</a>'
+        var execLink = execution.executor_url_with_env || execution.executor_url || "";
+        var executor = execLink
+            ? '<a class="executor-link" target="_blank" href="' + escapeHtml(execLink) + '" title="打开执行器（已预填设备环境）">' + escapeHtml(execution.executor_name) + '</a>'
             : escapeHtml(execution.executor_name);
-        html += '<tr><td>' + point.id + '</td><td><strong>' + point.priority + '</strong></td>'
-            + '<td><div class="fw-semibold">' + escapeHtml(point.title) + '</div><small class="text-muted">' + escapeHtml(point.type) + ' · ' + escapeHtml(point.risk_ids.join(',')) + '</small></td>'
-            + '<td><div>' + escapeHtml(point.steps) + '</div><small class="text-success">预期：' + escapeHtml(point.expected) + '</small></td>'
-            + '<td><span class="badge text-bg-light border me-1">' + escapeHtml(execution.mode) + '</span>' + executor + '</td></tr>';
+        var sourceBadge = point.source === 'llm'
+            ? '<span class="badge text-bg-info me-1" title="AI 生成">AI</span>'
+            : point.source === 'template'
+            ? '<span class="badge text-bg-light border me-1" title="模板补充">模板</span>'
+            : '';
+        html += '<div class="col-lg-6"><div class="card test-card h-100"><div class="card-body">'
+            + '<div class="d-flex justify-content-between gap-2 mb-2"><div>'
+            + '<span class="badge ' + (point.priority === 'P0' ? 'text-bg-danger' : point.priority === 'P1' ? 'text-bg-warning' : 'text-bg-secondary') + ' me-1">' + point.priority + '</span>'
+            + sourceBadge + '<span class="small text-muted">' + point.id + ' · ' + escapeHtml(point.type) + '</span></div>'
+            + '<span class="executor-chip">' + escapeHtml(execution.mode) + '</span></div>'
+            + '<div class="fw-semibold mb-2">' + escapeHtml(point.title) + '</div>'
+            + '<div class="small mb-2"><span class="text-muted">步骤：</span>' + escapeHtml(point.steps) + '</div>'
+            + '<div class="small text-success mb-3"><span class="text-muted">预期：</span>' + escapeHtml(point.expected) + '</div>'
+            + '<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">'
+            + '<span class="small text-muted">关联风险：' + escapeHtml(point.risk_ids.join(',')) + '</span>'
+            + '<span>' + executor + '</span></div>'
+            + '<div class="small text-muted mt-2">映射依据：' + escapeHtml(execution.routing_reason || '按风险分类映射') + '</div>'
+            + '</div></div></div>';
     });
-    html += '</tbody></table></div>';
+    html += '</div>';
     document.getElementById('testPanel').innerHTML = html;
 }
 
@@ -460,32 +725,160 @@ function renderExecution(model) {
     var points = {};
     model.test_points.forEach(function(point) { points[point.id] = point; });
     var html = '<div class="d-flex flex-wrap justify-content-between gap-2 mb-3">'
-        + '<div><h5 class="mb-0">执行结果</h5><small class="text-muted">设备离线、ADB异常或环境不可用请选择 ENV_ERROR。</small></div>'
+        + '<div><h5 class="mb-0">执行结果</h5><small class="text-muted">设备离线、ADB异常或环境不可用请选择 ENV_ERROR。执行器链接已预填设备环境，点开即用。</small></div>'
         + '<div class="d-flex gap-2"><select id="gateMode" class="form-select form-select-sm">'
         + '<option value="observe"' + (model.gate_mode === 'observe' ? ' selected' : '') + '>观察模式</option>'
         + '<option value="enforce"' + (model.gate_mode === 'enforce' ? ' selected' : '') + '>强制门禁</option></select>'
-        + '<button class="btn btn-sm btn-primary" onclick="saveResults()">保存并计算门禁</button></div></div>'
-        + '<div class="table-responsive"><table class="table"><thead><tr><th>测试项</th><th style="width:150px">结果</th><th>Bug / 说明 / 证据</th><th>规避</th></tr></thead><tbody>';
+        + '<button class="btn btn-sm btn-outline-secondary" onclick="collectExecution()">采集状态</button>'
+        + '<button class="btn btn-sm btn-outline-success" onclick="syncExecution()">同步绑定结果</button>'
+        + '<button class="btn btn-sm btn-primary" onclick="saveResults()">保存并计算门禁</button></div></div>';
+
+    // 按执行器分组
+    var groups = {};
     model.execution_plan.forEach(function(item) {
-        var point = points[item.test_point_id] || {};
-        var executor = item.executor_url
-            ? '<a class="executor-link" target="_blank" href="' + escapeHtml(item.executor_url) + '">' + escapeHtml(item.executor_name) + '</a>'
-            : escapeHtml(item.executor_name);
-        var evidenceValue = Array.isArray(item.evidence) ? item.evidence.join(', ') : '';
-        html += '<tr data-execution-id="' + item.id + '"><td><div class="fw-semibold">' + escapeHtml(point.title || item.test_point_id) + '</div>'
-            + '<small class="text-muted">' + item.priority + ' · ' + executor + ' · ' + escapeHtml(item.mode) + '</small></td>'
-            + '<td><select class="form-select form-select-sm result-status">';
-        ['PENDING','PASS','FAIL','BLOCKED','SKIPPED','ENV_ERROR'].forEach(function(status) {
-            html += '<option value="' + status + '"' + (item.status === status ? ' selected' : '') + '>' + status + '</option>';
-        });
-        html += '</select></td><td><div class="input-group input-group-sm mb-1"><span class="input-group-text">Bug</span>'
-            + '<input class="form-control result-bug" value="' + escapeHtml(item.bug_id || '') + '"></div>'
-            + '<input class="form-control form-control-sm result-note mb-1" placeholder="结论或环境问题说明" value="' + escapeHtml(item.note || '') + '">'
-            + '<input class="form-control form-control-sm result-evidence" placeholder="证据链接/路径（逗号或换行分隔）" value="' + escapeHtml(evidenceValue) + '"></td>'
-            + '<td class="text-center"><input class="form-check-input result-workaround" type="checkbox"' + (item.workaround ? ' checked' : '') + '></td></tr>';
+        (groups[item.executor] = groups[item.executor] || []).push(item);
     });
-    html += '</tbody></table></div>';
+    var STATUS_ORDER = ['PENDING','PASS','FAIL','BLOCKED','SKIPPED','ENV_ERROR'];
+    Object.keys(groups).forEach(function(execId) {
+        var items = groups[execId];
+        var execName = items[0].executor_name;
+        var execLink = items[0].executor_url_with_env || items[0].executor_url || "";
+        var statusCount = {};
+        items.forEach(function(it){ statusCount[it.status] = (statusCount[it.status]||0)+1; });
+        var summary = STATUS_ORDER.filter(function(s){return statusCount[s];})
+            .map(function(s){ return s + ' ' + statusCount[s]; }).join(' · ') || 'PENDING ' + items.length;
+
+        // 采集快照徽标 + 明确通过组的「人工一键采纳」
+        var snap = (model.collect_report && model.collect_report.per_executor && model.collect_report.per_executor[execId]) || {};
+        var SNAP = {
+            pass: ['text-bg-success', '✅ 最近运行通过'],
+            fail: ['text-bg-danger', '⚠️ 最近运行有失败'],
+            running: ['text-bg-primary', '🔄 进行中'],
+            none: ['text-bg-secondary', '— 无运行记录'],
+            unavailable: ['text-bg-light border', '不可用'],
+            manual: ['text-bg-light border', '人工'],
+            unknown: ['text-bg-secondary', '状态未知']
+        };
+        var snapBadge = SNAP[snap.status]
+            ? '<span class="badge ' + SNAP[snap.status][0] + ' me-1" title="' + escapeHtml(snap.note || '') + '">' + SNAP[snap.status][1] + '</span>'
+            : '';
+        var adoptBtn = (snap.status === 'pass')
+            ? '<button class="btn btn-sm btn-success" onclick="adoptGroup(\'' + execId + '\')">✅ 采纳该组为通过</button>'
+            : '';
+
+        html += '<div class="card mb-3 border-0 shadow-sm"><div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center">'
+            + '<div><span class="badge text-bg-dark me-2">' + escapeHtml(execId) + '</span><strong>' + escapeHtml(execName) + '</strong>'
+            + ' <small class="text-muted">(' + items.length + ' 项)</small></div>'
+            + '<div class="d-flex gap-2 align-items-center flex-wrap">' + snapBadge
+            + '<small class="text-muted">' + escapeHtml(summary) + '</small>'
+            + (execLink ? '<a class="btn btn-sm btn-outline-primary" target="_blank" href="' + escapeHtml(execLink) + '">打开执行器</a>' : '')
+            + adoptBtn
+            + '</div></div><div class="card-body p-2"><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr>'
+            + '<th>测试项</th><th style="width:140px">结果</th><th>Bug / 说明 / 证据</th><th class="text-center">规避</th></tr></thead><tbody>';
+
+        items.forEach(function(item) {
+            var point = points[item.test_point_id] || {};
+            var evidenceValue = Array.isArray(item.evidence) ? item.evidence.join(', ') : '';
+            // manual 执行器：就地展开步骤+预期，便于人工核对
+            var detail = '<div class="small text-muted mt-1">映射依据：' + escapeHtml(item.routing_reason || '按风险分类映射') + '</div>';
+            if (item.executor === 'manual') {
+                detail += '<div class="small text-muted mt-1"><span class="badge text-bg-light border me-1">人工</span>'
+                    + '步骤：' + escapeHtml(point.steps || '—') + '<br>预期：' + escapeHtml(point.expected || '—') + '</div>';
+            }
+            html += '<tr data-execution-id="' + item.id + '" data-executor="' + item.executor + '"><td><div class="fw-semibold">' + escapeHtml(point.title || item.test_point_id) + '</div>'
+                + '<small class="text-muted">' + item.priority + ' · ' + escapeHtml(item.mode) + '</small>' + detail + '</td>'
+                + '<td><select class="form-select form-select-sm result-status">';
+            STATUS_ORDER.forEach(function(status) {
+                html += '<option value="' + status + '"' + (item.status === status ? ' selected' : '') + '>' + status + '</option>';
+            });
+            html += '</select></td><td><div class="input-group input-group-sm mb-1"><span class="input-group-text">Bug</span>'
+                + '<input class="form-control result-bug" value="' + escapeHtml(item.bug_id || '') + '"></div>'
+                + '<input class="form-control form-control-sm result-note mb-1" placeholder="结论或环境问题说明" value="' + escapeHtml(item.note || '') + '">'
+                + '<input class="form-control form-control-sm result-evidence" placeholder="证据链接/路径（逗号或换行分隔）" value="' + escapeHtml(evidenceValue) + '"></td>'
+                + '<td class="text-center"><input class="form-check-input result-workaround" type="checkbox"' + (item.workaround ? ' checked' : '') + '></td></tr>';
+        });
+        html += '</tbody></table></div></div></div>';
+    });
     document.getElementById('executionPanel').innerHTML = html;
+}
+
+function collectExecution() {
+    if (!currentAnalysis || !currentAnalysis.analysis_id) { alert('请先生成分析'); return; }
+    if (!confirm('将查询各执行模块最近运行记录，采集执行器状态快照（不直接改测试结果，防误判）。明确通过的组可一键采纳。继续？')) return;
+    var btn = event.target;
+    btn.disabled = true; btn.textContent = '采集中…';
+    fetch('/precision_test/api/analyses/' + encodeURIComponent(currentAnalysis.analysis_id) + '/collect', {method: 'POST'})
+        .then(function(r){ return r.json(); })
+        .then(function(resp){
+            if (resp.success) {
+                var m = resp.data;
+                currentAnalysis = m;
+                renderWorkspace(m);
+                alert('已采集各执行器最新状态快照。分组卡片显示状态徽标，明确「通过」的组可点「采纳该组为通过」预选结果。');
+            } else {
+                alert('采集失败：' + (resp.message || '未知错误'));
+            }
+        })
+        .catch(function(e){ alert('采集请求异常：' + e); })
+        .finally(function(){ btn.disabled = false; btn.textContent = '采集状态'; });
+}
+
+function syncExecution() {
+    if (!currentAnalysis || !currentAnalysis.analysis_id) { alert('请先生成分析'); return; }
+    if (!confirm('只会自动回填带有本次 analysis_id 和 test_point_id/execution_id 的执行结果；未绑定的最近运行不会误算。继续？')) return;
+    var btn = event.target;
+    btn.disabled = true; btn.textContent = '同步中…';
+    requestJson('/precision_test/api/analyses/' + encodeURIComponent(currentAnalysis.analysis_id) + '/sync_results', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({gate_mode: document.getElementById('gateMode').value})
+    }).then(function(model) {
+        currentAnalysis = model;
+        renderWorkspace(model);
+        var sync = model.sync_report || {};
+        var msg = '已同步绑定结果 ' + (sync.updated_count || 0) + ' 项。未绑定结果不会自动回填。';
+        if (sync.manual_conflict_count) {
+            msg += '\n发现 ' + sync.manual_conflict_count + ' 项人工结果与自动结果冲突，已保留人工结果。';
+        }
+        alert(msg);
+    }).catch(function(error) {
+        alert('同步失败：' + error.message);
+    }).finally(function() {
+        btn.disabled = false; btn.textContent = '同步绑定结果';
+    });
+}
+
+function confirmRequirement(confirmationId, status) {
+    if (!currentAnalysis) return;
+    var box = document.querySelector('[data-confirmation-id="' + confirmationId + '"]');
+    var response = box ? (box.querySelector('.confirmation-response')?.value || '').trim() : '';
+    if (!response) return alert('请先填写研发确认结论');
+    requestJson('/precision_test/api/analyses/' + encodeURIComponent(currentAnalysis.analysis_id) + '/confirmations', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            confirmation_id: confirmationId,
+            status: status,
+            response: response,
+            actor: 'manual_user'
+        })
+    }).then(function(model) {
+        renderWorkspace(model);
+        alert('确认项已更新，门禁已重新计算。');
+    }).catch(function(error) { alert(error.message); });
+}
+
+function adoptGroup(execId) {
+    // 基于执行器最近运行通过的快照，把该组仍为 PENDING 的项预选为 PASS；最终以「保存并计算门禁」为准。
+    var n = 0;
+    document.querySelectorAll('#executionPanel tr[data-executor="' + execId + '"] select.result-status').forEach(function(sel) {
+        if (sel.value === 'PENDING') { sel.value = 'PASS'; n += 1; }
+    });
+    if (n > 0) {
+        alert('已将 ' + n + ' 项预选为「通过」（依据：该执行器最近一次运行通过）。\n请点「保存并计算门禁」确认生效。');
+    } else {
+        alert('该组已无待采纳的 PENDING 项。');
+    }
 }
 
 function renderReport(model) {
@@ -494,7 +887,9 @@ function renderReport(model) {
         + '<div class="d-flex justify-content-between align-items-center"><h4 class="mb-0">' + gate.decision + '</h4>'
         + '<span>' + (gate.enforced ? '强制门禁' : '观察模式') + '</span></div>'
         + '<div class="mt-2">' + escapeHtml(gate.reasons.join('；')) + '</div>'
-        + '<div class="small mt-1">覆盖率 ' + gate.coverage_rate + '% · P0通过 ' + gate.p0_passed + '/' + gate.p0_total + '</div></div>'
+        + '<div class="small mt-1">执行覆盖率 ' + gate.coverage_rate + '% · P0通过 ' + gate.p0_passed + '/' + gate.p0_total
+        + ' · 采纳率 ' + (model.metrics ? model.metrics.adoption_rate || 0 : 0) + '%'
+        + '（LLM ' + (model.metrics ? model.metrics.llm_adoption_rate || 0 : 0) + '% / 模板 ' + (model.metrics ? model.metrics.template_adoption_rate || 0 : 0) + '%）</div></div>'
         + '<div class="d-flex flex-wrap gap-2 mb-3">'
         + '<button class="btn btn-success" onclick="finalizeReport()"><i class="fas fa-file-circle-check me-1"></i>生成正式报告</button>'
         + '<button class="btn btn-outline-primary" onclick="pushFeishu()"><i class="fas fa-paper-plane me-1"></i>发送飞书结论</button>'

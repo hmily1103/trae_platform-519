@@ -2,13 +2,13 @@
 
 {% block content %}
 <div class="container-fluid py-3">
-    <!-- Module Navigation (Tabs style) -->
+    <!-- 模块导航（标签页风格） -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-0">
             <ul class="nav nav-pills p-2 gap-2">
                 <li class="nav-item">
                     <a class="nav-link {{ 'active' if request.path == '/ui_automation/' or request.path == '/ui_automation/dashboard' else '' }}" href="/ui_automation/">
-                        <i class="fas fa-tachometer-alt me-2"></i> 仪表盘
+                        <i class="fas fa-home me-2"></i> 工作台
                     </a>
                 </li>
                 <li class="nav-item">
@@ -18,7 +18,12 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link {{ 'active' if request.path.startswith('/ui_automation/recorder') else '' }}" href="/ui_automation/recorder">
-                        <i class="fas fa-video me-2"></i> 录制工坊
+                        <i class="fas fa-video me-2"></i> 录制
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path.startswith('/ui_automation/ai') else '' }}" href="/ui_automation/ai">
+                        <i class="fas fa-robot me-2"></i> AI 探索
                     </a>
                 </li>
                 <li class="nav-item">
@@ -26,16 +31,11 @@
                         <i class="fas fa-chart-bar me-2"></i> 执行记录
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {{ 'active' if request.path.startswith('/ui_automation/remote') else '' }}" href="/ui_automation/remote">
-                        <i class="fas fa-gamepad me-2"></i> 远程控制
-                    </a>
-                </li>
             </ul>
         </div>
     </div>
 
-    <!-- Module Content -->
+    <!-- 模块内容区 -->
     <div class="module-content">
         {% block module_content %}{% endblock %}
     </div>
@@ -71,4 +71,32 @@
 
 {% block extra_js %}
 {{ super() }}
+<script>
+/* 模块级全局 Toast：零依赖（不依赖 Toastify / #globalToast 容器），统一 recorder/cases/reports 三页提示风格。
+   防 XSS：文本一律用 textContent 注入。 */
+function showToast(message, type) {
+    type = type || 'info';
+    var bgMap = {
+        success: 'bg-success text-white',
+        error:   'bg-danger text-white',
+        warning: 'bg-warning text-dark',
+        info:    'bg-info text-white'
+    };
+    var cls = bgMap[type] || bgMap.info;
+    var el = document.createElement('div');
+    el.className = 'toast align-items-center border-0 ' + cls;
+    el.setAttribute('role', 'alert');
+    el.style.cssText = 'position:fixed;left:50%;bottom:32px;transform:translateX(-50%);z-index:1080;min-width:220px;max-width:80vw;opacity:0;transition:opacity .2s;box-shadow:0 6px 24px rgba(0,0,0,.18)';
+    var body = document.createElement('div');
+    body.className = 'toast-body';
+    body.textContent = (message == null ? '' : String(message));
+    el.appendChild(body);
+    document.body.appendChild(el);
+    requestAnimationFrame(function () { el.style.opacity = '1'; });
+    setTimeout(function () {
+        el.style.opacity = '0';
+        setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 260);
+    }, 2600);
+}
+</script>
 {% endblock %}

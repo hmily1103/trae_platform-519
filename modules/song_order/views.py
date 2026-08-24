@@ -7,6 +7,15 @@ from . import song_order_bp
 from .history_store import add_order, list_history
 
 
+def _precision_context(data):
+    data = data or {}
+    return {
+        "analysis_id": data.get("precision_analysis_id") or request.args.get("precision_analysis_id"),
+        "test_point_id": data.get("precision_test_point_id") or request.args.get("precision_test_point_id"),
+        "execution_id": data.get("precision_execution_id") or request.args.get("precision_execution_id"),
+    }
+
+
 def _get_config():
     """从环境变量读取点歌配置，脱敏"""
     from utils.config_loader import get_song_order_config
@@ -92,14 +101,14 @@ def api_order():
         ok = r.status_code == 200
         resp_data = r.json() if r.headers.get("content-type", "").startswith("application/json") else {"raw": r.text[:2000]}
         if ok and resp_data and (resp_data.get("msg") == "点歌请求成功" or resp_data.get("code") == 200):
-            add_order(musicno, musicname, success=True)
+            add_order(musicno, musicname, success=True, precision_context=_precision_context(data))
         else:
-            add_order(musicno, musicname, success=False)
+            add_order(musicno, musicname, success=False, precision_context=_precision_context(data))
         return jsonify({
             "success": ok,
             "status_code": r.status_code,
             "data": resp_data,
         })
     except requests.exceptions.RequestException as e:
-        add_order(musicno, musicname, success=False)
+        add_order(musicno, musicname, success=False, precision_context=_precision_context(data))
         return jsonify({"success": False, "message": str(e)}), 500

@@ -1,0 +1,538 @@
+{% extends "ui_automation_base.html" %}
+
+{% block title %}AI 闭环探索 - Trae Platform{% endblock %}
+
+{% block module_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <div>
+        <h1 class="h2 mb-1"><i class="fas fa-robot me-2 text-primary"></i>AI 闭环探索</h1>
+        <p class="text-muted mb-0 small">规划 → 观察界面 → 执行 → 校验 → 失败重试/重规划 → 固化用例（人工抽查）</p>
+    </div>
+    <a href="/ui_automation/recorder" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-video me-1"></i>改用手动录制
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-7 mb-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">输入用例</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">设备</label>
+                    <select class="form-select" id="aiDeviceId">
+                        <option value="">选择设备…</option>
+                        {% for d in initial_all_devices %}
+                        <option value="{{ d.id }}">{{ d.id }}{% if d.status %} ({{ d.status }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">用例名称</label>
+                        <input type="text" class="form-control" id="aiName" placeholder="如：点歌搜索周杰伦">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">应用包名（可选，会尝试拉起）</label>
+                        <input type="text" class="form-control" id="aiPackage" placeholder="com.example.app">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">归属项目</label>
+                    <select class="form-select" id="aiProjectId">
+                        <option value="">不归属项目</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">自然语言或分步用例</label>
+                    <textarea class="form-control" id="aiCaseText" rows="10" placeholder="示例：&#10;1. 打开点歌页&#10;2. 点击搜索框&#10;3. 输入周杰伦&#10;4. 点击第一首歌曲&#10;&#10;或直接写：打开点歌，搜索周杰伦并点第一首"></textarea>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="aiExecute" checked>
+                    <label class="form-check-label" for="aiExecute">探索时真机执行动作（推荐）</label>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="aiClosedLoop" checked>
+                    <label class="form-check-label" for="aiClosedLoop">闭环模式（失败重试 / 滚动再找 / 重规划）</label>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-primary" id="btnAiExplore" onclick="runAiExplore()">
+                        <i class="fas fa-magic me-1"></i>开始 AI 探索
+                    </button>
+                    <button class="btn btn-outline-danger d-none" id="btnAiCancel" onclick="cancelAiExplore()">
+                        <i class="fas fa-stop me-1"></i>停止探索
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5 mb-4">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">进度时间线</h5>
+                <span id="aiJobBadge" class="badge bg-secondary">空闲</span>
+            </div>
+            <div class="card-body" id="aiTimeline" style="max-height: 320px; overflow-y: auto;">
+                <p class="text-muted mb-0 small">开始后这里会实时显示：规划 → 每步执行 → 重试/重规划 → 完成。</p>
+            </div>
+            <div class="px-3 pb-3" id="aiPreviewWrap" style="display:none;">
+                <div class="small text-muted mb-1">界面预览</div>
+                <img id="aiPreviewImg" alt="explore preview" class="img-fluid rounded border" style="max-height:160px;">
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">结果</h5>
+            </div>
+            <div class="card-body" id="aiResultPanel">
+                <p class="text-muted mb-0">提交后将展示固化用例 ID、步骤与失败归因建议。</p>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">近期任务</h5>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshExploreJobs()">刷新</button>
+            </div>
+            <div class="card-body py-2" id="aiRecentJobs">
+                <p class="text-muted small mb-0">重启后也可从这里续看结果。</p>
+            </div>
+        </div>
+        <div class="alert alert-light border small mb-0">
+            <strong>说明</strong>
+            <ul class="mb-0 ps-3">
+                <li>闭环探索失败会自动换控件/滚动重试，必要时重规划剩余步骤。</li>
+                <li>结束后会做强定位自跑验收；通过才标「可回归」。</li>
+                <li>默认 10 分钟超时；可随时点「停止探索」。</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+let _explorePollTimer = null;
+let _exploreEventOffset = 0;
+let _currentExploreJobId = null;
+
+const PHASE_LABELS = {
+    queued: '排队',
+    launch: '拉起应用',
+    planned: '已规划',
+    step_start: '开始步骤',
+    step_done: '步骤完成',
+    retry: '重试',
+    replan: '重规划中',
+    replanned: '已重规划',
+    preview: '界面预览',
+    validate_start: '开始验收',
+    validate_launch: '验收拉起',
+    validate_step: '验收步骤',
+    validated: '验收完成',
+    validate_error: '验收异常',
+    diagnosed: '失败归因',
+    budget_exhausted: '预算耗尽',
+    cancel_requested: '请求取消',
+    cancelled: '已取消',
+    cancelled_done: '取消完成',
+    done: '完成',
+    error: '错误'
+};
+
+async function refreshDevices() {
+    try {
+        const result = await ApiClient.get('/ui_automation/api/devices', { showLoading: false });
+        const devices = (result && result.data && result.data.devices) || [];
+        const sel = document.getElementById('aiDeviceId');
+        const current = sel.value;
+        sel.innerHTML = '<option value="">选择设备…</option>';
+        devices.forEach(function(d) {
+            const id = (typeof d === 'string') ? d : (d.device_id || d.id || d.serial || String(d));
+            const status = (typeof d === 'object' && d) ? (d.status || '') : '';
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = id + (status ? ' (' + status + ')' : '');
+            sel.appendChild(opt);
+        });
+        if (current) sel.value = current;
+        if (!sel.value && devices.length === 1) {
+            const only = devices[0];
+            sel.value = (typeof only === 'string') ? only : (only.id || only.device_id || '');
+        }
+    } catch (e) {
+        console.warn(e);
+    }
+}
+
+async function refreshProjects() {
+    try {
+        const result = await ApiClient.get('/ui_automation/api/projects', { showLoading: false });
+        const projects = (result && result.data && (result.data.projects || result.data)) || [];
+        const list = Array.isArray(projects) ? projects : [];
+        const sel = document.getElementById('aiProjectId');
+        const current = sel.value;
+        sel.innerHTML = '<option value="">不归属项目</option>';
+        list.forEach(function(p) {
+            const id = p.id || p.project_id || '';
+            if (!id) return;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = (p.name || id) + (p.name && p.name !== id ? ' (' + id + ')' : '');
+            sel.appendChild(opt);
+        });
+        if (current) sel.value = current;
+    } catch (e) {
+        console.warn(e);
+    }
+}
+
+function setJobBadge(status) {
+    const el = document.getElementById('aiJobBadge');
+    if (!el) return;
+    const map = {
+        idle: ['空闲', 'bg-secondary'],
+        running: ['探索中', 'bg-primary'],
+        completed: ['已完成', 'bg-success'],
+        cancelled: ['已取消', 'bg-warning text-dark'],
+        failed: ['失败', 'bg-danger']
+    };
+    const item = map[status] || map.idle;
+    el.className = 'badge ' + item[1];
+    el.textContent = item[0];
+}
+
+function setExploreButtons(running) {
+    const startBtn = document.getElementById('btnAiExplore');
+    const cancelBtn = document.getElementById('btnAiCancel');
+    if (startBtn) {
+        startBtn.disabled = !!running;
+        if (!running) {
+            startBtn.innerHTML = '<i class="fas fa-magic me-1"></i>开始 AI 探索';
+        }
+    }
+    if (cancelBtn) {
+        cancelBtn.classList.toggle('d-none', !running);
+        cancelBtn.disabled = false;
+    }
+}
+
+function appendTimeline(events) {
+    const box = document.getElementById('aiTimeline');
+    if (!box || !events || !events.length) return;
+    if (box.querySelector('.text-muted')) box.innerHTML = '';
+    events.forEach(function(ev) {
+        const phase = ev.phase || '';
+        if (phase === 'preview' && ev.preview_image) {
+            const wrap = document.getElementById('aiPreviewWrap');
+            const img = document.getElementById('aiPreviewImg');
+            if (wrap && img) {
+                img.src = 'data:image/jpeg;base64,' + ev.preview_image;
+                wrap.style.display = '';
+            }
+            return;
+        }
+        const msg = ev.message || phase;
+        const label = PHASE_LABELS[phase] || phase;
+        let color = 'text-muted';
+        if (phase === 'step_done' && ev.result && ev.result.status === 'ok') color = 'text-success';
+        if (phase === 'step_done' && ev.result && ev.result.status !== 'ok') color = 'text-danger';
+        if (phase === 'retry' || phase === 'replan' || phase === 'replanned') color = 'text-warning';
+        if (phase === 'done') color = 'text-success';
+        if (phase === 'error' || phase === 'budget_exhausted' || phase === 'cancelled') color = 'text-danger';
+        const row = document.createElement('div');
+        row.className = 'small border-bottom py-1 ' + color;
+        row.innerHTML = '<span class="badge bg-light text-dark me-1">' + escapeHtml(label) + '</span>' + escapeHtml(msg);
+        box.appendChild(row);
+    });
+    box.scrollTop = box.scrollHeight;
+}
+
+function renderResult(data) {
+    const steps = (data.planned_steps || []).map(function(s) {
+        return '<li>' + escapeHtml(String(s)) + '</li>';
+    }).join('');
+    const actions = (data.actions || []).map(function(a) {
+        const sel = a.selector ? (a.selector.strategy + '=' + a.selector.value) : '-';
+        const st = a.status === 'failed' ? ' <span class="text-danger">失败</span>' : '';
+        const weak = (a.selector && a.selector.strategy === 'coordinates')
+            ? ' <span class="badge bg-warning text-dark">弱定位</span>' : '';
+        return '<tr><td>' + a.step_num + '</td><td>' + escapeHtml(a.action_type || '') +
+            '</td><td>' + escapeHtml(a.description || a.display || '') + st +
+            '</td><td><small>' + escapeHtml(sel) + '</small>' + weak + '</td></tr>';
+    }).join('');
+
+    let diagnoseHtml = '';
+    if (data.diagnose && !data.diagnose.error) {
+        const root = data.diagnose.root_cause || data.diagnose.summary || data.diagnose.message || '';
+        diagnoseHtml =
+            '<h6 class="mt-3">失败归因建议 <span class="badge bg-warning text-dark">需人工确认</span></h6>' +
+            '<p class="small mb-1">' + escapeHtml(typeof root === 'string' ? root : JSON.stringify(root)) + '</p>' +
+            '<p class="small text-muted mb-0">补丁不会自动写入；可在执行详情页确认后应用。</p>';
+    }
+
+    const rid = data.recording_id || '';
+    const alertCls = data.cancelled ? 'alert-warning' : (data.regression_ready ? 'alert-success' : 'alert-info');
+    const gateBadge = data.regression_ready
+        ? ' <span class="badge bg-success">可回归</span>'
+        : ' <span class="badge bg-warning text-dark">需人工抽查</span>';
+    let validationHtml = '';
+    if (data.validation) {
+        const v = data.validation;
+        validationHtml =
+            '<h6 class="mt-3">自跑验收</h6>' +
+            '<p class="small mb-1">' + escapeHtml(v.reason || v.error || '') +
+            ' · 通过 ' + (v.passed || 0) + ' / 失败 ' + (v.failed || 0) +
+            (v.weak_only ? ' / 弱定位 ' + v.weak_only : '') + '</p>';
+    }
+    document.getElementById('aiResultPanel').innerHTML =
+        '<div class="alert ' + alertCls + ' py-2">' +
+        (data.cancelled ? '探索已取消，已保存部分步骤 ' : '已生成用例 ') +
+        '<code>' + escapeHtml(rid) + '</code>' +
+        (data.closed_loop ? ' <span class="badge bg-info">闭环</span>' : '') +
+        gateBadge + '</div>' +
+        '<p class="mb-1"><strong>' + escapeHtml(data.name || '') + '</strong> · ' + (data.step_count || 0) + ' 步' +
+        (data.failed_count ? ' · <span class="text-danger">失败 ' + data.failed_count + '</span>' : '') +
+        (data.replan_count ? ' · 重规划 ' + data.replan_count + ' 次' : '') + '</p>' +
+        (data.needs_human_review ? '<p class="text-warning small">建议人工抽查定位后再回归</p>' : '<p class="text-success small">强定位验收通过，可直接试跑回归</p>') +
+        validationHtml +
+        '<h6 class="mt-3">规划步骤</h6><ol class="small">' + steps + '</ol>' +
+        '<h6 class="mt-3">固化动作</h6>' +
+        '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>#</th><th>动作</th><th>描述</th><th>定位</th></tr></thead><tbody>' +
+        (actions || '<tr><td colspan="4" class="text-muted">无</td></tr>') +
+        '</tbody></table></div>' +
+        diagnoseHtml +
+        '<div class="mt-3 d-flex flex-wrap gap-2">' +
+        '<button type="button" class="btn btn-sm btn-primary" onclick="quickRunExploredCase(\'' + escapeHtml(rid) + '\')">' +
+        '<i class="fas fa-play me-1"></i>一键试跑</button>' +
+        '<a class="btn btn-sm btn-outline-primary" href="/ui_automation/recorder?load=' + encodeURIComponent(rid) + '">打开编辑/核对</a>' +
+        '<a class="btn btn-sm btn-outline-secondary" href="/ui_automation/cases">去用例管理</a>' +
+        '</div>';
+}
+
+async function quickRunExploredCase(caseId) {
+    const deviceId = (document.getElementById('aiDeviceId').value || '').trim();
+    if (!caseId) {
+        showToast('没有用例 ID', 'warning');
+        return;
+    }
+    if (!deviceId) {
+        showToast('请先选择设备再试跑', 'warning');
+        return;
+    }
+    try {
+        const result = await ApiClient.post('/ui_automation/api/case/quick-run', {
+            case_id: caseId,
+            device_ids: [deviceId]
+        }, { showLoading: true, timeout: 30000 });
+        if (!result || !result.success) {
+            throw new Error((result && result.message) || '试跑启动失败');
+        }
+        const jobId = (result.data || {}).job_id || '';
+        showToast('试跑已启动' + (jobId ? '：' + jobId : ''), 'success');
+    } catch (e) {
+        showToast(e.message || '试跑失败', 'error');
+    }
+}
+
+async function pollExploreJob(jobId) {
+    try {
+        const result = await ApiClient.get(
+            '/ui_automation/api/ai/explore/' + encodeURIComponent(jobId) + '?since=' + _exploreEventOffset,
+            { showLoading: false, showError: false, timeout: 30000 }
+        );
+        if (!result || !result.success) return;
+        const data = result.data || {};
+        const events = data.events || [];
+        appendTimeline(events);
+        _exploreEventOffset = data.event_count || (_exploreEventOffset + events.length);
+
+        if (data.status === 'running') {
+            setJobBadge('running');
+            return;
+        }
+
+        if (_explorePollTimer) {
+            clearInterval(_explorePollTimer);
+            _explorePollTimer = null;
+        }
+        _currentExploreJobId = null;
+        setExploreButtons(false);
+
+        if (data.status === 'completed' && data.result) {
+            setJobBadge('completed');
+            renderResult(data.result);
+            showToast(data.result.message || 'AI 探索完成', 'success');
+            refreshExploreJobs();
+        } else if (data.status === 'cancelled') {
+            setJobBadge('cancelled');
+            if (data.result) {
+                renderResult(data.result);
+            } else {
+                document.getElementById('aiResultPanel').innerHTML =
+                    '<div class="alert alert-warning mb-0">' + escapeHtml(data.error || '探索已取消') + '</div>';
+            }
+            showToast(data.error || '探索已取消', 'warning');
+            refreshExploreJobs();
+        } else {
+            setJobBadge('failed');
+            document.getElementById('aiResultPanel').innerHTML =
+                '<div class="alert alert-danger mb-0">' + escapeHtml(data.error || '探索失败') + '</div>';
+            showToast(data.error || '探索失败', 'error');
+            refreshExploreJobs();
+        }
+    } catch (e) {
+        console.warn('poll explore job', e);
+    }
+}
+
+async function cancelAiExplore() {
+    if (!_currentExploreJobId) return;
+    const cancelBtn = document.getElementById('btnAiCancel');
+    if (cancelBtn) cancelBtn.disabled = true;
+    try {
+        const result = await ApiClient.post(
+            '/ui_automation/api/ai/explore/' + encodeURIComponent(_currentExploreJobId) + '/cancel',
+            {},
+            { showLoading: false, showError: false, timeout: 15000 }
+        );
+        if (!result || !result.success) {
+            throw new Error((result && result.message) || '取消失败');
+        }
+        appendTimeline([{ phase: 'cancel_requested', message: '已请求取消，等待当前步骤结束…' }]);
+        showToast('已请求取消', 'info');
+    } catch (e) {
+        showToast(e.message || '取消失败', 'error');
+        if (cancelBtn) cancelBtn.disabled = false;
+    }
+}
+
+async function runAiExplore() {
+    const deviceId = (document.getElementById('aiDeviceId').value || '').trim();
+    const caseText = (document.getElementById('aiCaseText').value || '').trim();
+    if (!deviceId) {
+        showToast('请选择设备', 'warning');
+        return;
+    }
+    if (!caseText) {
+        showToast('请填写用例描述', 'warning');
+        return;
+    }
+
+    if (_explorePollTimer) {
+        clearInterval(_explorePollTimer);
+        _explorePollTimer = null;
+    }
+    _exploreEventOffset = 0;
+    _currentExploreJobId = null;
+
+    const btn = document.getElementById('btnAiExplore');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>探索中…';
+    setExploreButtons(true);
+    setJobBadge('running');
+    document.getElementById('aiTimeline').innerHTML =
+        '<div class="text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>任务启动中…</div>';
+    document.getElementById('aiResultPanel').innerHTML =
+        '<div class="text-muted small">闭环探索可能需要数分钟，可随时停止。默认超时 10 分钟。</div>';
+    const previewWrap = document.getElementById('aiPreviewWrap');
+    if (previewWrap) previewWrap.style.display = 'none';
+
+    try {
+        const result = await ApiClient.post('/ui_automation/api/ai/explore', {
+            device_id: deviceId,
+            case_text: caseText,
+            name: (document.getElementById('aiName').value || '').trim(),
+            package_name: (document.getElementById('aiPackage').value || '').trim(),
+            project_id: (document.getElementById('aiProjectId').value || '').trim(),
+            execute_while_exploring: document.getElementById('aiExecute').checked,
+            closed_loop: document.getElementById('aiClosedLoop').checked,
+            async: true,
+            auto_diagnose: true,
+            timeout_sec: 600
+        }, { showLoading: false, timeout: 60000, showError: false });
+
+        if (!result || !result.success) {
+            throw new Error((result && result.message) || '启动探索失败');
+        }
+        const jobId = (result.data || {}).job_id;
+        if (!jobId) {
+            if (result.data && result.data.recording_id) {
+                setJobBadge('completed');
+                renderResult(result.data);
+                setExploreButtons(false);
+                return;
+            }
+            throw new Error('未返回 job_id');
+        }
+        _currentExploreJobId = jobId;
+        appendTimeline([{ phase: 'queued', message: '任务已启动：' + jobId }]);
+        await pollExploreJob(jobId);
+        _explorePollTimer = setInterval(function() { pollExploreJob(jobId); }, 1500);
+    } catch (e) {
+        setJobBadge('failed');
+        document.getElementById('aiResultPanel').innerHTML =
+            '<div class="alert alert-danger mb-0">' + escapeHtml(e.message || String(e)) + '</div>';
+        showToast(e.message || '探索失败', 'error');
+        setExploreButtons(false);
+    }
+}
+
+function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);
+    });
+}
+
+$(document).ready(function() {
+    refreshDevices();
+    refreshProjects();
+    refreshExploreJobs();
+});
+
+async function refreshExploreJobs() {
+    const box = document.getElementById('aiRecentJobs');
+    if (!box) return;
+    try {
+        const result = await ApiClient.get('/ui_automation/api/ai/explore-jobs?limit=8', { showLoading: false });
+        const jobs = (result && result.data && result.data.jobs) || [];
+        if (!jobs.length) {
+            box.innerHTML = '<p class="text-muted small mb-0">暂无历史任务</p>';
+            return;
+        }
+        box.innerHTML = jobs.map(function(j) {
+            const st = j.status || '';
+            const ready = j.regression_ready ? ' <span class="badge bg-success">可回归</span>' : '';
+            return '<div class="small border-bottom py-1 d-flex justify-content-between gap-2">' +
+                '<span><a href="#" onclick="resumeExploreJob(\'' + escapeHtml(j.job_id || '') + '\');return false;">' +
+                escapeHtml(j.job_id || '') + '</a>' + ready +
+                '<br><span class="text-muted">' + escapeHtml(j.message || '') + '</span></span>' +
+                '<span class="badge bg-light text-dark">' + escapeHtml(st) + '</span></div>';
+        }).join('');
+    } catch (e) {
+        console.warn(e);
+    }
+}
+
+async function resumeExploreJob(jobId) {
+    if (!jobId) return;
+    _exploreEventOffset = 0;
+    _currentExploreJobId = jobId;
+    document.getElementById('aiTimeline').innerHTML = '';
+    setJobBadge('running');
+    await pollExploreJob(jobId);
+    const result = await ApiClient.get(
+        '/ui_automation/api/ai/explore/' + encodeURIComponent(jobId) + '?since=0',
+        { showLoading: false, showError: false }
+    );
+    const data = (result && result.data) || {};
+    if (data.status === 'running') {
+        setExploreButtons(true);
+        if (_explorePollTimer) clearInterval(_explorePollTimer);
+        _explorePollTimer = setInterval(function() { pollExploreJob(jobId); }, 1500);
+    }
+}
+</script>
+{% endblock %}

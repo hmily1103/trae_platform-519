@@ -21,7 +21,10 @@ logger = setup_logger('test_case_module')
 # 初始化存储（使用模块目录作为数据存储路径）
 STORAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(STORAGE_DIR, exist_ok=True)
-LLM_CONFIG_FILE = os.path.join(STORAGE_DIR, 'llm_config.json')
+# 平台级 LLM 配置单一真源（与 utils.llm_client.DEFAULT_LLM_CONFIG 保持一致，消除模块内双配置漂移）
+LLM_CONFIG_FILE = os.path.abspath(os.path.join(
+    os.path.dirname(__file__), '..', '..', 'config', 'llm_config.json'
+))
 METERSPHERE_CONFIG_FILE = os.path.join(STORAGE_DIR, 'metersphere_config.json')
 
 try:
@@ -30,11 +33,9 @@ except Exception as e:
     logger.error(f"初始化测试用例存储失败: {e}", exc_info=True)
     test_case_storage = None
 
-
 DEFAULT_PRD_AUDIT_PROMPT_FILE = os.path.join(STORAGE_DIR, 'prd_audit_prompt_default.txt')
 # 三段式 Stage3 极简审计报告生成（用 LLM 按八段格式输出，替代 Python 渲染）
 STAGE3_MINIMAL_PROMPT_FILE = os.path.join(STORAGE_DIR, 'prd_audit_prompt_stage3_minimal.txt')
-
 
 FALLBACK_PRD_PROMPT = (
     "你是 PRD 审计专家。请基于输入 PRD 输出结构化风险报告，至少包含："
@@ -48,7 +49,6 @@ def _ensure_list(value):
     if isinstance(value, str) and value.strip():
         return [value.strip()]
     return []
-
 
 def _numbered_lines(lines):
     arr = []
@@ -65,7 +65,6 @@ def _numbered_lines(lines):
     if not arr:
         return ""
     return "\n".join([f"{i + 1}. {x}" for i, x in enumerate(arr)])
-
 
 def _build_metersphere_row(case_data, idx):
     case_name = str(case_data.get("name") or f"未命名用例_{idx}").strip()
@@ -92,13 +91,11 @@ def _build_metersphere_row(case_data, idx):
     }
     return row
 
-
 def _mask_secret(value):
     s = str(value or "").strip()
     if len(s) <= 7:
         return "****" if s else ""
     return s[:3] + "****" + s[-4:]
-
 
 def _load_metersphere_config():
     if os.path.exists(METERSPHERE_CONFIG_FILE):
@@ -106,11 +103,9 @@ def _load_metersphere_config():
             return json.load(f)
     return {}
 
-
 def _save_metersphere_config(config):
     with open(METERSPHERE_CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
-
 
 @test_case_bp.route('/api/metersphere_config', methods=['GET', 'POST'])
 def api_metersphere_config():
@@ -151,7 +146,6 @@ def api_metersphere_config():
         except Exception as e:
             logger.exception("获取 MeterSphere 配置失败")
             return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/metersphere/import', methods=['POST'])
 def api_import_to_metersphere():
@@ -230,13 +224,11 @@ def api_import_to_metersphere():
         logger.exception("导入 MeterSphere 失败")
         return error_response(str(e), status_code=500)
 
-
 def _to_md_items(items):
     arr = _ensure_list(items)
     if not arr:
         return "- 【PRD未说明】"
     return "\n".join([f"- {x}" for x in arr])
-
 
 def _calc_quality_score(defects):
     p0 = sum(1 for d in defects if str(d.get("risk_level", "")).upper() == "P0")
@@ -255,7 +247,6 @@ def _calc_quality_score(defects):
         level = "不具备开发条件"
     return round(score, 1), level
 
-
 def _risk_weight(level):
     v = str(level or "").upper()
     if v == "P0":
@@ -264,14 +255,12 @@ def _risk_weight(level):
         return 2
     return 1
 
-
 def _max_risk(levels):
     best = "P2"
     for lv in levels:
         if _risk_weight(lv) > _risk_weight(best):
             best = str(lv or "P2").upper()
     return best
-
 
 def _core_group_name(defect):
     t = str(defect.get("type") or "")
@@ -286,7 +275,6 @@ def _core_group_name(defect):
     if "逻辑矛盾" in t:
         return "规则冲突与口径不一致"
     return f"{str(defect.get('module') or '全局')}问题聚合"
-
 
 def _merge_core_issues(defects):
     groups = {}
@@ -339,7 +327,6 @@ def _merge_core_issues(defects):
     merged.sort(key=lambda x: (_risk_weight(x["risk_level"]), x["count"]), reverse=True)
     return merged
 
-
 def _build_core_risk_summary(defects, merged_issues):
     has_conflict = any("逻辑矛盾" in str(d.get("type") or "") for d in defects)
     has_state = any("状态" in str(d.get("type") or "") for d in defects)
@@ -355,7 +342,6 @@ def _build_core_risk_summary(defects, merged_issues):
     for item in top3:
         bullets.append(f"{item.get('name')}（{item.get('risk_level')}，{item.get('count')}项）")
     return {"one_liner": one_liner, "top3": bullets}
-
 
 def _run_stage3_llm_report(prd_content, stage1_output, stage2_output, llm_config_path, timeout=90):
     """
@@ -390,7 +376,6 @@ def _run_stage3_llm_report(prd_content, stage1_output, stage2_output, llm_config
     except Exception as e:
         logger.warning("Stage3 LLM report failed, fallback to Python: %s", e)
         return None
-
 
 def _build_stage3_report(stage1_output, stage2_output):
     defects = stage2_output.get("defects") if isinstance(stage2_output, dict) else []
@@ -445,7 +430,6 @@ def _build_stage3_report(stage1_output, stage2_output):
         "dev_focus": dev_focus[:20],
         "plan": plan,
     }
-
 
 def _render_stage4_markdown(stage3_json):
     summary = (stage3_json or {}).get("summary") or {}
@@ -520,7 +504,6 @@ def _render_stage4_markdown(stage3_json):
     lines.extend(["## 八、计划建议", _to_md_items((stage3_json or {}).get("plan")), ""])
     return "\n".join(lines).strip()
 
-
 @test_case_bp.route('/')
 def index():
     """主页面"""
@@ -571,7 +554,6 @@ def index():
         llm_profiles=llm_profiles,
     )
 
-
 @test_case_bp.route('/api/default_prd_prompt', methods=['GET'])
 def api_get_default_prd_prompt():
     """返回 PRD 默认审计提示词（从 prd_audit_prompt_default.txt 读取），供前端展示"""
@@ -586,27 +568,22 @@ def api_get_default_prd_prompt():
         logger.warning("Failed to read default PRD prompt: %s", e)
         return success_response(data={'prompt': FALLBACK_PRD_PROMPT})
 
-
 @test_case_bp.route('/list')
 def list_page():
     """测试用例列表页面"""
     return render_template('test_case_list.html')
-
 
 @test_case_bp.route('/prompts')
 def prompt_config_page():
     """提示词配置页面"""
     return render_template('prompt_config.html')
 
-
 @test_case_bp.route('/knowledge')
 def knowledge_center_page():
     """测试知识库中心页面"""
     return render_template('knowledge_center.html')
 
-
 KNOWLEDGE_RULES_FILE = os.path.join(STORAGE_DIR, 'knowledge_rules.json')
-
 
 @test_case_bp.route('/api/knowledge', methods=['GET'])
 def api_get_knowledge():
@@ -621,7 +598,6 @@ def api_get_knowledge():
     except Exception as e:
         logger.exception("获取知识库失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/knowledge', methods=['POST'])
 def api_save_knowledge():
@@ -638,17 +614,14 @@ def api_save_knowledge():
         logger.exception("保存知识库失败")
         return error_response(str(e), status_code=500)
 
-
 # ========== PRD 规则库 ==========
 
 PRD_SCAN_RULES_FILE = os.path.join(STORAGE_DIR, 'prd_scan_rules.json')
-
 
 @test_case_bp.route('/prd_rules')
 def prd_rules_page():
     """PRD 漏洞扫描规则库页面"""
     return render_template('prd_rules.html')
-
 
 @test_case_bp.route('/api/prd_scan_rules', methods=['GET'])
 def api_get_prd_scan_rules():
@@ -664,7 +637,6 @@ def api_get_prd_scan_rules():
         logger.exception("获取 PRD 规则库失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/prd_scan_rules', methods=['POST'])
 def api_save_prd_scan_rules():
     """保存 PRD 漏洞扫描规则库"""
@@ -676,7 +648,6 @@ def api_save_prd_scan_rules():
     except Exception as e:
         logger.exception("保存 PRD 规则库失败")
         return error_response(str(e), status_code=500)
-
 
 # ========== 提示词 API ==========
 
@@ -695,7 +666,6 @@ def api_get_prompts():
     except Exception as e:
         logger.exception("获取提示词列表失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/prompts', methods=['POST'])
 def api_create_prompt():
@@ -725,7 +695,6 @@ def api_create_prompt():
     except Exception as e:
         logger.exception("创建提示词失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/prompts/<prompt_id>', methods=['PUT'])
 def api_update_prompt(prompt_id):
@@ -759,7 +728,6 @@ def api_update_prompt(prompt_id):
         logger.exception("更新提示词失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/prompts/<prompt_id>', methods=['DELETE'])
 def api_delete_prompt(prompt_id):
     """删除提示词"""
@@ -776,7 +744,6 @@ def api_delete_prompt(prompt_id):
     except Exception as e:
         logger.exception("删除提示词失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/prompts/load_defaults', methods=['POST'])
 def api_load_default_prompts():
@@ -829,157 +796,7 @@ def api_load_default_prompts():
         logger.exception("加载默认提示词失败")
         return error_response(str(e), status_code=500)
 
-
 # ========== LLM 配置 API ==========
-
-@test_case_bp.route('/api/llm_config', methods=['GET'])
-def api_get_llm_config():
-    """获取 LLM 配置"""
-    try:
-        if os.path.exists(LLM_CONFIG_FILE):
-            with open(LLM_CONFIG_FILE, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                profiles = config.get('profiles') if isinstance(config.get('profiles'), dict) else {}
-                default_profile = (config.get('default_profile') or config.get('llm_provider') or 'deepseek').strip()
-                active = profiles.get(default_profile) if isinstance(profiles.get(default_profile), dict) else None
-                if not active and isinstance(config.get('llm_provider'), str):
-                    active = {
-                        'llm_provider': config.get('llm_provider'),
-                        'base_url': config.get('base_url'),
-                        'api_key': config.get('api_key'),
-                        'model': config.get('model'),
-                    }
-                if active:
-                    for k in ['llm_provider', 'base_url', 'api_key', 'model']:
-                        if k in active and active.get(k) is not None:
-                            config[k] = active.get(k)
-
-                config['default_profile'] = default_profile
-                config['profiles_meta'] = [
-                    {
-                        'key': k,
-                        'llm_provider': (v.get('llm_provider') or k),
-                        'model': (v.get('model') or ''),
-                        'base_url': (v.get('base_url') or ''),
-                    }
-                    for k, v in profiles.items()
-                    if isinstance(v, dict)
-                ]
-                if not config['profiles_meta'] and active:
-                    config['profiles_meta'] = [
-                        {
-                            'key': default_profile,
-                            'llm_provider': (active.get('llm_provider') or default_profile),
-                            'model': (active.get('model') or ''),
-                            'base_url': (active.get('base_url') or ''),
-                        }
-                    ]
-                # 脱敏 API Key
-                if config.get('api_key'):
-                    config['api_key'] = config['api_key'][:3] + '****' + config['api_key'][-4:]
-                if config.get('fallback_api_key'):
-                    config['fallback_api_key'] = config['fallback_api_key'][:3] + '****' + config['fallback_api_key'][-4:]
-                return success_response(data=config)
-        else:
-            return success_response(data={})
-    except Exception as e:
-        logger.exception("获取 LLM 配置失败")
-        return error_response(str(e), status_code=500)
-
-
-@test_case_bp.route('/api/llm_config', methods=['POST'])
-def api_save_llm_config():
-    """保存 LLM 配置"""
-    try:
-        data = request.get_json() or {}
-        # 安全与可用性折中：
-        # - 若环境变量已提供密钥（LLM_API_KEY/DEEPSEEK_API_KEY/OPENAI_API_KEY/GEMINI_API_KEY），则不落盘保存 key
-        # - 否则沿用历史行为：允许通过接口保存到 llm_config.json（便于本地快速使用）
-        has_env_key = bool((os.environ.get('LLM_API_KEY') or '').strip()) or \
-                      bool((os.environ.get('DEEPSEEK_API_KEY') or '').strip()) or \
-                      bool((os.environ.get('OPENAI_API_KEY') or '').strip()) or \
-                      bool((os.environ.get('GEMINI_API_KEY') or '').strip())
-        allow_plain = not has_env_key
-        old_config = {}
-        if os.path.exists(LLM_CONFIG_FILE):
-            try:
-                with open(LLM_CONFIG_FILE, 'r', encoding='utf-8') as f:
-                    old_config = json.load(f)
-            except Exception:
-                pass
-
-        new_config = old_config.copy()
-        profiles = new_config.get('profiles') if isinstance(new_config.get('profiles'), dict) else {}
-        if not profiles and isinstance(old_config.get('llm_provider'), str) and old_config.get('llm_provider'):
-            k0 = old_config.get('llm_provider')
-            profiles[k0] = {
-                'llm_provider': old_config.get('llm_provider'),
-                'base_url': old_config.get('base_url'),
-                'api_key': old_config.get('api_key'),
-                'model': old_config.get('model'),
-            }
-
-        llm_provider = (data.get('llm_provider') or new_config.get('llm_provider') or 'deepseek').strip()
-        profile_key = llm_provider
-        profile_old = profiles.get(profile_key) if isinstance(profiles.get(profile_key), dict) else {}
-        profile_new = profile_old.copy()
-        for k in ['llm_provider', 'base_url', 'model']:
-            if k in data:
-                profile_new[k] = data.get(k)
-
-        api_key = (data.get('api_key') or '').strip()
-        if allow_plain:
-            if api_key and '****' not in api_key:
-                profile_new['api_key'] = api_key
-            elif 'api_key' in profile_old:
-                profile_new['api_key'] = profile_old.get('api_key')
-        else:
-            # 不写入明文 key（使用环境变量）；保留旧值不动，避免误清空
-            if 'api_key' in profile_old:
-                profile_new['api_key'] = profile_old.get('api_key', '')
-
-        fallback_key = (data.get('fallback_api_key') or '').strip()
-        if allow_plain:
-            if fallback_key and '****' not in fallback_key:
-                new_config['fallback_api_key'] = fallback_key
-            elif 'fallback_api_key' in old_config:
-                new_config['fallback_api_key'] = old_config['fallback_api_key']
-        else:
-            if 'fallback_api_key' in old_config:
-                new_config['fallback_api_key'] = old_config.get('fallback_api_key', '')
-
-        profiles[profile_key] = profile_new
-        new_config['profiles'] = profiles
-        new_config['default_profile'] = profile_key
-
-        for k in ['llm_provider', 'base_url', 'model', 'api_key']:
-            if k in profile_new and profile_new.get(k) is not None:
-                new_config[k] = profile_new.get(k)
-
-        # 与 PRD 审计等模块一致：落盘时各 profile 共用同一 api_key（各 profile 仍保留自己的 base_url/model）
-        if allow_plain:
-            canonical_key = (new_config.get('api_key') or '').strip()
-            if canonical_key:
-                for pk in list(profiles.keys()):
-                    pd = profiles.get(pk)
-                    if isinstance(pd, dict):
-                        profiles[pk] = {**pd, 'api_key': canonical_key}
-                new_config['profiles'] = profiles
-
-        for k in ['fallback_enabled', 'fallback_provider', 'fallback_base_url', 'fallback_model']:
-            if k in data:
-                new_config[k] = data.get(k)
-
-        with open(LLM_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(new_config, f, ensure_ascii=False, indent=2)
-            
-        if allow_plain:
-            return success_response(message='配置已保存')
-        return success_response(message='配置已保存（检测到环境变量已配置密钥，本次未落盘覆盖 API Key）')
-    except Exception as e:
-        logger.exception("保存 LLM 配置失败")
-        return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/generate', methods=['POST'])
 def api_generate():
@@ -1164,7 +981,6 @@ def api_generate():
         logger.exception("AI 生成失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/parse_pdf', methods=['POST'])
 def api_parse_pdf():
     """解析 PDF 文件"""
@@ -1226,7 +1042,6 @@ def api_parse_pdf():
         logger.exception("PDF 上传解析失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/parse_docx', methods=['POST'])
 def api_parse_docx():
     """解析 Word (.docx) 文件，提取正文供 PRD 分析"""
@@ -1256,7 +1071,6 @@ def api_parse_docx():
     except Exception as e:
         logger.exception("Word 上传解析失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/export_report_docx', methods=['POST'])
 def api_export_report_docx():
@@ -1361,7 +1175,6 @@ def api_export_report_docx():
         logger.exception("export_report_docx 失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/analyze_prd', methods=['POST'])
 def api_analyze_prd():
     try:
@@ -1458,7 +1271,6 @@ def api_analyze_prd():
         logger.exception("analyze_prd 失败")
         return error_response(str(e), status_code=500)
 
-
 # ========== XMind 互转 API ==========
 
 @test_case_bp.route('/api/import_xmind', methods=['POST'])
@@ -1483,7 +1295,6 @@ def api_import_xmind():
     except Exception as e:
         logger.exception("XMind 导入失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/export_xmind', methods=['POST'])
 def api_export_xmind():
@@ -1517,7 +1328,6 @@ def api_export_xmind():
     except Exception as e:
         logger.exception("XMind 导出失败")
         return error_response(str(e), status_code=500)
-
 
 # ========== 测试用例 API ==========
 
@@ -1582,7 +1392,6 @@ def api_batch_create_test_cases():
         logger.exception("批量创建测试用例失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/test-cases', methods=['GET'])
 def api_get_test_cases():
     """获取测试用例列表（支持筛选、分页、排序）"""
@@ -1635,7 +1444,6 @@ def api_get_test_cases():
         logger.exception("获取测试用例列表失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/test-cases', methods=['POST'])
 def api_create_test_case():
     """创建测试用例"""
@@ -1677,7 +1485,6 @@ def api_create_test_case():
         logger.exception("创建测试用例失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/test-cases/<case_id>', methods=['GET'])
 def api_get_test_case(case_id):
     """获取测试用例详情"""
@@ -1693,7 +1500,6 @@ def api_get_test_case(case_id):
     except Exception as e:
         logger.exception("获取测试用例详情失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/test-cases/<case_id>', methods=['PUT'])
 def api_update_test_case(case_id):
@@ -1738,7 +1544,6 @@ def api_update_test_case(case_id):
         logger.exception("更新测试用例失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/test-cases/<case_id>', methods=['DELETE'])
 def api_delete_test_case(case_id):
     """删除测试用例"""
@@ -1754,7 +1559,6 @@ def api_delete_test_case(case_id):
         logger.exception("删除测试用例失败")
         return error_response(str(e), status_code=500)
 
-
 # ========== 测试套件 API ==========
 
 @test_case_bp.route('/api/test-suites', methods=['GET'])
@@ -1769,7 +1573,6 @@ def api_get_test_suites():
     except Exception as e:
         logger.exception("获取测试套件列表失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/test-suites', methods=['POST'])
 def api_create_test_suite():
@@ -1796,7 +1599,6 @@ def api_create_test_suite():
         logger.exception("创建测试套件失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/test-suites/<suite_id>', methods=['GET'])
 def api_get_test_suite(suite_id):
     """获取测试套件详情"""
@@ -1820,7 +1622,6 @@ def api_get_test_suite(suite_id):
     except Exception as e:
         logger.exception("获取测试套件详情失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/test-suites/<suite_id>', methods=['PUT'])
 def api_update_test_suite(suite_id):
@@ -1851,7 +1652,6 @@ def api_update_test_suite(suite_id):
         logger.exception("更新测试套件失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/test-suites/<suite_id>', methods=['DELETE'])
 def api_delete_test_suite(suite_id):
     """删除测试套件"""
@@ -1866,7 +1666,6 @@ def api_delete_test_suite(suite_id):
     except Exception as e:
         logger.exception("删除测试套件失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/test-suites/<suite_id>/execute', methods=['POST'])
 def api_execute_test_suite(suite_id):
@@ -1905,7 +1704,6 @@ def api_execute_test_suite(suite_id):
     except Exception as e:
         logger.exception("执行测试套件失败")
         return error_response(str(e), status_code=500)
-
 
 # ========== 执行记录 API ==========
 
@@ -1968,7 +1766,6 @@ def api_get_test_executions():
         logger.exception("获取执行记录列表失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/test-executions', methods=['POST'])
 def api_create_test_execution():
     """创建执行记录"""
@@ -1997,7 +1794,6 @@ def api_create_test_execution():
         logger.exception("创建执行记录失败")
         return error_response(str(e), status_code=500)
 
-
 @test_case_bp.route('/api/test-executions/<exec_id>', methods=['GET'])
 def api_get_test_execution(exec_id):
     """获取执行记录详情"""
@@ -2018,7 +1814,6 @@ def api_get_test_execution(exec_id):
     except Exception as e:
         logger.exception("获取执行记录详情失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/test-executions/<exec_id>', methods=['PUT'])
 def api_update_test_execution(exec_id):
@@ -2063,7 +1858,6 @@ def api_update_test_execution(exec_id):
     except Exception as e:
         logger.exception("更新执行记录失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/test-executions/<exec_id>/generate_defect', methods=['POST'])
 def api_generate_defect_from_execution(exec_id):
@@ -2134,7 +1928,6 @@ def api_generate_defect_from_execution(exec_id):
     except Exception as e:
         logger.exception("生成缺陷描述失败")
         return error_response(str(e), status_code=500)
-
 
 @test_case_bp.route('/api/test-executions/statistics', methods=['GET'])
 def api_get_execution_statistics():

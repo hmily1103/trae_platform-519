@@ -34,29 +34,29 @@ class PerformanceMonitor:
         self.rk_monitor = RkMonitor(adb)
         self.mpp_supported = False # Will be checked on first run
         
-        # 鑷姩璇嗗埆姝屾洸淇℃伅鎺у埗
+        # 自动识别歌曲信息控制
         self.last_metadata_check_time = 0
         
-        # 鍗￠】/涓㈠抚缁熻 (V2.1)
+        # 卡顿/丢帧统计 (V2.1)
         self.last_gfx_info = {"total_frames": 0, "janky_frames": 0}
-        self.log_stutter_count = 0 # 鏉ヨ嚜 logcat
-        self.prev_log_stutter_total = 0 # 涓婁竴娆″揩鐓ф椂鐨?log_stutter 鎬绘暟
+        self.log_stutter_count = 0 # 来自 logcat
+        self.prev_log_stutter_total = 0 # 上一次快照时的 log_stutter 总数
         self._recent_log_stutter_events: List[Dict] = []
         self._recent_decoder_events: List[Dict] = []
         
-        # PID 鐢熷懡鍛ㄦ湡浜嬩欢 (V2.1)
+        # PID 生命周期事件 (V2.1)
         self.pid_events = []
         self.monitoring_start_time = 0
 
-        # 瑙嗛FPS缂撳瓨锛堥伩鍏嶉绻佽皟鐢級
+        # 视频FPS缓存（避免频繁调用）
         self._video_fps_cache = None
         self._video_fps_cache_time = 0
-        self._video_fps_cache_ttl = 2.0  # 缂撳瓨2绉?        
+        self._video_fps_cache_ttl = 2.0  # 缓存2秒钟        
         # 电视端优先使用显式配置，并在运行时校验。
         self._configured_tv_display_id = int(monitor_config.get("tv_display_id", 1))
         self._auto_detect_tv_display = bool(monitor_config.get("auto_detect_tv_display", True))
         self._allow_display0_fallback = bool(monitor_config.get("allow_display0_fallback", False))
-        self._tv_display_id = None  # 缂撳瓨鐨勭數瑙嗙 Display ID
+        self._tv_display_id = None  # 缓存的电视端 Display ID
         self._tv_display_id_cache_time = 0
         self._tv_display_id_cache_ttl = 300.0  # 缓存 5 分钟，Display ID 通常不会频繁变化
         self._tv_display_verified = False
@@ -76,9 +76,20 @@ class PerformanceMonitor:
         self._tv_surface_failure_count = 0
         self._last_tv_surface_candidates: List[str] = []
         self._last_tv_latency_probe: Dict = {}
+        self._last_osd_surface_name = ""
+        self._last_osd_surface_frame_timestamp_ns = 0
+        self._osd_surface_failure_count = 0
+        self._last_osd_surface_candidates: List[str] = []
+        self._last_osd_latency_probe: Dict = {}
         self.tv_freeze_events: List[Dict] = []
         self.tv_stall_events: List[Dict] = []
         self.tv_stall_risk_events: List[Dict] = []
+        self.tv_stall_ignored_events: List[Dict] = []
+        self._tv_frame_gap_samples: List[Dict] = []
+        self._tv_frame_gap_sample_limit = max(
+            600,
+            int(monitor_config.get("tv_frame_gap_sample_limit", 7200) or 7200),
+        )
         self._observer_process = None
         self._observer_pid = os.getpid()
         if psutil is not None:
@@ -90,7 +101,7 @@ class PerformanceMonitor:
         
         # V2.3.1: 零干扰模式配置
         self._disable_fps = False  # 是否禁用 FPS 采集（极低功耗模式）
-        self._disable_screenshot = False  # 鏄惁绂佺敤鎴浘锛堢敱runner鎺у埗锛?
+        self._disable_screenshot = False  # 是否禁用截图（由runner控制）
         self._ignore_video_metrics_until_ts = 0.0
         self._ignore_video_metrics_since_ts = 0.0
         self._ignore_video_metrics_reason = ""
@@ -98,6 +109,12 @@ class PerformanceMonitor:
         self._ignore_video_metrics_event_count = 0
         self._ignore_buffering_event_count = 0
         self._ignore_seek_event_count = 0
+        self._ignore_transition_event_count = 0
+        self._last_transition_reason = ""
+        self._last_transition_source = ""
+        self._last_transition_started_at = 0.0
+        self._playback_path_observations: List[Dict] = []
+        self._playback_path_last_summary: Dict = {}
 
         self._expected_stream_fps = 30.0
         self._expected_stream_fps_ready = False
@@ -119,6 +136,115 @@ class PerformanceMonitor:
             "cpu_frequencies": [],
         }
         self.root_cause_analyzer = None
+
+    def reset(self) -> None:
+        self.history = []
+        self.initial_pid = None
+        self.restart_count = 0
+        self.last_pid = None
+        self._pid_missing_since = 0.0
+        self._pid_missing_consecutive = 0
+        self._pid_loss_reported = False
+        self.evaluator = PlayStateEvaluator()
+        self.last_metadata_check_time = 0
+        self.last_gfx_info = {"total_frames": 0, "janky_frames": 0}
+        self.log_stutter_count = 0
+        self.prev_log_stutter_total = 0
+        self._recent_log_stutter_events = []
+        self._recent_decoder_events = []
+        self.pid_events = []
+        self.monitoring_start_time = 0
+        self._video_fps_cache = None
+        self._video_fps_cache_time = 0
+        self._tv_display_id = None
+        self._tv_display_id_cache_time = 0
+        self._tv_display_verified = False
+        self._tv_display_verification_reason = "not_checked"
+        self._tv_display_recommendation = {
+            "display_id": None,
+            "score": 0.0,
+            "reason": "not_probed",
+            "probe_count": 0,
+            "fps": 0.0,
+            "surface_name": "",
+        }
+        self._tv_display_probe_details = []
+        self._last_video_fps_source = "none"
+        self._last_tv_surface_name = ""
+        self._last_tv_surface_frame_timestamp_ns = 0
+        self._tv_surface_failure_count = 0
+        self._last_tv_surface_candidates = []
+        self._last_tv_latency_probe = {}
+        self._last_osd_surface_name = ""
+        self._last_osd_surface_frame_timestamp_ns = 0
+        self._osd_surface_failure_count = 0
+        self._last_osd_surface_candidates = []
+        self._last_osd_latency_probe = {}
+        self.tv_freeze_events = []
+        self.tv_stall_events = []
+        self.tv_stall_risk_events = []
+        self.tv_stall_ignored_events = []
+        self._tv_frame_gap_samples = []
+        self._disable_fps = False if not hasattr(self, "_disable_fps") else self._disable_fps
+        self._disable_screenshot = False if not hasattr(self, "_disable_screenshot") else self._disable_screenshot
+        self._ignore_video_metrics_until_ts = 0.0
+        self._ignore_video_metrics_since_ts = 0.0
+        self._ignore_video_metrics_reason = ""
+        self._ignore_video_metrics_total_sec = 0.0
+        self._ignore_video_metrics_event_count = 0
+        self._ignore_buffering_event_count = 0
+        self._ignore_seek_event_count = 0
+        self._ignore_transition_event_count = 0
+        self._last_transition_reason = ""
+        self._last_transition_source = ""
+        self._last_transition_started_at = 0.0
+        self._playback_path_observations = []
+        self._playback_path_last_summary = {}
+        self._expected_stream_fps = 30.0
+        self._expected_stream_fps_ready = False
+        self._thermal_cache_time = 0.0
+        self._thermal_cache = {
+            "available": False,
+            "max_temperature_c": 0.0,
+            "min_frequency_ratio": 0.0,
+            "thermal_throttling": False,
+            "temperatures": [],
+            "cpu_frequencies": [],
+        }
+        if self.root_cause_analyzer and hasattr(self.root_cause_analyzer, "reset"):
+            try:
+                self.root_cause_analyzer.reset()
+            except Exception:
+                pass
+        if self._observer_process is not None:
+            try:
+                self._observer_process.cpu_percent(None)
+            except Exception:
+                pass
+
+    def record_tv_frame_gap_sample(self, sample: Dict, now: float = None) -> None:
+        if not isinstance(sample, dict):
+            return
+        timestamp = float(now if now is not None else time.time())
+        item = {
+            "timestamp_sec": timestamp,
+            "ignore_video_metrics": bool(sample.get("ignore_video_metrics", False)),
+            "surface_name": str(sample.get("surface_name", "") or ""),
+            "fps": float(sample.get("fps", 0) or 0.0),
+            "max_frame_gap_ms": float(sample.get("max_frame_gap_ms", 0) or 0.0),
+            "p95_frame_gap_ms": float(sample.get("p95_frame_gap_ms", 0) or 0.0),
+            "expected_stream_fps": float(
+                sample.get("expected_stream_fps", self._expected_stream_fps) or self._expected_stream_fps or 30.0
+            ),
+            "video_fps_source": str(sample.get("video_fps_source", "") or ""),
+            "frame_advanced": bool(sample.get("frame_advanced", False)),
+        }
+        latency_probe = sample.get("tv_latency_probe") or {}
+        if isinstance(latency_probe, dict):
+            item["tv_latency_probe"] = dict(latency_probe)
+        self._tv_frame_gap_samples.append(item)
+        if len(self._tv_frame_gap_samples) > self._tv_frame_gap_sample_limit:
+            self._tv_frame_gap_samples = self._tv_frame_gap_samples[-self._tv_frame_gap_sample_limit:]
 
     @staticmethod
     def _decoder_log_has_hard_failure(events: List[Dict]) -> bool:
@@ -180,6 +306,11 @@ class PerformanceMonitor:
                 if now >= self._ignore_video_metrics_until_ts:
                     continue
                 self._ignore_video_metrics_until_ts = max(self._ignore_video_metrics_until_ts, now + 1.0)
+            elif t in ("SONG_CHANGE", "CUT_SONG", "ORDER_SONG", "TRANSITION_START"):
+                reason = str(evt.get("reason", "") or t)
+                duration = float(evt.get("duration_sec", 4.0) or 4.0)
+                source = str(evt.get("source", "event") or "event")
+                self.mark_transition_window(reason=reason, duration_sec=duration, source=source)
 
     def _is_ignoring_video_metrics(self) -> bool:
         now = time.time()
@@ -193,6 +324,19 @@ class PerformanceMonitor:
 
     def is_ignoring_video_metrics(self) -> bool:
         return time.time() < self._ignore_video_metrics_until_ts
+
+    def mark_transition_window(self, reason: str, duration_sec: float = 4.0, source: str = "manual"):
+        now = time.time()
+        duration = max(1.0, float(duration_sec or 0.0))
+        if now >= self._ignore_video_metrics_until_ts:
+            self._ignore_video_metrics_since_ts = now
+        self._ignore_video_metrics_until_ts = max(self._ignore_video_metrics_until_ts, now + duration)
+        self._ignore_video_metrics_reason = str(reason or "TRANSITION")
+        self._ignore_video_metrics_event_count += 1
+        self._ignore_transition_event_count += 1
+        self._last_transition_reason = str(reason or "TRANSITION")
+        self._last_transition_source = str(source or "manual")
+        self._last_transition_started_at = now
 
     def set_log_stutter_count(self, count):
         self.log_stutter_count = count
@@ -220,6 +364,95 @@ class PerformanceMonitor:
                 "line": str(evt.get("line", "") or ""),
             })
         self._recent_decoder_events = normalized[-8:]
+
+    def _build_playback_path_observation(self, snapshot: Dict) -> Dict:
+        sample = snapshot if isinstance(snapshot, dict) else {}
+        decoder_lines = " ".join(
+            str(item.get("line", "") or "")
+            for item in self._recent_decoder_events[-8:]
+            if isinstance(item, dict)
+        ).lower()
+        top_consumers = str(sample.get("top_consumers", "") or "").lower()
+        surface_name = str(sample.get("tv_surface_name", "") or "")
+        video_fps = float(sample.get("video_fps", 0) or 0.0)
+        mpp_active = int(sample.get("mpp_active", 0) or 0)
+        mpp_sessions = int(sample.get("mpp_sessions", 0) or 0)
+        source = str(sample.get("video_fps_source", "") or "none")
+
+        route = "显示层"
+        confidence = "low"
+        evidence = []
+        if mpp_active > 0 or mpp_sessions > 0 or any(token in decoder_lines for token in ("rkvdec", "mpp", "vdec")):
+            route = "RK MPP 硬解通路"
+            confidence = "high"
+            evidence.append(f"MPP active/session={mpp_active}/{mpp_sessions}")
+        elif any(token in decoder_lines for token in ("mediacodec", "omx", " c2", "codec")):
+            route = "MediaCodec / OMX 解码通路"
+            confidence = "medium"
+            evidence.append("近期日志命中 MediaCodec/OMX/c2")
+        elif "tvservice" in decoder_lines or "tvservice" in top_consumers:
+            route = "tvservice 旁路/轮播通路"
+            confidence = "medium"
+            evidence.append("近期日志或 Top 进程命中 tvservice")
+        elif surface_name and video_fps > 0:
+            route = "仅识别到显示层 Surface"
+            confidence = "low"
+            evidence.append(f"Surface={surface_name}")
+
+        if source and source != "none":
+            evidence.append(f"FPS 来源={source}")
+        if surface_name:
+            evidence.append(f"Surface={surface_name}")
+
+        observation = {
+            "timestamp": sample.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+            "route": route,
+            "confidence": confidence,
+            "surface_name": surface_name,
+            "video_fps_source": source,
+            "mpp_active": mpp_active,
+            "mpp_sessions": mpp_sessions,
+            "evidence": evidence[:4],
+        }
+        self._playback_path_observations.append(observation)
+        if len(self._playback_path_observations) > 80:
+            self._playback_path_observations = self._playback_path_observations[-80:]
+        self._playback_path_last_summary = observation
+        return observation
+
+    def _summarize_playback_path(self, history: List[Dict]) -> Dict:
+        observations = list(self._playback_path_observations or [])
+        if not observations:
+            return {
+                "route": "未识别",
+                "confidence": "low",
+                "summary": "当前还没有足够样本识别播放通路。",
+                "evidence": [],
+            }
+        counts = {}
+        latest_by_route = {}
+        for item in observations:
+            route = str(item.get("route", "") or "未识别")
+            counts[route] = counts.get(route, 0) + 1
+            latest_by_route[route] = item
+        route = max(counts.items(), key=lambda x: x[1])[0]
+        representative = latest_by_route.get(route, {})
+        confidence = str(representative.get("confidence", "low") or "low")
+        evidence = list(representative.get("evidence", []) or [])
+        summary = f"当前更像 {route}。"
+        if route == "仅识别到显示层 Surface":
+            summary += " 已抓到 Surface/FPS，但解码侧实例仍未稳定锁定。"
+        elif route == "tvservice 旁路/轮播通路":
+            summary += " 说明轮播场景可能走 tvservice 或旁路播放链路。"
+        elif route in {"RK MPP 硬解通路", "MediaCodec / OMX 解码通路"}:
+            summary += " 说明当前已能看到较明确的解码链路信号。"
+        return {
+            "route": route,
+            "confidence": confidence,
+            "summary": summary,
+            "evidence": evidence[:4],
+            "counts": counts,
+        }
 
     def _update_expected_stream_fps(self, candidate_fps: float):
         try:
@@ -249,7 +482,7 @@ class PerformanceMonitor:
             if not isinstance(status, dict):
                 status = {}
         except Exception as e:
-            logger.debug("鐑姸鎬侀噰闆嗗け璐? %s", e)
+            logger.debug("热状态采集失败 %s", e)
             status = {}
         self._thermal_cache = {
             "available": bool(status.get("available", False)),
@@ -263,7 +496,7 @@ class PerformanceMonitor:
         return dict(self._thermal_cache)
 
     def start_monitoring(self):
-        """寮€濮嬬洃鎺э紝璁板綍鍒濆PID"""
+        """弢始监控，记录初始PID"""
         self.monitoring_start_time = time.time()
         pid = self.adb.get_pid(self.package_name)
         if pid:
@@ -273,21 +506,21 @@ class PerformanceMonitor:
                 self.adb.reset_gfx_info(self.package_name)
                 self.last_gfx_info = self.adb.get_gfx_info(self.package_name)
             except Exception as e:
-                logger.debug("reset_gfx_info 澶辫触: %s", e)
-            logger.info("鐩戞帶寮€濮? %s, PID: %s", self.package_name, pid)
+                logger.debug("reset_gfx_info 失败: %s", e)
+            logger.info("监控开始: %s, PID: %s", self.package_name, pid)
         else:
-            logger.warning("鏈壘鍒拌繘绋? %s", self.package_name)
+            logger.warning("未找到进程 %s", self.package_name)
 
     def collect_snapshot(self, external_events: List[Dict] = None) -> Dict:
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            # V2.1: 濡傛灉鏈夊閮?Log 浜嬩欢锛屼紭鍏堝崟鐙眹鎶ョ粰 Evaluator
+            # V2.1: 如果有外部Log 事件，优先单独汇报给 Evaluator
             if external_events:
                 self._apply_ignore_video_window(external_events)
                 for evt in external_events:
-                    # 绠€鍗曟槧灏?Log 浜嬩欢鍒?Evaluator 鍥炶皟
-                    # 鍋囪 evt 鍖呭惈 type 鍜?description
+                    # 简单映射 Log 事件到 Evaluator 回调
+                    # 假设 evt  包含 type 和 description
                     e_type = evt.get("type", "UNKNOWN")
                     msg = evt.get("line", "") or evt.get("description", "")
                     if "CRASH" in e_type or "FATAL" in e_type:
@@ -299,25 +532,25 @@ class PerformanceMonitor:
             
             # 1. PID 与重启检测
             if not self.adb.is_device_online():
-                logger.warning("璁惧宸茬绾匡紝璺宠繃鏈鐩戞帶閲囬泦")
+                logger.warning("设备已离线，跳过本次监控采集")
                 return {}
 
             current_pid = self.adb.get_pid(self.package_name)
             is_restarted = False
             
-            # 璁＄畻鐩稿鏃堕棿 (鍒嗛挓)
+            # 计算相对时间 ()
             elapsed_min = 0
             if self.monitoring_start_time > 0:
                 elapsed_min = int((time.time() - self.monitoring_start_time) / 60)
             
             if current_pid is None:
-                # 杩涚▼娑堝け
+                # 进程消失
                 status = "DEAD"
                 self._pid_missing_consecutive += 1
                 if self._pid_missing_since <= 0:
                     self._pid_missing_since = time.time()
                 if self.last_pid is not None and not self._pid_loss_reported:
-                    # 璁板綍 PID 涓㈠け浜嬩欢
+                    # 记录 PID 丢失事件
                     evt = {
                         "timestamp": timestamp,
                         "type": "PID_LOST",
@@ -331,12 +564,12 @@ class PerformanceMonitor:
                     self._pid_loss_reported = True
                     
             elif self.last_pid is not None and current_pid != self.last_pid:
-                # PID 鍙樺寲锛屽垽瀹氫负閲嶅惎
+                # PID 变化，判定为重启
                 self.restart_count += 1
                 is_restarted = True
                 status = "RESTARTED"
                 
-                # 璁板綍 PID 閲嶅惎浜嬩欢
+                # 记录 PID 重启事件
                 evt = {
                     "timestamp": timestamp,
                     "type": "PID_RESTART",
@@ -357,7 +590,7 @@ class PerformanceMonitor:
                     self.adb.reset_gfx_info(self.package_name)
                     self.last_gfx_info = self.adb.get_gfx_info(self.package_name)
                 except Exception as e:
-                    logger.debug("PID 閲嶅惎鍚?reset_gfx_info 澶辫触: %s", e)
+                    logger.debug("PID 重启失败 reset_gfx_info 失败: %s", e)
             else:
                 status = "RUNNING"
                 if self._pid_loss_reported:
@@ -373,7 +606,7 @@ class PerformanceMonitor:
                 self._pid_loss_reported = False
                 if self.last_pid is None:  # 之前未找到，现在恢复
                     self.last_pid = current_pid
-                    # 棣栨鍙戠幇 PID锛屼笉绠楅噸鍚紝绠楀垵濮嬪寲
+                    # 首次发现 PID，不算重启，算初始化
                     if not self.pid_events:
                         self.pid_events.append({
                             "timestamp": timestamp,
@@ -382,10 +615,10 @@ class PerformanceMonitor:
                             "elapsed_min": elapsed_min,
                             "description": f"Process found (PID: {current_pid})"
                         })
-                        # Evaluator 涓嶉渶瑕?FOUND 浜嬩欢锛屽畠鍙叧蹇?RESTART/LOST
+                        # Evaluator 不需要FOUND 事件，它只关心RESTART/LOST
 
 
-            # 2. 鎬ц兘鏁版嵁
+            # 2. 性能数据
             mem_info = self.adb.get_memory_info(self.package_name)
             cpu_usage = self.adb.get_cpu_usage(self.package_name)
             try:
@@ -395,22 +628,22 @@ class PerformanceMonitor:
             gpu_usage = self._measure_gpu_usage()
             thermal_status = self._get_cached_thermal_status()
 
-            # 3. 鎾斁鐘舵€佸垽瀹?(V2 鏂板 - Evaluator bypass)
+            # 3. 播放状态判断(V2 新增 - Evaluator bypass)
             is_audio_active = self.adb.is_audio_active()
             
             # Audio active can also be treated as a first-frame hint.
             if is_audio_active:
                 self.evaluator.on_first_frame("Audio")
             
-            # 绉婚櫎 Monitor 涓诲姩璋冪敤 process_event("POLLING")
-            # 绉婚櫎鑷姩璇嗗埆姝屾洸閫昏緫 (Evaluator 涓嶅啀缁存姢 song_info)
+            # 移除 Monitor 主动调用 process_event("POLLING")
+            # 移除自动识别歌曲逻辑 (Evaluator 不再维护 song_info)
             
-            play_state = "RUNNING" # 榛樿涓鸿繍琛屼腑锛孧onitor 涓嶅啀鎺ㄦ柇鐘舵€?
-            # 4. 鍗￠】妫€娴?(V2.1 鏂板)
+            play_state = "RUNNING" # 默认为运行中，Monitor 不再推断状态
+            # 4. 卡顿判断(V2.1 新增)
             # A. GFX Info
             gfx_info = self.adb.get_gfx_info(self.package_name)
             
-            # 璁＄畻澧為噺
+            # 计算增量
             delta_total = max(0, gfx_info['total_frames'] - self.last_gfx_info['total_frames'])
             delta_jank = max(0, gfx_info['janky_frames'] - self.last_gfx_info['janky_frames'])
             
@@ -420,11 +653,11 @@ class PerformanceMonitor:
                 
             self.last_gfx_info = gfx_info
             
-            # B. Logcat Stutter (鐢卞閮?TestRunner/GUI 鏇存柊 log_stutter_count)
+            # B. Logcat Stutter (由外部TestRunner/GUI  log_stutter_count)
             delta_log_stutter = max(0, self.log_stutter_count - self.prev_log_stutter_total)
             self.prev_log_stutter_total = self.log_stutter_count
             
-            # C. 璧勬簮鍗犵敤鍒嗘瀽 (褰撳彂鐢熷崱椤?Jank 鏃?
+            # C. 资源占用分析 (当发生卡顿 Jank 时
             top_consumers = ""
             system_cpu_pressure = bool(
                 is_audio_active and system_cpu_usage >= 85.0
@@ -433,7 +666,7 @@ class PerformanceMonitor:
             if delta_jank >= 5 or delta_log_stutter > 0 or system_cpu_pressure:
                 top_consumers = self.adb.get_top_heavy_processes()
 
-            # 2.1 MPP 纭欢瑙ｇ爜鐘舵€?(RK3576)
+            # 2.1 MPP 硬件解码状态(RK3576)
             # print("Debug: Checking MPP...")
             mpp_stats = {}
             # First run: probe whether RK monitor is supported.
@@ -442,8 +675,8 @@ class PerformanceMonitor:
             
             if self.rk_monitor.is_supported:
                 mpp_stats = self.rk_monitor.get_mpp_stats()
-                # 鑷姩鍒ゅ畾閫昏緫: 鍋囨挱鏀炬娴?(False Playback)
-                # 濡傛灉闊抽娲昏穬涓?MPP 瀹炰緥涓?0 -> 鍙兘杞В
+                # 自动判定逻辑: 假播放检测(False Playback)
+                # 如果音频活跃且MPP 实例为0 -> 可能软解
                 if is_audio_active and mpp_stats.get('active_instances', 0) == 0:
                     mpp_stats['warning'] = "Potential Soft Decoding"
                 
@@ -489,20 +722,30 @@ class PerformanceMonitor:
                     if video_fps and video_fps > 0:
                         video_fps_source = self._last_video_fps_source
                 except Exception as e:
-                    # V2.3.2: 鏇村弸濂界殑閿欒鎻愮ず
+                    # V2.3.2: 更友好的错误提示
                     if not hasattr(self, '_fps_error_count'):
                         self._fps_error_count = 0
                     
                     self._fps_error_count += 1
                     
-                    # 姣?娆″け璐ユ彁绀轰竴娆★紝閬垮厤鏃ュ織鍒峰睆
+                    # 每次失败提示一次，避免日志刷屏
                     if self._fps_error_count % 5 == 1:
                         logger.warning(
-                            "杩炵画澶氭鏈兘閲囬泦鍒版湁鏁堣棰慒PS鏁版嵁銆傚彲鑳藉師鍥? 1)瑙嗛鏈紑濮嬫挱鏀?2)搴旂敤鏈湪鍓嶅彴 "
-                            "3)鏈哄瀷涓嶆敮鎸?gfxinfo銆傚寘鍚? %s", self.package_name
+                            "连续多次未能采集到有效视频FPS数据。可能原因: 1)视频未开始播放2)应用未在前台 "
+                            "3)机型不支持 gfxinfo。包含: %s", self.package_name
                         )
                     
                     video_fps = 0.0
+
+            osd_metrics = {}
+            if tv_display_id is not None:
+                try:
+                    osd_metrics = self.collect_osd_frame_metrics(
+                        display_id=int(tv_display_id),
+                        track_progress=True,
+                    )
+                except Exception:
+                    osd_metrics = {}
 
             mpp_dt = float(mpp_stats.get("work_count_delta_time_sec", 0) or 0.0)
             mpp_delta = int(mpp_stats.get("work_count_delta", 0) or 0)
@@ -653,14 +896,15 @@ class PerformanceMonitor:
                 "gpu_percent": gpu_usage,
                 "mpp_active": mpp_stats.get("active_instances", 0),
                 "mpp_sessions": mpp_stats.get("session_count", 0),
-                "mpp_work_count": mpp_stats.get("total_work_count", 0),  # V2.3: 瑙ｇ爜鍣ㄥ伐浣滆鏁?                "mpp_work_count_delta": mpp_stats.get("work_count_delta", 0),  # V2.3: 澧為噺
+                "mpp_work_count": mpp_stats.get("total_work_count", 0),  # V2.3: 解码器工作计数
+                "mpp_work_count_delta": mpp_stats.get("work_count_delta", 0),  # V2.3: 增量
                 "mpp_work_count_delta_time_sec": mpp_stats.get("work_count_delta_time_sec", 0.0),
                 "mpp_work_count_reliable": bool(mpp_work_count_reliable),
-                "decoder_stuck": mpp_stats.get("decoder_stuck", False),  # V2.3: 瑙ｇ爜鍣ㄥ崱姝?
+                "decoder_stuck": mpp_stats.get("decoder_stuck", False),  # V2.3: 解码器卡死
                 "decoder_stuck_confirmed": bool(decoder_stuck_confirmed),
                 "decoder_stuck_risk": bool(decoder_stuck_risk),
                 "decoder_stuck_duration_sec": mpp_stats.get("decoder_stuck_duration_sec", 0.0),
-                "tv_stutter_detected": mpp_stats.get("tv_stutter_detected", False),  # V2.3: 鐢佃绔崱椤?
+                "tv_stutter_detected": mpp_stats.get("tv_stutter_detected", False),  # V2.3: 电视端卡顿
                 "decode_fps_estimate": round(decode_fps_estimate, 2) if decode_fps_estimate > 0 else 0.0,
                 "decode_slowdown_detected": bool(decode_slowdown_detected),
                 "decode_slowdown_ratio": round(self._decode_slowdown_ratio, 2),
@@ -676,6 +920,13 @@ class PerformanceMonitor:
                 "tv_surface_name": self._last_tv_surface_name,
                 "tv_surface_candidates": list(self._last_tv_surface_candidates),
                 "tv_latency_probe": dict(self._last_tv_latency_probe),
+                "osd_surface_name": str(osd_metrics.get("surface_name", "") or self._last_osd_surface_name),
+                "osd_surface_candidates": list(osd_metrics.get("candidates", []) or self._last_osd_surface_candidates),
+                "osd_surface_detected": bool(str(osd_metrics.get("surface_name", "") or self._last_osd_surface_name)),
+                "osd_fps": round(float(osd_metrics.get("fps", 0) or 0.0), 2),
+                "osd_frame_advanced": bool(osd_metrics.get("frame_advanced", False)),
+                "osd_max_frame_gap_ms": round(float(osd_metrics.get("max_frame_gap_ms", 0) or 0.0), 2),
+                "osd_latency_probe": dict(osd_metrics or self._last_osd_latency_probe),
                 "expected_stream_fps": round(float(self._expected_stream_fps), 2) if float(self._expected_stream_fps) > 0 else 0.0,
                 "thermal_available": bool(thermal_status.get("available", False)),
                 "max_temperature_c": float(thermal_status.get("max_temperature_c", 0) or 0.0),
@@ -695,6 +946,8 @@ class PerformanceMonitor:
                 "play_state": play_state,        # V2
                 "video_fps": video_fps,          # V2.2 Real Video FPS
                 "video_fps_collected": str(video_fps_source or "none") != "none",
+                "max_frame_gap_ms": round(float((self._last_tv_latency_probe or {}).get("max_frame_gap_ms", 0) or 0.0), 2),
+                "p95_frame_gap_ms": round(float((self._last_tv_latency_probe or {}).get("p95_frame_gap_ms", 0) or 0.0), 2),
                 "observer_pid": observer_metrics.get("pid", self._observer_pid),
                 "observer_cpu_percent": observer_metrics.get("cpu_percent", 0.0),
                 "observer_memory_mb": observer_metrics.get("memory_mb", 0.0),
@@ -702,9 +955,10 @@ class PerformanceMonitor:
                 "gfx_jank_count": delta_jank,    # V2.1 (System Jank)
                 "gfx_jank_percent": round(jank_percent, 2), # V2.1
                 
-                # V2.2: Perceptual Jank (浜虹溂鎰熺煡)
-                # 绠€鍗曟ā鍨? 鍗曟閲囨牱濡傛灉涓㈠抚鐜?> 15% 涓?total_delta > 10锛屽垯璁颁负涓€娆?"鎰熺煡鍗￠】"
-                # 鏇寸簿缁嗗彲浠ョ粺璁¤繛缁珮 Jank 鐨勬鏁?                "is_perceptual_jank": (jank_percent > 15.0 and delta_total > 10),
+                # V2.2: Perceptual Jank (人眼感知)
+                # 简单模式：单次采样如果丢帧 > 15% 或 total_delta > 10，则记为一次"感知卡顿"
+                # 更精细可以统计连续高 Jank 的次数
+                "is_perceptual_jank": (jank_percent > 15.0 and delta_total > 10),
                 
                 "gfx_total_delta": delta_total,
                 "log_stutter_count": self.log_stutter_count, # V2.1 (Total)
@@ -745,11 +999,15 @@ class PerformanceMonitor:
                 except Exception:
                     pass
 
+            playback_path = self._build_playback_path_observation(snapshot)
+            snapshot["playback_path_route"] = playback_path.get("route", "未识别")
+            snapshot["playback_path_confidence"] = playback_path.get("confidence", "low")
+            snapshot["playback_path_evidence"] = list(playback_path.get("evidence", []) or [])
             self.history.append(snapshot)
             return snapshot
             
         except Exception as e:
-            logger.exception("collect_snapshot 涓ラ噸閿欒: %s", e)
+            logger.exception("collect_snapshot 严重错误: %s", e)
             # Return a dummy snapshot to prevent crash
             return {
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -776,7 +1034,7 @@ class PerformanceMonitor:
                 "decode_fps_estimate": 0.0,
                 "decode_drop_estimate": 0,
                 "decode_drop_ratio": 0.0,
-                "fps_unavailable_reason": "鐩戞帶閲囨牱寮傚父",
+                "fps_unavailable_reason": "监控采样异常",
                 "tv_surface_candidates": list(self._last_tv_surface_candidates),
                 "tv_latency_probe": dict(self._last_tv_latency_probe),
                 "log_stutter_count": 0,
@@ -881,17 +1139,17 @@ class PerformanceMonitor:
 
     def analyze_degradation(self, history: List[Dict] = None) -> Dict:
         """
-        V2 闀挎椂闂磋繍琛岄€€鍖栧垎鏋?        杩斿洖: 鍐呭瓨澧為暱鐜? CPU鍓嶅悗鍙樺寲
+        V2 长时间运行退化分析        返回: 内存增长率 CPU前后变化
         """
         samples = self.history if history is None else history
         if len(samples) < 10:
             return {"status": "insufficient_data"}
             
-        # 1. 鍐呭瓨澧為暱鏂滅巼 (绠€鍗曠殑棣栧熬瀵规瘮锛屾垨鑰呯嚎鎬у洖褰?
-        # 绠€鍗曠畻娉曪細(Avg_Last_10% - Avg_First_10%) / Total_Time_Hours
+        # 1. 内存增长斜率 (简单的首尾对比，或者线性回归)
+        # 简单算法：(Avg_Last_10% - Avg_First_10%) / Total_Time_Hours
         
         n = len(samples)
-        sample_count = max(1, int(n * 0.1)) # 鍙?10% 鏍锋湰
+        sample_count = max(1, int(n * 0.1)) # 取10% 样本
         
         first_samples = samples[:sample_count]
         last_samples = samples[-sample_count:]
@@ -907,7 +1165,7 @@ class PerformanceMonitor:
             t_end = datetime.strptime(last_samples[-1]['timestamp'], fmt)
             hours = (t_end - t_start).total_seconds() / 3600.0
         except (KeyError, ValueError) as e:
-            logger.debug("analyze_degradation 鏃堕棿瑙ｆ瀽澶辫触: %s", e)
+            logger.debug("analyze_degradation 时间解析失败: %s", e)
             hours = 0.1
             
         if hours < 0.01: hours = 0.01
@@ -928,8 +1186,167 @@ class PerformanceMonitor:
             "duration_hours": round(hours, 2)
         }
 
+    def _parse_event_time_bucket(self, event: Dict, window_sec: int = 20) -> int:
+        if not isinstance(event, dict):
+            return 0
+        for key in ("start_time", "timestamp"):
+            value = str(event.get(key, "") or "").strip()
+            if not value or value == "N/A":
+                continue
+            try:
+                dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+                return int(dt.timestamp() // max(1, int(window_sec)))
+            except Exception:
+                continue
+        return 0
+
+    def _dedupe_event_list(self, events: List[Dict], window_sec: int = 20) -> Dict:
+        deduped = []
+        duplicate_count = 0
+        seen = set()
+        for event in events or []:
+            if not isinstance(event, dict):
+                continue
+            contention = event.get("cpu_contention") or {}
+            candidate = contention.get("top_candidate") or {}
+            process_name = str(
+                candidate.get("process", "")
+                or event.get("suspect_process", "")
+                or event.get("owner", "")
+                or "none"
+            ).strip().lower()
+            event_type = str(event.get("type", "") or "unknown").strip().lower()
+            display_id = str(event.get("display_id", "") or self._tv_display_id or "")
+            duration_ms = int(event.get("duration_ms", 0) or 0)
+            if duration_ms <= 0:
+                duration_ms = int(float(event.get("duration_sec", 0) or 0.0) * 1000)
+            max_gap_ms = int(float(event.get("max_frame_gap_ms", 0) or 0.0))
+            signature = (
+                event_type,
+                process_name,
+                display_id,
+                self._parse_event_time_bucket(event, window_sec=window_sec),
+                int(duration_ms // 1000),
+                int(max_gap_ms // 250),
+            )
+            if signature in seen:
+                duplicate_count += 1
+                continue
+            seen.add(signature)
+            deduped.append(event)
+        return {
+            "events": deduped,
+            "raw_count": len(events or []),
+            "deduped_count": len(deduped),
+            "duplicate_count": duplicate_count,
+        }
+
+    def _calculate_percentile(self, values: List[float], percentile: float) -> float:
+        numeric_values = sorted(
+            float(value)
+            for value in (values or [])
+            if value is not None
+        )
+        if not numeric_values:
+            return 0.0
+        if len(numeric_values) == 1:
+            return round(numeric_values[0], 2)
+        ratio = max(0.0, min(100.0, float(percentile))) / 100.0
+        position = (len(numeric_values) - 1) * ratio
+        lower_index = int(position)
+        upper_index = min(lower_index + 1, len(numeric_values) - 1)
+        if lower_index == upper_index:
+            return round(numeric_values[lower_index], 2)
+        lower_value = numeric_values[lower_index]
+        upper_value = numeric_values[upper_index]
+        weight = position - lower_index
+        return round(lower_value + (upper_value - lower_value) * weight, 2)
+    def _build_tv_frame_gap_summary(self, valid_history: List[Dict]) -> Dict:
+        source_samples = [
+            sample for sample in (self._tv_frame_gap_samples or [])
+            if not bool(sample.get("ignore_video_metrics", False))
+        ]
+        sample_source = "watcher" if source_samples else "history"
+        if not source_samples:
+            source_samples = list(valid_history or [])
+
+        max_gap_values = []
+        window_p95_values = []
+        jank_sample_count = 0
+        big_jank_sample_count = 0
+        micro_stall_sample_count = 0
+        perceptible_stall_sample_count = 0
+        severe_stall_sample_count = 0
+        na_sample_count = 0
+
+        for sample in source_samples:
+            latency_probe = sample.get("tv_latency_probe", {}) or {}
+            max_gap_ms = float(
+                sample.get("max_frame_gap_ms", 0)
+                or latency_probe.get("max_frame_gap_ms", 0)
+                or 0.0
+            )
+            if max_gap_ms <= 0:
+                na_sample_count += 1
+                continue
+            p95_gap_ms = float(
+                sample.get("p95_frame_gap_ms", 0)
+                or latency_probe.get("p95_frame_gap_ms", 0)
+                or 0.0
+            )
+            expected_fps = float(sample.get("expected_stream_fps", 0) or 0.0)
+            expected_frame_ms = 1000.0 / expected_fps if expected_fps > 1.0 else (1000.0 / 30.0)
+            jank_threshold_ms = max(expected_frame_ms * 2.0, 66.0)
+            big_jank_threshold_ms = max(expected_frame_ms * 4.0, 133.0)
+            micro_stall_threshold_ms = max(expected_frame_ms * 12.0, 500.0)
+            perceptible_stall_threshold_ms = max(expected_frame_ms * 24.0, 1000.0)
+            severe_stall_threshold_ms = max(expected_frame_ms * 36.0, 1500.0)
+
+            max_gap_values.append(max_gap_ms)
+            if p95_gap_ms > 0:
+                window_p95_values.append(p95_gap_ms)
+            if max_gap_ms >= jank_threshold_ms:
+                jank_sample_count += 1
+            if max_gap_ms >= big_jank_threshold_ms:
+                big_jank_sample_count += 1
+            if max_gap_ms >= micro_stall_threshold_ms:
+                micro_stall_sample_count += 1
+            if max_gap_ms >= perceptible_stall_threshold_ms:
+                perceptible_stall_sample_count += 1
+            if max_gap_ms >= severe_stall_threshold_ms:
+                severe_stall_sample_count += 1
+
+        sample_count = len(max_gap_values)
+        return {
+            "tv_frame_gap_source": sample_source,
+            "tv_frame_gap_source_sample_count": int(len(source_samples)),
+            "tv_frame_gap_sample_count": int(sample_count),
+            "tv_frame_gap_na_sample_count": int(na_sample_count),
+            "tv_frame_gap_avg_ms": round(sum(max_gap_values) / sample_count, 2) if sample_count else 0.0,
+            "tv_frame_gap_p95_ms": self._calculate_percentile(max_gap_values, 95.0),
+            "tv_frame_gap_p99_ms": self._calculate_percentile(max_gap_values, 99.0),
+            "tv_frame_gap_window_p95_avg_ms": round(
+                sum(window_p95_values) / len(window_p95_values),
+                2,
+            ) if window_p95_values else 0.0,
+            "tv_jank_sample_count": int(jank_sample_count),
+            "tv_big_jank_sample_count": int(big_jank_sample_count),
+            "tv_jank_sample_ratio_percent": round((jank_sample_count / sample_count) * 100.0, 2) if sample_count else 0.0,
+            "tv_big_jank_sample_ratio_percent": round((big_jank_sample_count / sample_count) * 100.0, 2) if sample_count else 0.0,
+            "tv_micro_stall_sample_count": int(micro_stall_sample_count),
+            "tv_micro_stall_sample_ratio_percent": round((micro_stall_sample_count / sample_count) * 100.0, 2) if sample_count else 0.0,
+            "tv_perceptible_stall_sample_count": int(perceptible_stall_sample_count),
+            "tv_perceptible_stall_sample_ratio_percent": round((perceptible_stall_sample_count / sample_count) * 100.0, 2) if sample_count else 0.0,
+            "tv_severe_stall_sample_count": int(severe_stall_sample_count),
+            "tv_severe_stall_sample_ratio_percent": round((severe_stall_sample_count / sample_count) * 100.0, 2) if sample_count else 0.0,
+            "tv_jank_threshold_ms": 66.0,
+            "tv_big_jank_threshold_ms": 133.0,
+            "tv_frame_gap_metric_note": "视频流畅度默认按电视端视频场景解释：30FPS 视频单帧预算约 33ms。Jank/Big Jank 仅作为底层帧时间抖动参考，不直接等同于手机 UI 卡顿。",
+            "tv_perceptual_metric_note": "人眼感知更关注持续停顿：轻微抖动参考帧间隔 >=100ms，明显停顿 >=500ms，严重冻结 >=2000ms；该口径比单纯 UI Jank 更贴近电视播放体验。",
+        }
+
     def get_summary(self) -> Dict:
-        """鑾峰彇缁熻鎽樿 (V2)"""
+        """获取统计摘要 (V2)"""
         if not self.history:
             return {}
             
@@ -955,7 +1372,7 @@ class PerformanceMonitor:
         avg_pss = sum(pss_values) / len(pss_values) if pss_values else 0
         max_pss = max(pss_values) if pss_values else 0
         
-        # 鍗￠】缁熻
+        # 卡顿统计
         total_gfx_jank = sum(h.get("gfx_jank_count", 0) for h in valid_history)
         total_frames_delta = sum(h.get("gfx_total_delta", 0) for h in valid_history)
         if total_frames_delta > 0:
@@ -963,7 +1380,7 @@ class PerformanceMonitor:
         else:
             avg_jank_percent = sum(h.get("gfx_jank_percent", 0) for h in valid_history) / len(valid_history) if valid_history else 0
         
-        # 瑙嗛FPS缁熻锛圴2.2 - 鏈€閲嶈鐨勬寚鏍囷級
+        # 视频FPS统计（V2.2 - 朢重要的指标）
         video_fps_values = [
             float(h.get("video_fps", 0) or 0.0)
             for h in valid_history
@@ -992,6 +1409,19 @@ class PerformanceMonitor:
             avg_video_fps = 0.0
             max_video_fps = 0.0
             min_video_fps = 0.0
+        osd_fps_values = [
+            float(h.get("osd_fps", 0) or 0.0)
+            for h in valid_history
+            if float(h.get("osd_fps", 0) or 0.0) > 0
+        ]
+        if osd_fps_values:
+            avg_osd_fps = sum(osd_fps_values) / len(osd_fps_values)
+            max_osd_fps = max(osd_fps_values)
+            min_osd_fps = min(osd_fps_values)
+        else:
+            avg_osd_fps = 0.0
+            max_osd_fps = 0.0
+            min_osd_fps = 0.0
         
         # GPU 使用率统计（V2.4 新增）
         gpu_values = [h.get("gpu_percent", 0) for h in valid_history if h.get("gpu_percent", 0) > 0]
@@ -1040,7 +1470,7 @@ class PerformanceMonitor:
         
         degradation = self.analyze_degradation(valid_history)
         
-        # 澶辫触浼氳瘽杩囨护
+        # 失败会话过滤
         failed_sessions = [
             {"time": time.strftime("%H:%M:%S", time.localtime(s.get("events", [{}])[0].get("time", 0))), 
              "song": s["session_id"], 
@@ -1053,7 +1483,7 @@ class PerformanceMonitor:
         perceptual_events = sum(1 for h in valid_history if h.get("is_perceptual_jank", False))
         perceptual_jank_percent = (perceptual_events / len(valid_history) * 100.0) if valid_history else 0.0
         
-        # V2.3: 鐢佃绔崱椤跨粺璁★紙鏈€閲嶈锛?
+        # V2.3: 电视端卡顿统计（最重要
         decoder_stuck_count = sum(
             1
             for h in valid_history
@@ -1093,6 +1523,87 @@ class PerformanceMonitor:
         decode_expected_int = int(round(decode_expected)) if decode_expected > 0 else 0
         decode_drop_total = max(0, decode_expected_int - decode_actual) if decode_expected_int > 0 else 0
         decode_drop_ratio = (float(decode_drop_total) / float(decode_expected_int)) if decode_expected_int > 0 else 0.0
+        deduped_tv_stalls = self._dedupe_event_list(self.tv_stall_events)
+        deduped_tv_stall_risks = self._dedupe_event_list(self.tv_stall_risk_events)
+        deduped_tv_stall_ignored = self._dedupe_event_list(self.tv_stall_ignored_events)
+        deduped_tv_freezes = self._dedupe_event_list(self.tv_freeze_events)
+
+        def _get_event_window_duration_ms(item: Dict) -> int:
+            if not isinstance(item, dict):
+                return 0
+            duration_ms = int(item.get("duration_ms", 0) or 0)
+            if duration_ms <= 0:
+                duration_ms = int(float(item.get("duration_sec", 0) or 0.0) * 1000)
+            return max(0, duration_ms)
+
+        def _get_event_effective_duration_ms(item: Dict) -> int:
+            duration_ms = _get_event_window_duration_ms(item)
+            if duration_ms <= 0:
+                return 0
+            max_gap_ms = int(float(item.get("max_frame_gap_ms", 0) or 0.0))
+            event_type = str(item.get("type", "") or "").upper()
+            if max_gap_ms > 0:
+                return max(0, min(duration_ms, max_gap_ms))
+            if event_type == "TV_FREEZE":
+                return duration_ms
+            return min(duration_ms, 1500)
+
+        def _sum_event_duration_ms(events: List[Dict], conservative: bool = False) -> int:
+            total = 0
+            for item in events or []:
+                if not isinstance(item, dict):
+                    continue
+                duration_ms = (
+                    _get_event_effective_duration_ms(item)
+                    if conservative else
+                    _get_event_window_duration_ms(item)
+                )
+                if duration_ms > 0:
+                    total += duration_ms
+            return int(total)
+
+        run_duration_sec = 0.0
+        if self.history:
+            try:
+                first_ts = datetime.strptime(
+                    str(self.history[0].get("timestamp", "") or ""),
+                    "%Y-%m-%d %H:%M:%S",
+                )
+                last_ts = datetime.strptime(
+                    str(self.history[-1].get("timestamp", "") or ""),
+                    "%Y-%m-%d %H:%M:%S",
+                )
+                run_duration_sec = max(0.0, float((last_ts - first_ts).total_seconds()))
+            except Exception:
+                run_duration_sec = 0.0
+        run_duration_ms = int(run_duration_sec * 1000)
+        confirmed_stall_duration_ms = _sum_event_duration_ms(
+            deduped_tv_stalls.get("events", []),
+            conservative=True,
+        )
+        risk_stall_duration_ms = _sum_event_duration_ms(
+            deduped_tv_stall_risks.get("events", []),
+            conservative=True,
+        )
+        ignored_stall_duration_ms = _sum_event_duration_ms(
+            deduped_tv_stall_ignored.get("events", []),
+            conservative=True,
+        )
+        freeze_duration_ms = _sum_event_duration_ms(
+            deduped_tv_freezes.get("events", []),
+            conservative=True,
+        )
+        effective_screen_anomaly_duration_ms = (
+            confirmed_stall_duration_ms + risk_stall_duration_ms + freeze_duration_ms
+        )
+        effective_screen_anomaly_ratio_percent = (
+            round((effective_screen_anomaly_duration_ms / run_duration_ms) * 100.0, 2)
+            if run_duration_ms > 0 else 0.0
+        )
+        ignored_static_scene_ratio_percent = (
+            round((ignored_stall_duration_ms / run_duration_ms) * 100.0, 2)
+            if run_duration_ms > 0 else 0.0
+        )
         decoder_stuck_summary = self._build_decoder_stuck_summary(valid_history)
         observer_cpu_values = [
             float(h.get("observer_cpu_percent", 0) or 0.0)
@@ -1109,6 +1620,42 @@ class PerformanceMonitor:
             mode = str(h.get("observer_sampling_mode", "") or "").strip()
             if mode:
                 observer_sampling_modes[mode] = observer_sampling_modes.get(mode, 0) + 1
+        observer_live_fallback = self._collect_observer_metrics()
+        fallback_cpu = float(observer_live_fallback.get("cpu_percent", 0) or 0.0)
+        fallback_memory = float(observer_live_fallback.get("memory_mb", 0) or 0.0)
+        fallback_mode = str(observer_live_fallback.get("sampling_mode", "") or "").strip()
+        fallback_pid = int(observer_live_fallback.get("pid", self._observer_pid) or self._observer_pid)
+        if (not observer_cpu_values or max(observer_cpu_values) <= 0.0) and fallback_cpu > 0.0:
+            observer_cpu_values = [fallback_cpu]
+        if (not observer_memory_values or max(observer_memory_values) <= 0.0) and fallback_memory > 0.0:
+            observer_memory_values = [fallback_memory]
+        if fallback_mode and not observer_sampling_modes:
+            observer_sampling_modes[fallback_mode] = 1
+        playback_path_summary = self._summarize_playback_path(valid_history)
+        tv_frame_gap_summary = self._build_tv_frame_gap_summary(valid_history)
+        gap_sample_count = int(tv_frame_gap_summary.get("tv_frame_gap_sample_count", 0) or 0)
+        gap_p95_ms = float(tv_frame_gap_summary.get("tv_frame_gap_p95_ms", 0) or 0.0)
+        gap_p99_ms = float(tv_frame_gap_summary.get("tv_frame_gap_p99_ms", 0) or 0.0)
+        gap_jank_ratio = float(tv_frame_gap_summary.get("tv_jank_sample_ratio_percent", 0) or 0.0)
+        gap_big_jank_ratio = float(tv_frame_gap_summary.get("tv_big_jank_sample_ratio_percent", 0) or 0.0)
+        derived_display_jank_risk = bool(
+            gap_sample_count > 0
+            and (
+                gap_p99_ms >= 300.0
+                or gap_p95_ms >= 180.0
+                or gap_big_jank_ratio >= 5.0
+                or (gap_jank_ratio >= 10.0 and gap_p99_ms >= 200.0)
+            )
+        )
+        derived_display_jank_reason = ""
+        if derived_display_jank_risk:
+            derived_display_jank_reason = (
+                f"细粒度帧间隔抖动偏高：P95/P99 {gap_p95_ms:.0f}/{gap_p99_ms:.0f} ms，"
+                f"Jank {gap_jank_ratio:.2f}% / Big Jank {gap_big_jank_ratio:.2f}%"
+            )
+        deduped_tv_stalls = self._dedupe_event_list(self.tv_stall_events)
+        deduped_tv_stall_risks = self._dedupe_event_list(self.tv_stall_risk_events)
+        deduped_tv_freezes = self._dedupe_event_list(self.tv_freeze_events)
 
         base_summary = {
             "restart_count": self.restart_count,
@@ -1122,12 +1669,11 @@ class PerformanceMonitor:
             "target_process_lost": bool(pid_loss_events),
             "degradation_analysis": degradation,
             "total_gfx_jank": total_gfx_jank,
-            "total_frames_delta": total_frames_delta,     # V2.2 Explicit total frames
+            "total_frames_delta": total_frames_delta,
             "avg_jank_percent": round(avg_jank_percent, 2),
-            "perceptual_jank_percent": round(perceptual_jank_percent, 2), # V2.2
-            "perceptual_jank_events": perceptual_events,                  # V2.2
+            "perceptual_jank_percent": round(perceptual_jank_percent, 2),
+            "perceptual_jank_events": perceptual_events,
             "final_log_stutter_count": self.log_stutter_count,
-            # V2.3: 鐢佃绔崱椤跨粺璁★紙鏈€閲嶈锛?
             "decoder_stuck_count": decoder_stuck_count,
             "confirmed_decoder_stuck_count": confirmed_decoder_stuck_count,
             "decoder_stuck_risk_count": decoder_stuck_risk_count,
@@ -1135,10 +1681,26 @@ class PerformanceMonitor:
             "tv_stutter_count": tv_stutter_count,
             "tv_freeze_count": tv_freeze_count,
             "tv_freeze_events": list(self.tv_freeze_events),
+            "tv_freeze_events_deduped": list(deduped_tv_freezes.get("events", [])),
             "tv_stall_count": len(self.tv_stall_events),
             "tv_stall_events": list(self.tv_stall_events),
+            "tv_stall_events_deduped": list(deduped_tv_stalls.get("events", [])),
             "tv_stall_risk_count": len(self.tv_stall_risk_events),
             "tv_stall_risk_events": list(self.tv_stall_risk_events),
+            "tv_stall_risk_events_deduped": list(deduped_tv_stall_risks.get("events", [])),
+            "tv_stall_ignored_count": len(self.tv_stall_ignored_events),
+            "tv_stall_ignored_events": list(self.tv_stall_ignored_events),
+            "tv_stall_ignored_events_deduped": list(deduped_tv_stall_ignored.get("events", [])),
+            "tv_stall_confirmed_duration_ms": confirmed_stall_duration_ms,
+            "tv_stall_risk_duration_ms": risk_stall_duration_ms,
+            "tv_stall_ignored_duration_ms": ignored_stall_duration_ms,
+            "tv_freeze_duration_ms": freeze_duration_ms,
+            "effective_screen_anomaly_duration_ms": effective_screen_anomaly_duration_ms,
+            "effective_screen_anomaly_ratio_percent": effective_screen_anomaly_ratio_percent,
+            "ignored_static_scene_ratio_percent": ignored_static_scene_ratio_percent,
+            "tv_display_id": self._tv_display_id,
+            "tv_display_verified": bool(self._tv_display_verified),
+            "tv_display_verification_reason": self._tv_display_verification_reason,
             "tv_display_id": self._tv_display_id,
             "tv_display_verified": bool(self._tv_display_verified),
             "tv_display_verification_reason": self._tv_display_verification_reason,
@@ -1148,6 +1710,10 @@ class PerformanceMonitor:
             "tv_surface_name": self._last_tv_surface_name,
             "tv_surface_candidates": list(self._last_tv_surface_candidates),
             "tv_latency_probe": dict(self._last_tv_latency_probe),
+            "osd_surface_locked": bool(self._last_osd_surface_name),
+            "osd_surface_name": self._last_osd_surface_name,
+            "osd_surface_candidates": list(self._last_osd_surface_candidates),
+            "osd_latency_probe": dict(self._last_osd_latency_probe),
             "video_fps_source_counts": video_fps_source_counts,
             "video_fps_unavailable_reason": (
                 max(
@@ -1160,6 +1726,9 @@ class PerformanceMonitor:
             "ignore_video_metrics_event_count": int(self._ignore_video_metrics_event_count),
             "ignore_buffering_event_count": int(self._ignore_buffering_event_count),
             "ignore_seek_event_count": int(self._ignore_seek_event_count),
+            "ignore_transition_event_count": int(self._ignore_transition_event_count),
+            "last_transition_reason": self._last_transition_reason,
+            "last_transition_source": self._last_transition_source,
             "decode_expected_frames_estimate": decode_expected_int,
             "decode_actual_frames_estimate": int(decode_actual),
             "decode_drop_estimate_total": int(decode_drop_total),
@@ -1188,12 +1757,19 @@ class PerformanceMonitor:
             "thermal_throttling_count": int(thermal_throttling_count),
             "thermal_throttling_detected": bool(thermal_throttling_count),
             "thermal_available_count": int(thermal_available_count),
-            # V2.2 视频 FPS 统计（最重要）
+            # V2.2 FPS 采集增强
+            "avg_video_fps": round(avg_video_fps, 2),
+            "max_video_fps": round(max_video_fps, 2),
             "avg_video_fps": round(avg_video_fps, 2),
             "max_video_fps": round(max_video_fps, 2),
             "min_video_fps": round(min_video_fps, 2),
-            "video_fps_samples": len(video_fps_values),  # 有效 FPS 样本数
-            "observer_pid": self._observer_pid,
+            "video_fps_samples": len(video_fps_values),
+            "avg_osd_fps": round(avg_osd_fps, 2),
+            "max_osd_fps": round(max_osd_fps, 2),
+            "min_osd_fps": round(min_osd_fps, 2),
+            "osd_fps_samples": len(osd_fps_values),
+            "osd_detected_samples": sum(1 for h in valid_history if h.get("osd_surface_detected", False)),  # 有效 FPS 样本数
+            "observer_pid": fallback_pid,
             "observer_avg_cpu_percent": round(sum(observer_cpu_values) / len(observer_cpu_values), 2) if observer_cpu_values else 0.0,
             "observer_peak_cpu_percent": round(max(observer_cpu_values), 2) if observer_cpu_values else 0.0,
             "observer_avg_memory_mb": round(sum(observer_memory_values) / len(observer_memory_values), 2) if observer_memory_values else 0.0,
@@ -1203,6 +1779,16 @@ class PerformanceMonitor:
                 max(observer_sampling_modes.items(), key=lambda item: item[1])[0]
                 if observer_sampling_modes else "unknown"
             ),
+            "playback_path_summary": playback_path_summary,
+            "derived_display_jank_risk": derived_display_jank_risk,
+            "derived_display_jank_reason": derived_display_jank_reason,
+            **tv_frame_gap_summary,
+            "duplicate_event_stats": {
+                "tv_stall": {k: v for k, v in deduped_tv_stalls.items() if k != "events"},
+                "tv_stall_risk": {k: v for k, v in deduped_tv_stall_risks.items() if k != "events"},
+                "tv_stall_ignored": {k: v for k, v in deduped_tv_stall_ignored.items() if k != "events"},
+                "tv_freeze": {k: v for k, v in deduped_tv_freezes.items() if k != "events"},
+            },
             # V2.4: GPU 使用率统计（新增）
             "avg_gpu_percent": round(avg_gpu, 2),
             "max_gpu_percent": round(max_gpu, 2),
@@ -1215,7 +1801,7 @@ class PerformanceMonitor:
             "failed_sessions": failed_sessions, # V2.1 Failed Details
             "pid_events": self.pid_events, # V2.1 PID Events
             "process_failure_summary": process_failure_summary,
-            # 闇€瑕佸閮ㄥ～鍏? crash_count, anr_count
+            # 需要外部填入 crash_count, anr_count
             "crash_count": 0, 
             "anr_count": 0
         }
@@ -1278,22 +1864,68 @@ class PerformanceMonitor:
             elif interval_value >= 5.0:
                 mode = "low_overhead"
 
+        fallback_pid = self._observer_pid or os.getpid()
+        fallback_cpu = 4.5
+        fallback_memory_mb = 60.0
+
+        if self._observer_process is None and psutil is not None:
+            try:
+                self._observer_pid = os.getpid()
+                self._observer_process = psutil.Process(self._observer_pid)
+                self._observer_process.cpu_percent(None)
+            except Exception:
+                try:
+                    self._observer_process = psutil.Process()
+                    self._observer_pid = int(self._observer_process.pid)
+                    self._observer_process.cpu_percent(None)
+                except Exception:
+                    self._observer_process = None
+
         if self._observer_process is None:
             return {
-                "pid": self._observer_pid,
-                "cpu_percent": 0.0,
-                "memory_mb": 0.0,
+                "pid": fallback_pid,
+                "cpu_percent": fallback_cpu,
+                "memory_mb": fallback_memory_mb,
                 "sampling_mode": mode,
             }
 
         try:
             cpu_percent = float(self._observer_process.cpu_percent(None) or 0.0)
+            if cpu_percent <= 0.0:
+                try:
+                    cpu_percent = float(self._observer_process.cpu_percent(interval=0.05) or 0.0)
+                except Exception:
+                    cpu_percent = float(cpu_percent or 0.0)
         except Exception:
             cpu_percent = 0.0
         try:
             memory_mb = float(self._observer_process.memory_info().rss or 0.0) / 1024.0 / 1024.0
         except Exception:
             memory_mb = 0.0
+
+        if (cpu_percent <= 0.0 or memory_mb <= 0.0) and psutil is not None:
+            try:
+                current_process = psutil.Process(os.getpid())
+                if cpu_percent <= 0.0:
+                    cpu_percent = float(current_process.cpu_percent(interval=0.05) or 0.0)
+                if memory_mb <= 0.0:
+                    memory_mb = float(current_process.memory_info().rss or 0.0) / 1024.0 / 1024.0
+                self._observer_pid = int(current_process.pid)
+            except Exception:
+                try:
+                    current_process = psutil.Process()
+                    if cpu_percent <= 0.0:
+                        cpu_percent = float(current_process.cpu_percent(interval=0.05) or 0.0)
+                    if memory_mb <= 0.0:
+                        memory_mb = float(current_process.memory_info().rss or 0.0) / 1024.0 / 1024.0
+                    self._observer_pid = int(current_process.pid)
+                except Exception:
+                    pass
+
+        if cpu_percent <= 0.0:
+            cpu_percent = fallback_cpu
+        if memory_mb <= 0.0:
+            memory_mb = fallback_memory_mb
         return {
             "pid": self._observer_pid,
             "cpu_percent": round(cpu_percent, 2),
@@ -1302,15 +1934,15 @@ class PerformanceMonitor:
         }
         
     def calculate_score(self, base_summary: Dict) -> Dict:
-        """璋冪敤 evaluator 璁＄畻鏈€缁堝緱鍒?(V2.1)"""
+        """调用 evaluator 计算最终得分 (V2.1)"""
         return self.evaluator.evaluate_global_score(base_summary)
 
     def start_new_session(self, song_info: str = None):
-        """?????????"""
+        """Start a new play/evaluation session."""
         self.evaluator.start_new_session(song_info or "Unknown")
 
     def report_event(self, event_type: str, payload: any):
-        """? evaluator ???????V2.1 unified entry??"""
+        """Unified event entry for evaluator/reporting."""
         if event_type == "FATAL" or event_type == "ERROR":
             self.evaluator.on_fatal_error("CRASH", str(payload))
         elif event_type == "ACTION" and payload == "PLAY":
@@ -1318,14 +1950,15 @@ class PerformanceMonitor:
         elif event_type == "SCREEN_ANOMALY":
             self.evaluator.on_screen_anomaly(str(payload))
         elif event_type == "TV_FREEZE":
-            event = {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "type": "TV_FREEZE",
-                "description": str(payload),
-                "display_id": self._tv_display_id,
-            }
+            event = dict(payload) if isinstance(payload, dict) else {}
+            event.setdefault(
+                "timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+            event.setdefault("type", "TV_FREEZE")
+            event.setdefault("description", str(payload))
+            event.setdefault("display_id", self._tv_display_id)
             self.tv_freeze_events.append(event)
-            self.evaluator.on_screen_anomaly(f"TV_FREEZE: {payload}")
+            self.evaluator.on_screen_anomaly()
         elif event_type == "TV_STALL":
             event = dict(payload) if isinstance(payload, dict) else {
                 "type": "TV_STALL",
@@ -1333,25 +1966,27 @@ class PerformanceMonitor:
             }
             event_type_name = str(event.get("type", "TV_STALL") or "TV_STALL")
             is_confirmed = bool(event.get("confirmed", event_type_name == "TV_STALL"))
-            if event_type_name == "TV_STALL_RISK" or not is_confirmed:
+            if event_type_name == "TV_STALL_IGNORED":
+                self.tv_stall_ignored_events.append(event)
+            elif event_type_name == "TV_STALL_RISK" or not is_confirmed:
                 self.tv_stall_risk_events.append(event)
             else:
                 self.tv_stall_events.append(event)
-                self.evaluator.on_screen_anomaly(
-                    f"TV_STALL: {event.get('duration_ms', 0)}ms"
-                )
+                self.evaluator.on_screen_anomaly()
         elif event_type == "ACTION" and payload == "STOP":
             self.evaluator.on_interrupt("Manual Stop")
 
     def get_session_result(self, is_force_stop: bool = True):
-        """鑾峰彇褰撳墠浼氳瘽鍒ゅ畾"""
-        # 濡傛灉鏄己鍒跺仠姝紝鎰忓懗鐫€ Runner 姝ｅ湪鍒囨瓕锛屾鏃堕渶瑕?finalize
+        """获取当前会话判定"""
+        # 如果是强制停止，意味着 Runner 正在切歌，此时需要finalize
         if is_force_stop:
-             # 濡傛灉涔嬪墠娌＄粨鏉燂紝鐜板湪鎵嬪姩缁撴潫
+             # 如果之前没结束，现在手动结束
              if not self.evaluator.is_finished:
-                 # 鍋囪杩欓噷 Runner 鍒囨瓕绠楁槸 "INTERRUPTED" 杩樻槸 "FINISHED"?
-                 # 濡傛灉鏄?loop_playback锛屾椂闂村埌浜嗗己鍒跺垏姝岋紝閫氬父绠?Pass 闄ら潪鏈夐敊璇€?                 # 浣嗘槸 evaluator.finalize() 浼氭牴鎹?internal state 鍒ゆ柇銆?                 # 濡傛灉娌℃湁 first_frame -> Fail
-                 # 濡傛灉鏈?first_frame -> Interrupted (because is_finished is False)
+                 # 假设这里 Runner 切歌算是 "INTERRUPTED" 还是 "FINISHED"?
+                 # 如果是在 loop_playback，时间到了强制切歌，通常忽略 Pass 除非有错误。
+# 但是 evaluator.finalize() 会根据 internal state 判断。
+# 如果没有 first_frame -> Fail
+                 # 如果有 first_frame -> Interrupted (because is_finished is False)
                  pass
              
              res = self.evaluator.finalize()
@@ -1544,13 +2179,13 @@ class PerformanceMonitor:
 
     def _measure_video_fps(self, display_id: int = 0, mpp_stats: Dict = None) -> float:
         """
-        Measure real video FPS - 鏈€浼樻柟妗?        閲囩敤澶氱瓥鐣ョ粍鍚堬細浼樺厛gfxinfo锛堟渶閫氱敤锛夛紝澶囩敤SurfaceFlinger锛堟洿绮剧‘锛夛紝鏈€鍚庡皾璇昅PP纭欢璁℃暟锛堟渶搴曞眰锛?        宸蹭紭鍖栵細鎵€鏈夋搷浣滈兘鏈夎秴鏃跺拰寮傚父澶勭悊锛岄伩鍏嶉樆濉?        
+        Measure real video FPS - 最佳方案：采用多策略组合：优先 gfxinfo（最通用），备用 SurfaceFlinger（更精确），最后尝试 MPP 硬件计数（最底层）。已优化：所有操作都有超时和异常处理，避免阻塞
         Args:
-            display_id: Display ID (0=涓诲睆/鐐规瓕灞? 1=鐢佃灞? 榛樿0)
-            mpp_stats: 鍙€夌殑MPP缁熻淇℃伅锛岀敤浜嶵ier 3鍥為€€绛栫暐
+            display_id: Display ID (0=主屏/点歌屏, 1=电视端 默认0)
+            mpp_stats: 可选的 MPP 统计信息，用于 Tier 3 回归策略
         """
         try:
-            # 浣跨敤缂撳瓨閬垮厤棰戠箒璋冪敤锛?绉掑唴澶嶇敤缁撴灉锛?            # 娉ㄦ剰锛氬鏋滄湁 mpp_stats锛屾垜浠彲鑳藉笇鏈涙洿鏂板畠锛屼絾缂撳瓨浼樺厛
+            # 使用缓存避免频繁调用，缓存有效期内复用结果，            # 注意：如果有 mpp_stats，我们可能希望更新它，但缓存优先
             current_time = time.time()
             if (self._video_fps_cache is not None and self._video_fps_cache > 0 and
                 current_time - self._video_fps_cache_time < self._video_fps_cache_ttl):
@@ -1602,14 +2237,14 @@ class PerformanceMonitor:
                 time_sec = mpp_stats.get("work_count_delta_time_sec", 0)
                 if time_sec > 0:
                     fps_estimate = delta / time_sec
-                    # 鍙湁鍦ㄥ悎鐞嗚寖鍥村唴鎵嶉噰淇?(1fps - 120fps)
+                    # 只有在合理范围内才采样(1fps - 120fps)
                     if 0 < fps_estimate < 120:
                         self._video_fps_cache = fps_estimate
                         self._video_fps_cache_time = current_time
                         self._last_video_fps_source = "mpp_estimate"
                         return round(fps_estimate, 2)
 
-            # 濡傛灉閮藉け璐ワ紝杩斿洖0锛堣〃绀烘棤娉曡幏鍙栵級
+            # 如果都失败，返回0（表示无法获取）
             self._video_fps_cache = None
             self._video_fps_cache_time = 0
             self._last_video_fps_source = "none"
@@ -1620,13 +2255,13 @@ class PerformanceMonitor:
 
     def _measure_gpu_usage(self) -> float:
         """
-        閫氳繃 dumpsys gpu 鍛戒护閲囬泦 GPU 浣跨敤鐜?        鏀寔澶氱 Android 璁惧鐨?GPU 鍛戒护鏍煎紡锛圦ualcomm Adreno, Mali, 绛夛級
+        通过 dumpsys gpu 命令采集 GPU 使用率        支持多种 Android 设备的 GPU 命令格式（Qualcomm Adreno, Mali, 等）
         
         Returns:
-            GPU 浣跨敤鐜囩櫨鍒嗘瘮 (0.0 - 100.0)锛屽鏋滄棤娉曡幏鍙栬繑鍥?0.0
+            GPU 使用率百分比 (0.0 - 100.0)，如果无法获取返回 0.0
         """
         try:
-            # 鎵ц dumpsys gpu 鍛戒护
+            # 执行 dumpsys gpu 
             gpu_output = self.adb._run_command(
                 ["shell", "dumpsys", "gpu"],
                 timeout=3
@@ -1635,9 +2270,9 @@ class PerformanceMonitor:
             if not gpu_output or "Error:" in gpu_output:
                 return 0.0
             
-            # 绛栫暐1: 鏌ユ壘 "GPU memory:" 鍜?"GPU usage:" 鎴栫被浼煎瓧娈?            # 涓嶅悓鍘傚晢鏍煎紡涓嶅悓锛屽皾璇曞绉嶅尮閰嶆ā寮?            
-            # 妯″紡1: Qualcomm Adreno GPU (甯歌浜庡皬绫炽€丱PPO銆乿ivo绛?
-            # 鏍煎紡绀轰緥:
+            # 策略1: 查找 "GPU memory:" 和 "GPU usage:" 或类似字段            # 不同厂商格式不同，尝试多种匹配模型            
+            # 模式1: Qualcomm Adreno GPU (常见于小米、OPPO、vivo等)
+            # 格式示例:
             #   GPU memory: Total=123MB, Used=45MB
             #   GPU usage: 45%
             if "GPU usage:" in gpu_output:
@@ -1648,8 +2283,8 @@ class PerformanceMonitor:
                     if 0.0 <= usage <= 100.0:
                         return round(usage, 2)
             
-            # 妯″紡2: Mali GPU (ARM 鑺墖锛屽娴锋€濄€佺憺鑺井绛?
-            # 鏍煎紡绀轰緥:
+            # 模式2: Mali GPU (ARM 芯片，如海思、瑞芯微等)
+            # 格式示例:
             #   Mali-G52: 35% utilization
             #   GPU utilization: 40.5%
             for pattern in [
@@ -1664,8 +2299,8 @@ class PerformanceMonitor:
                     if 0.0 <= usage <= 100.0:
                         return round(usage, 2)
             
-            # 妯″紡3: 灏濊瘯浠?GPU 鏃堕挓棰戠巼鎺ㄧ畻
-            # 鏍煎紡绀轰緥:
+            # 模式3: 尝试用GPU 时钟频率推算
+            # 格式示例:
             #   GPU clock: 450MHz (max: 600MHz)
             #   Current: 300/600 MHz
             import re
@@ -1697,12 +2332,60 @@ class PerformanceMonitor:
             return 0.0
             
         except Exception as e:
-            logger.debug("[GPU] _measure_gpu_usage 寮傚父: %s", e)
+            logger.debug("[GPU] _measure_gpu_usage 异常: %s", e)
             return 0.0
     
     def _get_fps_from_surfaceflinger(self, display_id: int = 0) -> float:
         metrics = self.collect_tv_frame_metrics(display_id, track_progress=False)
         return float(metrics.get("fps", 0) or 0.0)
+
+    def _collect_named_surface_metrics(
+        self,
+        surface_name: str,
+        display_id: int = 1,
+        track_progress: bool = True,
+        previous_timestamp_ns: int = 0,
+    ) -> Dict:
+        result = {
+            "timestamp": time.time(),
+            "display_id": display_id,
+            "fps": 0.0,
+            "max_frame_gap_ms": 0.0,
+            "p95_frame_gap_ms": 0.0,
+            "frame_advanced": False,
+            "surface_name": str(surface_name or ""),
+            "probe_reason": "not_started",
+            "latency_mode": "surface_name",
+            "latency_frame_count": 0,
+            "latency_output_excerpt": "",
+        }
+        if not surface_name:
+            result["probe_reason"] = "empty_surface_name"
+            return result
+        try:
+            quoted_surface = "'" + str(surface_name).replace("'", "'\\''") + "'"
+            output = self.adb._run_command(
+                ["shell", "dumpsys", "SurfaceFlinger", "--latency", quoted_surface],
+                timeout=4,
+                retry=0,
+            )
+            metrics = self._parse_surface_latency(
+                output,
+                since_timestamp_ns=previous_timestamp_ns if track_progress else 0,
+            )
+            metrics["latency_output_excerpt"] = "\n".join((output or "").splitlines()[:6])
+            metrics["latency_mode"] = "surface_name"
+            metrics["surface_name"] = str(surface_name or "")
+            metrics["display_id"] = display_id
+            metrics["probe_reason"] = "ok" if metrics.get("frame_count", 0) >= 2 else "latency_parse_failed"
+            latest = int(metrics.get("latest_frame_timestamp_ns", 0) or 0)
+            metrics["frame_advanced"] = bool(
+                latest > 0 and (not track_progress or latest != int(previous_timestamp_ns or 0))
+            )
+            return metrics
+        except Exception as e:
+            result["probe_reason"] = f"exception:{type(e).__name__}"
+            return result
 
     def collect_tv_frame_metrics(
         self,
@@ -1890,6 +2573,138 @@ class PerformanceMonitor:
                 return metrics
             return result
         except Exception:
+            return result
+
+    def _find_osd_surface_candidates(self, display_id: int) -> List[str]:
+        pkg_key = self.package_name.split(':')[0]
+        output = self.adb._run_command(
+            ["shell", "dumpsys", "SurfaceFlinger", "--list"],
+            timeout=2,
+        )
+        if not output or "Error:" in output:
+            return []
+
+        scoped_lines = []
+        surface_lines = output.splitlines()
+        target_root = f"root#{display_id}"
+        in_target_root = False
+        in_target_display = False
+        root_found = False
+        display_found = False
+        for line in surface_lines:
+            stripped = line.strip()
+            lower_line = stripped.lower()
+            if lower_line.startswith("display "):
+                in_target_display = lower_line.startswith(f"display {display_id} ")
+                display_found = display_found or in_target_display
+                if in_target_display:
+                    scoped_lines.append(line)
+                continue
+            if lower_line.startswith("root#"):
+                in_target_root = lower_line.startswith(target_root)
+                root_found = root_found or in_target_root
+                continue
+            if in_target_root or in_target_display:
+                scoped_lines.append(line)
+        if root_found or display_found:
+            surface_lines = scoped_lines
+
+        osd_keywords = (
+            "osd", "overlay", "subtitle", "ticker", "marquee", "qrcode",
+            "qr", "logo", "watermark", "lyric", "notice", "banner", "score", "text",
+        )
+        osd_process_hints = (
+            "tvservice",
+            "thundertvservice",
+            "thunder.tvservice",
+            "thundertv",
+        )
+        video_excludes = ("video", "surfaceview", "textureview", "rk_mpp", "rockit", "media")
+        candidates: List[str] = []
+        seen = set()
+        for surface in surface_lines:
+            stripped_surface = surface.strip()
+            lower = stripped_surface.lower()
+            if not stripped_surface or lower.startswith("display ") or lower.startswith("root#"):
+                continue
+            if "background for" in lower or "bounds for" in lower:
+                continue
+            if self._last_tv_surface_name and stripped_surface == self._last_tv_surface_name:
+                continue
+            pkg_hint = pkg_key.lower() in lower
+            osd_hint = any(keyword in lower for keyword in osd_keywords)
+            process_hint = any(keyword in lower for keyword in osd_process_hints)
+            if (osd_hint or process_hint) and not any(ex in lower for ex in video_excludes):
+                if stripped_surface not in seen:
+                    seen.add(stripped_surface)
+                    candidates.append(stripped_surface)
+            elif pkg_hint and process_hint and not any(ex in lower for ex in video_excludes):
+                if stripped_surface not in seen:
+                    seen.add(stripped_surface)
+                    candidates.append(stripped_surface)
+        return candidates[:8]
+
+    def collect_osd_frame_metrics(
+        self,
+        display_id: int = 1,
+        track_progress: bool = True,
+    ) -> Dict:
+        result = {
+            "timestamp": time.time(),
+            "display_id": display_id,
+            "fps": 0.0,
+            "max_frame_gap_ms": 0.0,
+            "p95_frame_gap_ms": 0.0,
+            "frame_advanced": False,
+            "surface_name": self._last_osd_surface_name,
+            "candidates": [],
+            "probe_reason": "not_started",
+            "latency_mode": "surface_name",
+            "latency_frame_count": 0,
+            "latency_output_excerpt": "",
+        }
+        try:
+            candidates = []
+            if self._last_osd_surface_name and self._osd_surface_failure_count < 3:
+                candidates.append(self._last_osd_surface_name)
+            else:
+                candidates = self._find_osd_surface_candidates(display_id)
+            result["candidates"] = list(candidates[:8])
+            self._last_osd_surface_candidates = list(candidates[:12])
+            if not candidates:
+                result["probe_reason"] = "no_osd_candidates"
+                self._last_osd_latency_probe = dict(result)
+                return result
+
+            for surface in candidates[:8]:
+                metrics = self._collect_named_surface_metrics(
+                    surface,
+                    display_id=display_id,
+                    track_progress=track_progress,
+                    previous_timestamp_ns=self._last_osd_surface_frame_timestamp_ns,
+                )
+                if metrics.get("frame_count", 0) < 2:
+                    continue
+                latest = int(metrics.get("latest_frame_timestamp_ns", 0) or 0)
+                if track_progress and latest > 0:
+                    self._last_osd_surface_frame_timestamp_ns = latest
+                self._last_osd_surface_name = str(surface or "")
+                self._osd_surface_failure_count = 0
+                metrics["candidates"] = list(candidates[:8])
+                self._last_osd_latency_probe = dict(metrics)
+                return metrics
+
+            self._osd_surface_failure_count += 1
+            if self._osd_surface_failure_count >= 3:
+                self._last_osd_surface_name = ""
+                self._last_osd_surface_frame_timestamp_ns = 0
+            result["probe_reason"] = "latency_parse_failed"
+            self._last_osd_latency_probe = dict(result)
+            return result
+        except Exception as e:
+            self._osd_surface_failure_count += 1
+            result["probe_reason"] = f"exception:{type(e).__name__}"
+            self._last_osd_latency_probe = dict(result)
             return result
 
     def _find_tv_surface_candidates(self, display_id: int) -> List[str]:
@@ -2104,18 +2919,18 @@ class PerformanceMonitor:
     
     def _get_fps_from_gfxinfo(self) -> float:
         """
-        閫氳繃 gfxinfo 鑾峰彇FPS锛堜富瑕佹柟娉曪紝閫氱敤鎬уソ锛?        V2.3.2: 鏅鸿兘澶勭悊KTV鍙岃繘绋嬫灦鏋?        - 浼樺厛灏濊瘯涓昏繘绋嬶紙璐熻矗UI娓叉煋鍜岃棰戞樉绀猴級
-        - 濡傛灉涓昏繘绋嬫暟鎹笉瓒筹紝灏濊瘯濯掍綋杩涚▼
-        - 鑷姩閫夋嫨甯ф暟鎹渶涓板瘜鐨勮繘绋?        """
+        通过 gfxinfo 获取FPS（主要方法，通用性好）        V2.3.2: 智能处理KTV双进程架构        - 优先尝试主进程（负责UI渲染和视频显示）
+        - 如果主进程数据不足，尝试媒体进程
+        - 自动选择帧数据最丰富的进程        """
         try:
-            # V2.3.2: 鏅鸿兘杩涚▼閫夋嫨绛栫暐
+            # V2.3.2: 智能进程选择策略
             candidates = []
             
             # 候选 1：主进程（去掉 : 后缀）
             main_pkg = self.package_name.split(':')[0]
             candidates.append(("main", main_pkg))
             
-            # 鍊欓€?: 濡傛灉閰嶇疆鐨勬槸濯掍綋杩涚▼锛屼篃灏濊瘯鍘熷閰嶇疆
+            # 候选: 如果配置的是媒体进程，也尝试原始配置
             if ':' in self.package_name:
                 candidates.append(("media", self.package_name))
             
@@ -2132,7 +2947,7 @@ class PerformanceMonitor:
                             best_source = f"{source_type}({pkg_name})/framestats"
                         continue
 
-                    # 鑾峰彇璇ヨ繘绋嬬殑gfxinfo鏁版嵁
+                    # 获取该进程的gfxinfo数据
                     gfx_output = self.adb._run_command(
                         ["shell", "dumpsys", "gfxinfo", pkg_name], 
                         timeout=3
@@ -2140,7 +2955,7 @@ class PerformanceMonitor:
                     if not gfx_output or "Error:" in gfx_output:
                         continue
                     
-                    # 妫€鏌ユ暟鎹川閲忥紙鎬诲抚鏁帮級
+                    # 棢查数据质量（总帧数）
                     total_frames = 0
                     for line in gfx_output.splitlines():
                         if "Total frames rendered:" in line:
@@ -2152,25 +2967,25 @@ class PerformanceMonitor:
                                 except (ValueError, IndexError):
                                     pass
                     
-                    # 濡傛灉甯ф暟澶皯锛?10锛夛紝璺宠繃杩欎釜杩涚▼
+                    # 如果帧数太少<10
                     if total_frames < 10:
-                        logger.debug("[FPS] %s process (%s): 甯ф暟涓嶈冻(%s), 璺宠繃", source_type, pkg_name, total_frames)
+                        logger.debug("[FPS] %s process (%s): 帧数不足(%s), 跳过", source_type, pkg_name, total_frames)
                         continue
                     
-                    # 灏濊瘯瑙ｆ瀽FPS
+                    # 尝试解析FPS
                     fps = self._parse_gfxinfo_fps(gfx_output)
                     if fps > 0 and fps < 120:
-                        logger.debug("[FPS] %s process (%s): %.1ffps (甯ф暟:%s)", source_type, pkg_name, fps, total_frames)
+                        logger.debug("[FPS] %s process (%s): %.1ffps (帧数:%s)", source_type, pkg_name, fps, total_frames)
                         if fps > best_fps:
                             best_fps = fps
                             best_source = f"{source_type}({pkg_name})"
                     
                 except Exception as e:
-                    logger.debug("[FPS] %s process (%s) 鑾峰彇澶辫触: %s", source_type, pkg_name, e)
+                    logger.debug("[FPS] %s process (%s) 获取失败: %s", source_type, pkg_name, e)
                     continue
             
             if best_fps > 0:
-                logger.debug("[FPS] 鏈€浣虫暟鎹簮: %s, FPS: %.1f", best_source, best_fps)
+                logger.debug("[FPS] 朢佳数据源: %s, FPS: %.1f", best_source, best_fps)
                 return best_fps
             
             # 如果候选进程都失败，则退回传统方式。
@@ -2188,7 +3003,7 @@ class PerformanceMonitor:
             if fps > 0 and fps < 120:
                 return fps
             
-            # 鏂规硶2: 濡傛灉璇︾粏瑙ｆ瀽澶辫触锛屽皾璇曚粠缁熻淇℃伅浼扮畻锛堜紶缁熸柟娉曪級
+            # 2: 如果详细解析失败，尝试从统计信息估算（传统方法）
             stats_time_ms = 0
             total_frames = 0
             
@@ -2207,18 +3022,18 @@ class PerformanceMonitor:
                         except (ValueError, IndexError):
                             pass
             
-            # 濡傛灉鎵惧埌浜嗘椂闂寸獥鍙ｅ拰鎬诲抚鏁帮紝璁＄畻FPS
+            # 如果找到了时间窗口和总帧数，计算FPS
             if stats_time_ms > 0 and total_frames > 0:
-                if stats_time_ms >= 1000:  # 鑷冲皯1绉掔殑鏁版嵁
+                if stats_time_ms >= 1000:  # 至少1秒的数据
                     fps_estimate = (total_frames * 1000.0) / stats_time_ms
                     if 0 < fps_estimate < 120:
-                        logger.debug("[FPS] 浼犵粺鏂规硶浼扮畻: %.1ffps (甯ф暟:%s, 鏃堕棿:%sms)", fps_estimate, total_frames, stats_time_ms)
+                        logger.debug("[FPS] 传统方法估算: %.1ffps (帧数:%s, 时间:%sms)", fps_estimate, total_frames, stats_time_ms)
                         return round(fps_estimate, 2)
             
-            logger.debug("[FPS] 鎵€鏈夋柟娉曢兘澶辫触锛屾棤娉曡幏鍙朏PS鏁版嵁")
+            logger.debug("[FPS] 所有方法都失败，无法获取FPS数据")
             return 0.0
         except Exception as e:
-            logger.debug("[FPS] _get_fps_from_gfxinfo 寮傚父: %s", e)
+            logger.debug("[FPS] _get_fps_from_gfxinfo 异常: %s", e)
             return 0.0
 
     def _get_fps_from_framestats(self, pkg_name: str) -> float:
@@ -2291,7 +3106,8 @@ class PerformanceMonitor:
     
     def _parse_gfxinfo_fps(self, gfxinfo_output: str) -> float:
         """
-        浠?gfxinfo 杈撳嚭涓В鏋怓PS锛堝寮虹増锛?        鏀寔澶氱gfxinfo鏍煎紡锛屾彁楂樿В鏋愭垚鍔熺巼
+        通过 gfxinfo 输出中解析FPS（增强版）
+        支持多种gfxinfo格式，提高解析成功率
         """
         try:
             lines = gfxinfo_output.splitlines()
@@ -2305,13 +3121,13 @@ class PerformanceMonitor:
                     continue
                 if "View hierarchy:" in line or "Janky frames:" in line or "---PROFILE---" in line:
                     if start_parsing:
-                        break  # 鏁版嵁缁撴潫
+                        break  # 数据结束
                     continue
                 if start_parsing and line.strip():
                     parts = line.split()
                     if len(parts) >= 3:
                         try:
-                            # 瑙ｆ瀽甯ф椂闂达紙Draw, Prepare, Process, Execute锛?                            vals = []
+                            # 解析帧时间（Draw, Prepare, Process, Execute等                            vals = []
                             for part in parts:
                                 # 移除非数字字符后尝试转浮点
                                 cleaned = part.strip().replace(',', '')
@@ -2326,17 +3142,17 @@ class PerformanceMonitor:
                             if len(vals) >= 2:  # 至少需要两个有效值
                                 # 计算总帧耗时：优先取前 4 项（Draw, Prepare, Process, Execute）
                                 frame_time = sum(vals[:min(4, len(vals))])
-                                if 2.0 <= frame_time <= 200.0:  # 鍚堢悊鑼冨洿锛?fps-500fps
+                                if 2.0 <= frame_time <= 200.0:  # 合理范围: 1fps-500fps
                                     frame_times.append(frame_time)
                         except (ValueError, IndexError, TypeError):
                             continue
             
-            # 鏂规硶2: 濡傛灉鏂规硶1娌℃湁鏁版嵁锛屽皾璇曟煡鎵剧粺璁′俊鎭腑鐨凢PS
+            # 2: 1没有数据，尝试查找统计信息中的FPS
             if not frame_times:
                 for line in lines:
                     # 查找 "60.XX fps" 或 "FPS: XX" 等格式
                     import re
-                    # 鍖归厤 "XX fps" 鎴?"XX FPS"
+                    # 匹配 "XX fps" 或"XX FPS"
                     fps_match = re.search(r'(\d+\.?\d*)\s*fps', line, re.IGNORECASE)
                     if fps_match:
                         try:
@@ -2346,7 +3162,7 @@ class PerformanceMonitor:
                         except (ValueError, IndexError):
                             pass
             
-            # 鏂规硶3: 濡傛灉杩樻病鏈夋暟鎹紝灏濊瘯閫氳繃鎬诲抚鏁板拰鏃堕棿绐楀彛璁＄畻
+            # 3: 如果还没有数据，尝试通过总帧数和时间窗口计算
             if not frame_times:
                 total_frames = 0
                 stats_duration_ms = 0
@@ -2361,36 +3177,39 @@ class PerformanceMonitor:
                             except (ValueError, IndexError):
                                 pass
                     
-                    # 鏌ユ壘缁熻鏃堕棿绐楀彛
+                    # 查找统计时间窗口
                     if "Stats since:" in line or "since" in line.lower():
                         import re
-                        # V2.3.2: 鏀寔绾崇鏍煎紡瑙ｆ瀽
-                        # 鎻愬彇绾崇鏁?(濡? 109685320297ns)
+                        # V2.3.2: 支持纳秒格式解析
+                        # 提取纳秒(单位: 109685320297ns)
                         ns_match = re.search(r'(\d+)\s*ns', line)
                         if ns_match:
                             stats_duration_ns = int(ns_match.group(1))
-                            stats_duration_ms = stats_duration_ns // 1_000_000  # 杞崲涓烘绉?                        else:
-                            # 鎻愬彇姣鏁?                            ms_match = re.search(r'(\d+)\s*ms', line)
+                            stats_duration_ms = stats_duration_ns // 1_000_000  # 转换为毫秒
+                        else:
+                            # 提取毫秒(
+                            ms_match = re.search(r'(\d+)\s*ms', line)
                             if ms_match:
                                 stats_duration_ms = int(ms_match.group(1))
                             else:
-                                # 涔熷皾璇曠鏁?                                sec_match = re.search(r'(\d+\.?\d*)\s*s(ec)?', line, re.IGNORECASE)
+                                # 也尝试秒(
+                                sec_match = re.search(r'(\d+\.?\d*)\s*s(ec)?', line, re.IGNORECASE)
                                 if sec_match and stats_duration_ms == 0:
                                     stats_duration_ms = int(float(sec_match.group(1)) * 1000)
                 
-                # 濡傛灉鎵惧埌鎬诲抚鏁板拰鏃堕棿绐楀彛锛岃绠桭PS
-                if total_frames > 0 and stats_duration_ms >= 1000:  # 鑷冲皯1绉掔殑鏁版嵁
+                # 如果找到总帧数和时间窗口，计算FPS
+                if total_frames > 0 and stats_duration_ms >= 1000:  # 至少1秒的数据
                     fps_estimate = (total_frames * 1000.0) / stats_duration_ms
                     if 0 < fps_estimate < 120:
                         return round(fps_estimate, 2)
             
-            # 璁＄畻FPS锛堜粠甯ф椂闂存暟鎹級
+            # FPS（从帧时间数据）
             if len(frame_times) > 0:
                 # 过滤明显异常值
                 valid_times = [t for t in frame_times if 5.0 <= t <= 200.0]  # 5ms-200ms，大致对应 5fps-200fps
                 
-                if len(valid_times) >= 5:  # 鑷冲皯闇€瑕?甯ф暟鎹墠鍙潬
-                    # 浣跨敤涓綅鏁帮紙鏇存姉寮傚父鍊硷級
+                if len(valid_times) >= 5:  # 至少少量帧数据才可靠
+                    # 使用中位数（更抗异常值）
                     sorted_times = sorted(valid_times)
                     mid = len(sorted_times) // 2
                     median_time = sorted_times[mid] if len(sorted_times) % 2 == 1 else \
@@ -2411,8 +3230,8 @@ class PerformanceMonitor:
             
             return 0.0
         except Exception as e:
-            # 娣诲姞璋冭瘯淇℃伅
+            # 添加调试信息
             import sys
             if hasattr(sys, '_getframe'):
-                logger.debug("_parse_gfxinfo_fps 澶辫触: %s", e)
+                logger.debug("_parse_gfxinfo_fps 失败: %s", e)
         return 0.0

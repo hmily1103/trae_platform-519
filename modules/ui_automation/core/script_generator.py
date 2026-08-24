@@ -457,6 +457,10 @@ class ScriptGenerator:
             return f'd(text="{value}")'
         elif strategy == 'content_desc':
             return f'd(description="{value}")'
+        elif strategy == 'xpath':
+            # uiautomator2 XPath 选择器
+            escaped = str(value).replace('\\', '\\\\').replace('"', '\\"')
+            return f'd.xpath("{escaped}")'
         elif strategy == 'coordinates':
             return ''
         else:
@@ -473,6 +477,9 @@ class ScriptGenerator:
             return f'd(text="{value}")'
         elif strategy == 'content_desc':
             return f'd(description="{value}")'
+        elif strategy == 'xpath':
+            escaped = str(value).replace('\\', '\\\\').replace('"', '\\"')
+            return f'd.xpath("{escaped}")'
         elif strategy == 'coordinates':
             return ''
         else:

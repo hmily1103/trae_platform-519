@@ -2,6 +2,7 @@ import json
 import os
 import re
 import threading
+import time
 
 
 SAFE_ID = re.compile(r"^pt_[a-zA-Z0-9_-]{1,80}$")
@@ -23,8 +24,11 @@ class PrecisionTestStore:
     def save(self, model):
         analysis_id = model["analysis_id"]
         with self.lock:
-            with open(self._path(analysis_id), "w", encoding="utf-8") as file:
+            path = self._path(analysis_id)
+            tmp_path = f"{path}.tmp.{os.getpid()}.{int(time.time() * 1000)}"
+            with open(tmp_path, "w", encoding="utf-8") as file:
                 json.dump(model, file, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, path)
             index = self._read_index()
             row = {
                 "analysis_id": analysis_id,
@@ -38,8 +42,10 @@ class PrecisionTestStore:
             rows = [item for item in index if item.get("analysis_id") != analysis_id]
             rows.append(row)
             rows.sort(key=lambda item: item.get("updated_at") or 0, reverse=True)
-            with open(self.index_path, "w", encoding="utf-8") as file:
+            index_tmp = f"{self.index_path}.tmp.{os.getpid()}.{int(time.time() * 1000)}"
+            with open(index_tmp, "w", encoding="utf-8") as file:
                 json.dump(rows[:200], file, ensure_ascii=False, indent=2)
+            os.replace(index_tmp, self.index_path)
         return analysis_id
 
     def get(self, analysis_id):

@@ -41,7 +41,9 @@ class ActionRecorder:
             id=recording_id,
             device_id=device_id,
             package_name="",  # 稍后设置
-            created_at=datetime.now()
+            created_at=datetime.now(),
+            platform="android",
+            target=device_id,
         )
         self.is_recording = False
         self.current_step = 0
@@ -64,6 +66,9 @@ class ActionRecorder:
             self.session.description = description
             self.session.project_id = project_id
             self.session.name = name
+            self.session.platform = "android"
+            self.session.target = self.device_id
+            self.session.entry_url = ""
             self.is_recording = True
             self.current_step = 0
             self.last_error = ""
@@ -599,7 +604,8 @@ class ActionRecorder:
             return False
 
     def update_action(self, index: int, action_type: str = None, 
-                     value: str = None, description: str = None) -> bool:
+                     value: str = None, description: str = None,
+                     wait_after: int = None) -> bool:
         """
         更新指定索引的操作
         
@@ -607,6 +613,7 @@ class ActionRecorder:
         :param action_type: 新的操作类型 (可选)
         :param value: 新的值 (可选)
         :param description: 新的描述 (可选)
+        :param wait_after: 操作后等待时间(毫秒) (可选)
         :return: 是否成功
         """
         if not self.is_recording:
@@ -622,6 +629,8 @@ class ActionRecorder:
                     action.value = value
                 if description is not None:
                     action.description = description
+                if wait_after is not None:
+                    action.wait_after = wait_after
                     
                 self.storage.save_recording(self.session)
                 logger.info(f"更新操作: index={index}, type={action.action_type}")

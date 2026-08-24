@@ -15,7 +15,49 @@ services:
     environment:
       - LOG_DIR=/app/logs
       - RUNTIME_DATA_DIR=/app/data/runtime
+      # 大模型配置：与 mastra 服务共享宿主环境变量，一处配置全平台通用
+      - LLM_CONFIG_PATH=/app/config/llm_config.json
+      - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - VOLCENGINE_API_KEY=${VOLCENGINE_API_KEY:-}
+      - ARK_API_KEY=${ARK_API_KEY:-}
     # 可选：启用 API 认证
     # - ENABLE_API_AUTH=1
     # - API_KEY=your_secret
+    restart: unless-stopped
+
+  # ===== AI 诊断服务（Mastra，独立 :4111）=====
+  # 承载 log_monitor 多 Agent 只读诊断编排，与 Flask 主服务解耦，可独立回退
+  mastra:
+    build: ./services/mastra
+    ports:
+      - "4111:4111"
+    environment:
+      - MASTRA_PORT=4111
+      - FLASK_BASE_URL=http://trae:5000
+      - LLM_CONFIG_PATH=/app/config/llm_config.json
+      - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - VOLCENGINE_API_KEY=${VOLCENGINE_API_KEY:-}
+      - ARK_API_KEY=${ARK_API_KEY:-}
+      - READONLY_MODE=true
+      - REQUIRE_HUMAN_APPROVAL=true
+    restart: unless-stopped
+
+  # ===== 诊断前端（Next.js，独立 :3000）=====
+  # 新建诊断控制台 UI，对接 Mastra/Flask；现有 Jinja 页面保持不变
+  web:
+    build: ./services/web
+    ports:
+      - "3000:3000"
+    environment:
+      - WEB_PORT=3000
+      - MASTRA_BASE_URL=http://mastra:4111
+      - FLASK_BASE_URL=http://trae:5000
+    depends_on:
+      - mastra
     restart: unless-stopped

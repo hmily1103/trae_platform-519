@@ -6,7 +6,8 @@ import subprocess
 import threading
 import time
 import os
-from typing import Optional, Callable
+import tempfile
+from typing import Optional, Callable, Dict, Any
 from utils.logger import setup_logger
 
 logger = setup_logger('video_stream')
@@ -22,7 +23,7 @@ class VideoStreamManager:
         :param scrcpy_path: scrcpy可执行文件路径
         """
         self.scrcpy_path = scrcpy_path
-        self.streams: dict = {}  # {device_id: {process, thread, callbacks, last_frame}}
+        self.streams: dict = {}  # {device_id: {process, thread, callbacks, last_frame, last_frame_payload}}
         self.lock = threading.Lock()
     
     def start_stream(self, device_id: str, callback: Callable[[bytes], None]) -> bool:
@@ -46,7 +47,8 @@ class VideoStreamManager:
                     'callbacks': [callback],
                     'running': True,
                     'thread': None,
-                    'last_frame': None  # 缓存最新一帧
+                    'last_frame': None,  # 兼容：仅 image base64
+                    'last_frame_payload': None,
                 }
                 
                 # 启动截图线程
@@ -101,24 +103,55 @@ class VideoStreamManager:
                     self.stop_stream(device_id)
 
     def get_last_frame(self, device_id: str) -> Optional[str]:
-        """获取最新一帧"""
+        """获取最新一帧（仅 image base64）"""
         with self.lock:
             if device_id in self.streams:
-                return self.streams[device_id].get('last_frame')
+                payload = self.streams[device_id].get('last_frame_payload') or {}
+                return payload.get('image') or self.streams[device_id].get('last_frame')
         return None
+
+    def get_last_frame_payload(self, device_id: str) -> Optional[Dict[str, Any]]:
+        with self.lock:
+            if device_id in self.streams:
+                payload = self.streams[device_id].get('last_frame_payload')
+                if payload:
+                    return dict(payload)
+                frame = self.streams[device_id].get('last_frame')
+                if frame:
+                    return {'image': frame}
+            # 即使流未启动，也可能被外部 set 过缓存
+            cached = getattr(self, '_external_frame_cache', {}).get(device_id)
+            return dict(cached) if cached else None
+
+    def set_last_frame_payload(self, device_id: str, payload: Dict[str, Any]) -> None:
+        if not payload or not payload.get('image'):
+            return
+        with self.lock:
+            if not hasattr(self, '_external_frame_cache'):
+                self._external_frame_cache = {}
+            self._external_frame_cache[device_id] = dict(payload)
+            if device_id in self.streams:
+                self.streams[device_id]['last_frame_payload'] = dict(payload)
+                self.streams[device_id]['last_frame'] = payload.get('image')
+
+    def invalidate_frame_cache(self, device_id: str) -> None:
+        """控制操作后清缓存，避免预览一直显示旧画面。"""
+        with self.lock:
+            if hasattr(self, '_external_frame_cache'):
+                self._external_frame_cache.pop(device_id, None)
+            if device_id in self.streams:
+                self.streams[device_id]['last_frame'] = None
+                self.streams[device_id]['last_frame_payload'] = None
     
     def _screenshot_loop(self, device_id: str):
-        """截图循环（临时方案，后续可优化为真正的视频流）"""
+        """截图循环（压缩预览帧，避免大图 SSE 卡死浏览器）"""
         from .device_controller import DeviceController
-        import tempfile
-        import base64
+        from .preview_image import encode_preview_payload
         
         controller = DeviceController(device_id)
-        fps = 8
+        fps = 1  # 降低频率，减少与手动预览/点击的锁竞争
         interval = 1.0 / fps
-        safe_device_id = "".join(c if c.isalnum() else "_" for c in device_id)
-        temp_dir = tempfile.gettempdir()
-        temp_path = os.path.join(temp_dir, f"ui_automation_{safe_device_id}.png")
+        dw, dh = controller.get_display_size()
         
         while True:
             with self.lock:
@@ -130,22 +163,20 @@ class VideoStreamManager:
                 callbacks = stream_info['callbacks'].copy()
             
             try:
-                if controller.screenshot(temp_path):
-                    with open(temp_path, 'rb') as f:
-                        image_data = f.read()
-                    
-                    image_base64 = base64.b64encode(image_data).decode('utf-8')
-                    
-                    # 更新缓存
-                    with self.lock:
-                        if device_id in self.streams:
-                            self.streams[device_id]['last_frame'] = image_base64
-
-                    for callback in callbacks:
-                        try:
-                            callback(image_base64)
-                        except Exception as e:
-                            logger.error(f"回调执行失败: {e}")
+                png = controller.screenshot_png_bytes(timeout=20)
+                if png:
+                    payload = encode_preview_payload(png, device_width=dw, device_height=dh)
+                    if payload and payload.get('image'):
+                        image_base64 = payload['image']
+                        with self.lock:
+                            if device_id in self.streams:
+                                self.streams[device_id]['last_frame'] = image_base64
+                                self.streams[device_id]['last_frame_payload'] = payload
+                        for callback in callbacks:
+                            try:
+                                callback(image_base64)
+                            except Exception as e:
+                                logger.error(f"回调执行失败: {e}")
                 
             except Exception as e:
                 logger.error(f"截图循环错误: {e}", exc_info=True)

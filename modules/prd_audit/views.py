@@ -48,7 +48,6 @@ logger = setup_logger("prd_audit_module")
 _RMV2_TASKS_LOCK = threading.Lock()
 _RMV2_TASKS: Dict[str, Dict[str, Any]] = {}
 
-
 def _rmv2_task_create(meta: Dict[str, Any]) -> str:
     tid = f"rmv2task_{uuid.uuid4().hex[:10]}"
     with _RMV2_TASKS_LOCK:
@@ -64,7 +63,6 @@ def _rmv2_task_create(meta: Dict[str, Any]) -> str:
         }
     return tid
 
-
 def _rmv2_task_append(tid: str, text: str) -> None:
     msg = str(text or "").strip()
     if not msg:
@@ -79,7 +77,6 @@ def _rmv2_task_append(tid: str, text: str) -> None:
         if len(t["progress"]) > 60:
             t["progress"] = t["progress"][-60:]
 
-
 def _rmv2_task_finish(tid: str, *, result: Dict[str, Any]) -> None:
     with _RMV2_TASKS_LOCK:
         t = _RMV2_TASKS.get(tid)
@@ -89,7 +86,6 @@ def _rmv2_task_finish(tid: str, *, result: Dict[str, Any]) -> None:
         t["updated_at"] = datetime.now().isoformat(timespec="seconds")
         t["result"] = result
 
-
 def _rmv2_task_fail(tid: str, err: str) -> None:
     with _RMV2_TASKS_LOCK:
         t = _RMV2_TASKS.get(tid)
@@ -98,7 +94,6 @@ def _rmv2_task_fail(tid: str, err: str) -> None:
         t["state"] = "ERROR"
         t["updated_at"] = datetime.now().isoformat(timespec="seconds")
         t["error"] = str(err or "启动失败")
-
 
 def _rmv2_task_set_partial(tid: str, partial: Dict[str, Any]) -> None:
     with _RMV2_TASKS_LOCK:
@@ -112,8 +107,11 @@ STORAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(STORAGE_DIR, exist_ok=True)
 DEFAULT_PRD_AUDIT_PROMPT_FILE = os.path.join(STORAGE_DIR, "prd_audit_prompt_default.txt")
 # 全平台共用的大模型配置（统一入口）
-TEST_CASE_LLM_CONFIG_FILE = os.path.join(os.path.dirname(STORAGE_DIR), "test_case", "llm_config.json")
-LLM_CONFIG_FILE = TEST_CASE_LLM_CONFIG_FILE
+# 平台级 LLM 配置单一真源（与 utils.llm_client.DEFAULT_LLM_CONFIG 保持一致）
+PLATFORM_LLM_CONFIG_FILE = os.path.abspath(os.path.join(
+    os.path.dirname(__file__), '..', '..', 'config', 'llm_config.json'
+))
+LLM_CONFIG_FILE = PLATFORM_LLM_CONFIG_FILE
 
 FALLBACK_PRD_PROMPT = (
     "你是 PRD 审计专家。请基于输入 PRD 输出结构化风险报告，至少包含："
@@ -183,7 +181,6 @@ FEISHU_WATCH_FILE = os.path.join(STORAGE_DIR, "learning_repo", "feishu_watch.jso
 # 说明：会议态只保存在内存。输入可为 learning_repo/snapshots（snapshot 模式），或 brainstorm（无 PRD 推断草案，默认 BLOCKED）。
 _REVIEW_MEETINGS: Dict[str, Dict[str, Any]] = {}
 
-
 @prd_audit_bp.route("/api/review_meeting_v2/build_info", methods=["GET"])
 def api_review_meeting_v2_build_info():
     """
@@ -229,13 +226,11 @@ def api_review_meeting_v2_build_info():
         logger.exception("api_review_meeting_v2_build_info failed")
         return error_response(str(e), status_code=500)
 
-
 def _normalize_review_meeting_mode(data: Dict[str, Any]) -> str:
     m = str((data or {}).get("mode") or "snapshot").strip().lower()
     if m in ("brainstorm", "sandbox", "no_doc", "no_document", "nodoc"):
         return "brainstorm"
     return "snapshot"
-
 
 def _brainstorm_agenda_cards(idea: str, use_llm: bool) -> List[Dict[str, Any]]:
     """
@@ -313,7 +308,6 @@ def _brainstorm_agenda_cards(idea: str, use_llm: bool) -> List[Dict[str, Any]]:
             used.add(tp)
             agenda_cards.append(_one_card(len(agenda_cards) + 1, tp))
     return agenda_cards[:3]
-
 
 def _local_scenarios_for_card(card: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
@@ -461,7 +455,6 @@ def _local_scenarios_for_card(card: Dict[str, Any]) -> List[Dict[str, Any]]:
             clean.append(it)
     return clean[:6]
 
-
 def _llm_scenarios_for_card(card: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Scenario Generator（LLM增强）：输出 JSON {"scenarios":[...]}，失败抛异常，上层降级到本地模板。
@@ -514,7 +507,6 @@ def _llm_scenarios_for_card(card: Dict[str, Any]) -> List[Dict[str, Any]]:
         out.append(it)
     return out[:6]
 
-
 def _attach_scenarios_to_cards(agenda_cards: List[Dict[str, Any]], use_llm: bool) -> List[Dict[str, Any]]:
     if not isinstance(agenda_cards, list) or not agenda_cards:
         return agenda_cards
@@ -532,11 +524,9 @@ def _attach_scenarios_to_cards(agenda_cards: List[Dict[str, Any]], use_llm: bool
         c["scenarios"] = scenarios
     return agenda_cards
 
-
 def _now_str() -> str:
     import time
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-
 
 def _extract_first_json_obj(text: str) -> Dict[str, Any]:
     """
@@ -583,7 +573,6 @@ def _extract_first_json_obj(text: str) -> Dict[str, Any]:
                     return {}
     return {}
 
-
 def _llm_call_json(system_prompt: str, user_prompt: str, timeout: int = 60, max_tokens: int = 1400) -> Dict[str, Any]:
     """
     调用 LLM 并要求输出 JSON。失败则抛异常，由上层决定是否降级到模板会议。
@@ -607,7 +596,6 @@ def _llm_call_json(system_prompt: str, user_prompt: str, timeout: int = 60, max_
     if not obj:
         raise ValueError("LLM 未输出可解析 JSON")
     return obj
-
 
 def _llm_build_rounds_for_card(card: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -693,7 +681,6 @@ def _llm_build_rounds_for_card(card: Dict[str, Any]) -> Dict[str, Any]:
 
     return {"qa": qa, "dev": dev, "pm": pm}
 
-
 def _decision_log_from_llm(card: Dict[str, Any], rounds: Dict[str, Any]) -> Dict[str, Any]:
     meeting_mode = str(card.get("meeting_mode") or "snapshot").strip().lower()
     pm = rounds.get("pm") if isinstance(rounds.get("pm"), dict) else {}
@@ -746,7 +733,6 @@ def _decision_log_from_llm(card: Dict[str, Any], rounds: Dict[str, Any]) -> Dict
         entry["follow_ups"] = fu
     return entry
 
-
 def _topic_from_merged_issue(m: Dict[str, Any]) -> str:
     t = " ".join([str(m.get("name") or ""), str(m.get("description") or ""), " ".join(m.get("types") or [])])
     if re.search(r"(矛盾|冲突|互斥|抢占|优先级|总开关)", t):
@@ -762,7 +748,6 @@ def _topic_from_merged_issue(m: Dict[str, Any]) -> str:
     if re.search(r"(字段|返回|接口|错误码|枚举)", t):
         return "data_contract"
     return "generic"
-
 
 def _build_agenda_cards_from_snapshot(snapshot: Dict[str, Any], limit: int = 3) -> List[Dict[str, Any]]:
     """
@@ -824,7 +809,6 @@ def _build_agenda_cards_from_snapshot(snapshot: Dict[str, Any], limit: int = 3) 
         )
     return cards
 
-
 def _meeting_system_message(mode: str) -> str:
     if str(mode or "").strip().lower() == "brainstorm":
         return (
@@ -832,7 +816,6 @@ def _meeting_system_message(mode: str) -> str:
             "Decision Log 默认 BLOCKED，直至补齐文档锚点/量化口径。本页对话仅展示过程，最终以裁决表为准。"
         )
     return "会议已启动：输入来自静态审计快照（P0议题）。本页对话仅展示过程，最终以裁决表为准。"
-
 
 def _seed_meeting_messages(agenda_cards: List[Dict[str, Any]], mode: str = "snapshot") -> List[Dict[str, Any]]:
     """模板版三轮发言（不含系统行，由上层统一插入一条 system）。"""
@@ -869,7 +852,6 @@ def _seed_meeting_messages(agenda_cards: List[Dict[str, Any]], mode: str = "snap
             msgs.append({"role": "assistant", "speaker": "研发（Dev）", "ts": _now_str(), "text": "可做最小方案：补状态枚举与错误码，增加幂等/防抖；成本可控。需要 PM 拍板阈值与提示强度。"})
             msgs.append({"role": "assistant", "speaker": "产品（PM）", "ts": _now_str(), "text": "同意以“可验收”为硬门槛：给出阈值与最小字段集；失败不允许静默。具体数值可在裁决表里落地。"})
     return msgs
-
 
 def _build_decision_log_for_cards(agenda_cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     out = []
@@ -940,7 +922,6 @@ def _build_decision_log_for_cards(agenda_cards: List[Dict[str, Any]]) -> List[Di
         )
     return out
 
-
 def _build_prd_patch(decision_log: List[Dict[str, Any]]) -> str:
     lines = ["## 附录：审计裁决版口径（自动生成）", ""]
     for item in decision_log or []:
@@ -981,11 +962,10 @@ DEFAULT_BUG_PATTERNS = [
 
 def _pick_llm_config_path() -> str:
     """
-    返回全平台共用的大模型配置路径（modules/test_case/llm_config.json）。
+    返回平台级单一配置路径（config/llm_config.json）。
     所有模块（含 PRD 审计）应共用这一份配置。
     """
-    return TEST_CASE_LLM_CONFIG_FILE
-
+    return PLATFORM_LLM_CONFIG_FILE
 
 def _normalize_knowledge_items(items):
     if not isinstance(items, list):
@@ -1000,7 +980,6 @@ def _normalize_knowledge_items(items):
             continue
         out.append(it)
     return out
-
 
 import threading
 import tempfile
@@ -1018,7 +997,6 @@ def _load_json_file(path, default_value):
             logger.warning(f"读取 JSON 文件失败 ({path}): {e}")
             return default_value
     return default_value
-
 
 def _save_json_file(path, data):
     """
@@ -1042,14 +1020,12 @@ def _save_json_file(path, data):
             logger.error(f"保存 JSON 文件失败 ({path}): {e}")
             raise e
 
-
 def _djb2_hash(s: str) -> str:
     h = 5381
     for ch in s:
         h = ((h << 5) + h) + ord(ch)
         h &= 0xFFFFFFFF
     return format(h, "08x")
-
 
 def _defect_key(d: Dict[str, Any]) -> str:
     if not isinstance(d, dict):
@@ -1062,7 +1038,6 @@ def _defect_key(d: Dict[str, Any]) -> str:
     ])
     return "d" + _djb2_hash(base)
 
-
 def _load_watch_state() -> Dict[str, Any]:
     data = _load_json_file(FEISHU_WATCH_FILE, {"items": []})
     if not isinstance(data, dict):
@@ -1070,7 +1045,6 @@ def _load_watch_state() -> Dict[str, Any]:
     if not isinstance(data.get("items"), list):
         data["items"] = []
     return data
-
 
 def _save_watch_state(data: Dict[str, Any]) -> None:
     if not isinstance(data, dict):
@@ -1080,11 +1054,9 @@ def _save_watch_state(data: Dict[str, Any]) -> None:
     os.makedirs(os.path.dirname(FEISHU_WATCH_FILE), exist_ok=True)
     _save_json_file(FEISHU_WATCH_FILE, data)
 
-
 from .job_queue import JobQueue
 
 _job_queue = JobQueue(STORAGE_DIR)
-
 
 def _match_watch_item(doc_url: str) -> str:
     try:
@@ -1096,7 +1068,6 @@ def _match_watch_item(doc_url: str) -> str:
         return f"{doc_type}:{doc_id}"
     except Exception:
         return ""
-
 
 def _feishu_doc_audit_handler(payload: Dict[str, Any]) -> Dict[str, Any]:
     from .feishu_client import fetch_feishu_doc_content
@@ -1162,9 +1133,7 @@ def _feishu_doc_audit_handler(payload: Dict[str, Any]) -> Dict[str, Any]:
         "score": (stage3_output.get("summary", {}).get("score") if isinstance(stage3_output, dict) else None),
     }
 
-
 _job_queue.register_handler("feishu_doc_audit", _feishu_doc_audit_handler)
-
 
 def _guardrail_regression_handler(payload: Dict[str, Any]) -> Dict[str, Any]:
     from .audit_learning import load_adversarial_cases, append_regression_run
@@ -1295,9 +1264,7 @@ def _guardrail_regression_handler(payload: Dict[str, Any]) -> Dict[str, Any]:
     append_regression_run(run)
     return run
 
-
 _job_queue.register_handler("guardrail_regression", _guardrail_regression_handler)
-
 
 def _ensure_bug_assets():
     if not os.path.exists(BUG_PATTERN_FILE):
@@ -1308,7 +1275,6 @@ def _ensure_bug_assets():
         _save_json_file(BUG_RULE_FILE, {"items": []})
     if not os.path.exists(VECTOR_DATA_FILE):
         _save_json_file(VECTOR_DATA_FILE, {"items": []})
-
 
 def _normalize_severity(s):
     v = str(s or "").strip().upper()
@@ -1329,17 +1295,14 @@ def _normalize_severity(s):
         return "P2"
     return "P2"
 
-
 def _normalize_frequency(s):
     v = str(s or "").strip()
     return v or "中"
-
 
 def _tokenize_text(text):
     t = str(text or "").lower()
     parts = re.split(r"[^\w\u4e00-\u9fff]+", t)
     return [p for p in parts if p]
-
 
 def _text_score(query, content):
     q = set(_tokenize_text(query))
@@ -1353,7 +1316,6 @@ def _text_score(query, content):
         s += 0.2
     return round(min(1.0, s), 4)
 
-
 def _next_rule_id(existing):
     mx = 0
     for it in existing:
@@ -1363,13 +1325,11 @@ def _next_rule_id(existing):
             mx = max(mx, int(m.group(1)))
     return "RBUG_{:03d}".format(mx + 1)
 
-
 def _load_bug_patterns():
     _ensure_bug_assets()
     data = _load_json_file(BUG_PATTERN_FILE, {"items": []})
     items = data.get("items") if isinstance(data, dict) else []
     return items if isinstance(items, list) else []
-
 
 def _analyze_bug_desc(desc):
     text = str(desc or "").strip()
@@ -1406,7 +1366,6 @@ def _analyze_bug_desc(desc):
         "weight": 0.4,
     }
 
-
 def _vector_search_local(query, top_k=5, type_filter=None, board_type=None):
     _ensure_bug_assets()
     data = _load_json_file(VECTOR_DATA_FILE, {"items": []})
@@ -1431,7 +1390,6 @@ def _vector_search_local(query, top_k=5, type_filter=None, board_type=None):
     out.sort(key=lambda x: float(x.get("score") or 0), reverse=True)
     return out[: max(1, int(top_k or 5))]
 
-
 def _load_knowledge_cards():
     if os.path.exists(KNOWLEDGE_CARDS_FILE):
         try:
@@ -1447,13 +1405,11 @@ def _load_knowledge_cards():
             logger.warning("读取能力库文件失败: %s", e)
     return _normalize_knowledge_items(KTV_CAPABILITY_CARDS)
 
-
 def _save_knowledge_cards(items):
     payload = {"items": _normalize_knowledge_items(items)}
     with open(KNOWLEDGE_CARDS_FILE, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     return payload["items"]
-
 
 def _match_knowledge_base(prd_text: str, top_k: int = 5):
     """
@@ -1508,7 +1464,6 @@ def _match_knowledge_base(prd_text: str, top_k: int = 5):
     matches.sort(key=lambda x: x['score'], reverse=True)
     return matches[:top_k]
 
-
 def _load_rule_items(path):
     data = _load_json_file(path, {"rules": []})
     if isinstance(data, dict):
@@ -1518,7 +1473,6 @@ def _load_rule_items(path):
     else:
         items = []
     return [it for it in items if isinstance(it, dict)]
-
 
 def _build_platform_center_context():
     knowledge_cards = _load_knowledge_cards()
@@ -1671,7 +1625,6 @@ def _build_platform_center_context():
         "groups": groups,
     }
 
-
 def _build_xmind_tree(nodes):
     root = {
         "id": str(uuid.uuid4()),
@@ -1696,7 +1649,6 @@ def _build_xmind_tree(nodes):
         stack.append(topic)
     return root
 
-
 def _build_xmind_file(nodes):
     tree_root = _build_xmind_tree(nodes)
     content = [
@@ -1718,24 +1670,20 @@ def _build_xmind_file(nodes):
     buf.seek(0)
     return buf
 
-
 @prd_audit_bp.route("/")
 def index():
     """独立 PRD 审计页"""
     return render_template("prd_audit_index.html")
-
 
 @prd_audit_bp.route("/review_meeting")
 def review_meeting_page():
     """虚拟评审会控制台（带对话框）"""
     return render_template("prd_audit_review_meeting.html")
 
-
 @prd_audit_bp.route("/review_meeting_v2")
 def review_meeting_v2_page():
     """虚拟评审会 V2：QA 主导竖版工作台（独立于静态审计输出）"""
     return render_template("prd_audit_review_meeting_v2.html")
-
 
 @prd_audit_bp.route("/api/review_meeting_v2/start", methods=["POST"])
 def api_review_meeting_v2_start():
@@ -1867,7 +1815,6 @@ def api_review_meeting_v2_start():
         logger.exception("api_review_meeting_v2_start failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/review_meeting_v2/export_markdown", methods=["POST"])
 def api_review_meeting_v2_export_markdown():
     try:
@@ -1881,7 +1828,6 @@ def api_review_meeting_v2_export_markdown():
     except Exception as e:
         logger.exception("api_review_meeting_v2_export_markdown failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/review_meeting_v2/export_prd_v2", methods=["POST"])
 def api_review_meeting_v2_export_prd_v2():
@@ -1942,7 +1888,6 @@ def api_review_meeting_v2_export_prd_v2():
     except Exception as e:
         logger.exception("api_review_meeting_v2_export_prd_v2 failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/review_meeting_v2/export_llm_only_summary", methods=["POST"])
 def api_review_meeting_v2_export_llm_only_summary():
@@ -2362,7 +2307,6 @@ def api_review_meeting_v2_export_llm_only_summary():
         logger.exception("api_review_meeting_v2_export_llm_only_summary failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/review_meeting_v2/send_feishu", methods=["POST"])
 def api_review_meeting_v2_send_feishu():
     """
@@ -2426,7 +2370,6 @@ def api_review_meeting_v2_send_feishu():
         logger.exception("api_review_meeting_v2_send_feishu failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/review_meeting_v2/apply_freeze_rules", methods=["POST"])
 def api_review_meeting_v2_apply_freeze_rules():
     """
@@ -2450,7 +2393,6 @@ def api_review_meeting_v2_apply_freeze_rules():
     except Exception as e:
         logger.exception("api_review_meeting_v2_apply_freeze_rules failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/review_meeting_v2/start_async", methods=["POST"])
 def api_review_meeting_v2_start_async():
@@ -2585,7 +2527,6 @@ def api_review_meeting_v2_start_async():
         logger.exception("api_review_meeting_v2_start_async failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/review_meeting_v2/task_status", methods=["GET", "POST"])
 def api_review_meeting_v2_task_status():
     try:
@@ -2612,7 +2553,6 @@ def api_review_meeting_v2_task_status():
         logger.exception("api_review_meeting_v2_task_status failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/review_meeting_v2/save_snapshot", methods=["POST"])
 def api_review_meeting_v2_save_snapshot():
     try:
@@ -2627,7 +2567,6 @@ def api_review_meeting_v2_save_snapshot():
     except Exception as e:
         logger.exception("api_review_meeting_v2_save_snapshot failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/review_meeting/start", methods=["POST"])
 def api_review_meeting_start():
@@ -2816,7 +2755,6 @@ def api_review_meeting_start():
         logger.exception("api_review_meeting_start failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/review_meeting/send", methods=["POST"])
 def api_review_meeting_send():
     """对话追加（测试补充/追问）。本地 MVP：记录对话并把内容沉淀到补丁末尾。"""
@@ -2853,7 +2791,6 @@ def api_review_meeting_send():
         logger.exception("api_review_meeting_send failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/knowledge")
 def knowledge_page():
     return render_template("prd_audit_knowledge.html")
@@ -2866,16 +2803,13 @@ def learning_mvp_page():
 def rules_page():
     return render_template("prd_audit_rules.html")
 
-
 @prd_audit_bp.route("/bug_patterns")
 def bug_patterns_page():
     return render_template("prd_audit_bug_patterns.html")
 
-
 @prd_audit_bp.route("/matrix_view")
 def matrix_view_page():
     return render_template("prd_audit_matrix_view.html")
-
 
 @prd_audit_bp.route("/platform_center")
 def platform_center_page():
@@ -2885,7 +2819,6 @@ def platform_center_page():
         asset_summary=context.get("summary") or {},
         asset_groups=context.get("groups") or [],
     )
-
 
 # ---------- API：生成（流式） ----------
 
@@ -2985,7 +2918,6 @@ def api_generate():
     except Exception as e:
         logger.exception("api_generate failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/analyze_impact", methods=["POST"])
 def api_analyze_impact():
@@ -3103,7 +3035,6 @@ def api_analyze_impact():
     except Exception as e:
         logger.exception("api_analyze_impact failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/chat", methods=["POST"])
 def api_chat():
@@ -3223,7 +3154,6 @@ def api_outline_llm():
     except Exception as e:
         logger.exception("api_outline_llm failed")
         return error_response(str(e), status_code=500)
-
 
 # ---------- API：分析（同步，返回完整 JSON） ----------
 
@@ -3371,7 +3301,6 @@ def api_analyze_prd():
         logger.exception("api_analyze_prd failed")
         return error_response(str(e), status_code=500)
 
-
 def _evaluate_bugs_for_preview(items: list) -> list:
     """对即将导入的 Bug 列表进行 AI 预审"""
     if not items:
@@ -3413,7 +3342,7 @@ def _evaluate_bugs_for_preview(items: list) -> list:
             return {"ai_status": "推荐导入", "ai_reason": "本地规则通过"}
 
     try:
-        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_case", "llm_config.json")
+        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'llm_config.json'))
         resp = call_llm([{"role": "user", "content": prompt}], config_path=config_path, timeout=30)
         resp_text = str(resp or "").strip()
         # 清理可能存在的 markdown 代码块
@@ -3445,7 +3374,6 @@ def _evaluate_bugs_for_preview(items: list) -> list:
             it.update(fb)
             
     return items
-
 
 @prd_audit_bp.route("/api/bug/import", methods=["POST"])
 def api_bug_import():
@@ -3746,7 +3674,6 @@ def api_bug_import_jira():
         return error_response(str(e), status_code=500)
 # ==========================================================
 
-
 @prd_audit_bp.route("/api/bug/patterns", methods=["GET", "POST"])
 def api_bug_patterns():
     try:
@@ -3782,7 +3709,6 @@ def api_bug_patterns():
     except Exception as e:
         logger.exception("api_bug_patterns failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/bug/patterns/auto_from_bugs", methods=["POST"])
 def api_bug_patterns_auto_from_bugs():
@@ -3914,7 +3840,6 @@ def api_bug_patterns_auto_from_bugs():
         logger.exception("api_bug_patterns_auto_from_bugs failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/bug/analyze", methods=["POST"])
 def api_bug_analyze():
     try:
@@ -3960,7 +3885,6 @@ def api_bug_analyze():
         logger.exception("api_bug_analyze failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/bug/rules", methods=["GET", "POST"])
 def api_bug_rules():
     try:
@@ -3997,7 +3921,6 @@ def api_bug_rules():
         logger.exception("api_bug_rules failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/bug/rules/export", methods=["GET"])
 def api_bug_rules_export():
     try:
@@ -4019,7 +3942,6 @@ def api_bug_rules_export():
         logger.exception("api_bug_rules_export failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/bug/patterns/export", methods=["GET"])
 def api_bug_patterns_export():
     try:
@@ -4037,7 +3959,6 @@ def api_bug_patterns_export():
     except Exception as e:
         logger.exception("api_bug_patterns_export failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/bug/raw/export", methods=["GET"])
 def api_bug_raw_export():
@@ -4059,7 +3980,6 @@ def api_bug_raw_export():
     except Exception as e:
         logger.exception("api_bug_raw_export failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/bug/import_template_csv", methods=["GET"])
 def api_bug_import_template_csv():
@@ -4084,7 +4004,6 @@ def api_bug_import_template_csv():
         logger.exception("api_bug_import_template_csv failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/bug/raw", methods=["GET"])
 def api_bug_raw():
     try:
@@ -4097,7 +4016,6 @@ def api_bug_raw():
     except Exception as e:
         logger.exception("api_bug_raw failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/vector/search", methods=["POST"])
 def api_vector_search():
@@ -4118,7 +4036,6 @@ def api_vector_search():
     except Exception as e:
         logger.exception("api_vector_search failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/prd/audit", methods=["POST"])
 def api_prd_audit():
@@ -4178,7 +4095,6 @@ def api_prd_audit():
     except Exception as e:
         logger.exception("api_prd_audit failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/multi_prd/audit", methods=["POST"])
 def api_multi_prd_audit():
@@ -4413,7 +4329,6 @@ def api_multi_prd_audit():
         logger.exception("api_multi_prd_audit failed")
         return error_response(str(e), status_code=500)
 
-
 # ---------- API：解析 PDF / Word ----------
 
 @prd_audit_bp.route("/api/parse_pdf", methods=["POST"])
@@ -4480,7 +4395,6 @@ def api_parse_pdf():
         logger.exception("PDF 上传解析失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/parse_docx", methods=["POST"])
 def api_parse_docx():
     """解析 Word (.docx) 文件"""
@@ -4518,7 +4432,6 @@ def api_parse_docx():
     except Exception as e:
         logger.exception("Word 上传解析失败")
         return error_response(str(e), status_code=500)
-
 
 # ---------- API：导出报告 Word ----------
 
@@ -4647,7 +4560,6 @@ def api_export_report_docx():
         logger.exception("export_report_docx 失败")
         return error_response(str(e), status_code=500)
 
-
 # ---------- API：默认提示词、LLM 配置 ----------
 
 @prd_audit_bp.route("/api/default_prd_prompt", methods=["GET"])
@@ -4663,126 +4575,6 @@ def api_get_default_prd_prompt():
     except Exception as e:
         logger.warning("Failed to read default PRD prompt: %s", e)
         return success_response(data={"prompt": FALLBACK_PRD_PROMPT})
-
-
-@prd_audit_bp.route("/api/llm_config", methods=["GET"])
-def api_get_llm_config():
-    """获取全平台共用的 LLM 配置（modules/test_case/llm_config.json）"""
-    try:
-        path = _pick_llm_config_path()
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                config = json.load(f)
-                profiles = config.get("profiles") if isinstance(config.get("profiles"), dict) else {}
-                default_profile = (config.get("default_profile") or config.get("llm_provider") or "deepseek").strip()
-                active = profiles.get(default_profile) if isinstance(profiles.get(default_profile), dict) else None
-                if active:
-                    for k in ["llm_provider", "base_url", "api_key", "model"]:
-                        if k in active and active.get(k) is not None:
-                            config[k] = active.get(k)
-                if config.get("api_key"):
-                    config["api_key"] = config["api_key"][:3] + "****" + config["api_key"][-4:]
-                if config.get("fallback_api_key"):
-                    config["fallback_api_key"] = config["fallback_api_key"][:3] + "****" + config["fallback_api_key"][-4:]
-                if config.get("case_system_push_token"):
-                    t = str(config.get("case_system_push_token") or "")
-                    if len(t) >= 8:
-                        config["case_system_push_token"] = t[:3] + "****" + t[-4:]
-                    else:
-                        config["case_system_push_token"] = "****"
-                if config.get("feishu_event_verify_token"):
-                    t = str(config.get("feishu_event_verify_token") or "")
-                    if len(t) >= 8:
-                        config["feishu_event_verify_token"] = t[:3] + "****" + t[-4:]
-                    else:
-                        config["feishu_event_verify_token"] = "****"
-                return success_response(data=config)
-        return success_response(data={})
-    except Exception as e:
-        logger.exception("获取 LLM 配置失败")
-        return error_response(str(e), status_code=500)
-
-
-@prd_audit_bp.route("/api/llm_config", methods=["POST"])
-def api_save_llm_config():
-    """保存全平台共用的 LLM 配置（写入 modules/test_case/llm_config.json）"""
-    try:
-        data = request.get_json() or {}
-        save_path = _pick_llm_config_path()
-        old_config = {}
-        if os.path.exists(save_path):
-            try:
-                with open(save_path, "r", encoding="utf-8") as f:
-                    old_config = json.load(f)
-            except Exception:
-                pass
-        new_config = old_config.copy()
-        profiles = new_config.get("profiles") if isinstance(new_config.get("profiles"), dict) else {}
-
-        llm_provider = (data.get("llm_provider") or new_config.get("llm_provider") or "deepseek").strip()
-        profile_key = llm_provider
-        profile_old = profiles.get(profile_key) if isinstance(profiles.get(profile_key), dict) else {}
-        profile_new = profile_old.copy()
-        for k in ["llm_provider", "base_url", "model"]:
-            if k in data:
-                profile_new[k] = data.get(k)
-
-        api_key = (data.get("api_key") or "").strip()
-        if api_key and "****" not in api_key:
-            profile_new["api_key"] = api_key
-        elif "api_key" in profile_old:
-            profile_new["api_key"] = profile_old.get("api_key", "")
-
-        profiles[profile_key] = profile_new
-        new_config["profiles"] = profiles
-        new_config["default_profile"] = profile_key
-
-        for k in ["llm_provider", "base_url", "model", "api_key"]:
-            if k in profile_new and profile_new.get(k) is not None:
-                new_config[k] = profile_new.get(k)
-
-        # 全平台共用一个 API Key：同步到所有 profile，切换 DeepSeek/火山等时无需重复填 Key
-        canonical_key = (new_config.get("api_key") or "").strip()
-        if canonical_key:
-            for pk in list(profiles.keys()):
-                pd = profiles.get(pk)
-                if isinstance(pd, dict):
-                    profiles[pk] = {**pd, "api_key": canonical_key}
-            new_config["profiles"] = profiles
-
-        fallback_key = (data.get("fallback_api_key") or "").strip()
-        if fallback_key and "****" not in fallback_key:
-            new_config["fallback_api_key"] = fallback_key
-        elif "fallback_api_key" in old_config:
-            new_config["fallback_api_key"] = old_config.get("fallback_api_key", "")
-
-        push_token = (data.get("case_system_push_token") or "").strip()
-        if push_token and "****" not in push_token:
-            new_config["case_system_push_token"] = push_token
-        elif "case_system_push_token" in old_config:
-            new_config["case_system_push_token"] = old_config.get("case_system_push_token", "")
-
-        for k in [
-            "fallback_enabled",
-            "fallback_provider",
-            "fallback_base_url",
-            "fallback_model",
-            "feishu_webhook",
-            "feishu_listen_enabled",
-            "feishu_event_verify_token",
-            "case_system_push_url",
-            "case_system_project",
-        ]:
-            if k in data:
-                new_config[k] = data.get(k)
-
-        with open(save_path, "w", encoding="utf-8") as f:
-            json.dump(new_config, f, ensure_ascii=False, indent=2)
-        return success_response(message="配置已保存")
-    except Exception as e:
-        logger.exception("保存 LLM 配置失败")
-        return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/audit_stats", methods=["GET"])
 def api_audit_stats():
@@ -4841,7 +4633,6 @@ def api_audit_stats():
         logger.exception("获取审计统计失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/guardrail/evaluate", methods=["POST"])
 def api_guardrail_evaluate():
     try:
@@ -4866,7 +4657,6 @@ def api_guardrail_evaluate():
         logger.exception("guardrail evaluate failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/guardrail/adversarial_cases", methods=["GET"])
 def api_guardrail_adversarial_cases_get():
     try:
@@ -4875,7 +4665,6 @@ def api_guardrail_adversarial_cases_get():
     except Exception as e:
         logger.exception("load adversarial cases failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/guardrail/adversarial_cases", methods=["POST"])
 def api_guardrail_adversarial_cases_save():
@@ -4907,7 +4696,6 @@ def api_guardrail_adversarial_cases_save():
         logger.exception("save adversarial cases failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/guardrail/regression/run", methods=["POST"])
 def api_guardrail_regression_run():
     try:
@@ -4922,7 +4710,6 @@ def api_guardrail_regression_run():
         logger.exception("guardrail regression run failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/guardrail/regression/latest", methods=["GET"])
 def api_guardrail_regression_latest():
     try:
@@ -4931,7 +4718,6 @@ def api_guardrail_regression_latest():
     except Exception as e:
         logger.exception("guardrail regression latest failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/guardrail/incidents", methods=["GET"])
 def api_guardrail_incidents():
@@ -4942,7 +4728,6 @@ def api_guardrail_incidents():
     except Exception as e:
         logger.exception("guardrail incidents failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/llm_metrics", methods=["GET"])
 def api_llm_metrics():
@@ -5052,7 +4837,6 @@ def api_llm_metrics():
         logger.exception("获取 LLM 指标失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/jobs", methods=["GET"])
 def api_jobs_list():
     try:
@@ -5061,7 +4845,6 @@ def api_jobs_list():
     except Exception as e:
         logger.exception("jobs list failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/jobs/<job_id>", methods=["GET"])
 def api_jobs_get(job_id):
@@ -5074,7 +4857,6 @@ def api_jobs_get(job_id):
         logger.exception("jobs get failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/jobs/<job_id>/cancel", methods=["POST"])
 def api_jobs_cancel(job_id):
     try:
@@ -5086,7 +4868,6 @@ def api_jobs_cancel(job_id):
         logger.exception("jobs cancel failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/feishu/watch", methods=["GET"])
 def api_feishu_watch_list():
     try:
@@ -5094,7 +4875,6 @@ def api_feishu_watch_list():
     except Exception as e:
         logger.exception("feishu watch list failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/feishu/watch", methods=["POST"])
 def api_feishu_watch_update():
@@ -5138,7 +4918,6 @@ def api_feishu_watch_update():
     except Exception as e:
         logger.exception("feishu watch update failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/feishu/watch/trigger", methods=["POST"])
 def api_feishu_watch_trigger():
@@ -5186,7 +4965,6 @@ def api_feishu_watch_trigger():
     except Exception as e:
         logger.exception("feishu watch trigger failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/feishu/event", methods=["POST"])
 def api_feishu_event():
@@ -5275,7 +5053,6 @@ def api_feishu_event():
         logger.exception("feishu event failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/push_to_feishu", methods=["POST"])
 def api_push_to_feishu():
     """将审计结果推送到飞书 Webhook"""
@@ -5331,7 +5108,6 @@ def api_push_to_feishu():
         logger.exception("推送到飞书失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/rules", methods=["GET"])
 def api_get_rules():
     """获取当前的审计规则库"""
@@ -5342,7 +5118,6 @@ def api_get_rules():
     except Exception as e:
         logger.exception("获取审计规则失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/rules", methods=["POST"])
 def api_update_rules():
@@ -5358,7 +5133,6 @@ def api_update_rules():
     except Exception as e:
         logger.exception("更新审计规则失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/rules/hit_stats", methods=["GET"])
 def api_rule_hit_stats():
@@ -5469,7 +5243,6 @@ def api_rule_hit_stats():
         logger.exception("规则命中率统计失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/optimize_prd", methods=["POST"])
 def api_optimize_prd():
     """AI 一键优化 PRD 内容"""
@@ -5511,7 +5284,6 @@ def api_optimize_prd():
     except Exception as e:
         logger.exception("api_optimize_prd failed")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/diff_snapshots", methods=["POST"])
 def api_diff_snapshots():
@@ -5622,7 +5394,6 @@ def api_diff_snapshots():
         logger.exception("api_diff_snapshots failed")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/export_test_cases", methods=["POST"])
 def api_export_test_cases():
     """将生成的测试用例导出为 CSV 或 Excel"""
@@ -5685,7 +5456,6 @@ def api_export_test_cases():
     except Exception as e:
         logger.exception("导出测试用例失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/test_cases/push", methods=["POST"])
 def api_push_test_cases():
@@ -5757,7 +5527,6 @@ def api_push_test_cases():
         logger.exception("推送测试用例失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/check_dependencies", methods=["GET"])
 def api_check_dependencies():
     """检查 PRD 审计模块所需的环境依赖库是否已安装"""
@@ -5823,7 +5592,6 @@ def api_check_dependencies():
         "message": "所有核心依赖已就绪" if all_ok else "部分核心依赖缺失，请检查后端环境"
     })
 
-
 # ---------- API：保存为测试用例（写入 session，跳转用例管理） ----------
 
 @prd_audit_bp.route("/api/prepare_save_to_cases", methods=["POST"])
@@ -5837,7 +5605,6 @@ def api_prepare_save_to_cases():
     session.modified = True
     return success_response(data={"redirect_url": url_for("test_case.index", _external=False) + "?from_prd=1#prd_review"})
 
-
 @prd_audit_bp.route("/api/learning/status", methods=["GET"])
 def api_learning_status():
     try:
@@ -5845,7 +5612,6 @@ def api_learning_status():
     except Exception as e:
         logger.exception("获取学习状态失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/learning/lane_stats", methods=["GET"])
 def api_learning_lane_stats():
@@ -5860,7 +5626,6 @@ def api_learning_lane_stats():
         logger.exception("获取分轨统计失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/learning/quality_dashboard", methods=["GET"])
 def api_learning_quality_dashboard():
     try:
@@ -5873,7 +5638,6 @@ def api_learning_quality_dashboard():
     except Exception as e:
         logger.exception("获取学习质量看板失败")
         return error_response(str(e), status_code=500)
-
 
 # ---------- API：历史审计记录 (Snapshots) ----------
 
@@ -5941,7 +5705,6 @@ def api_history_snapshot_detail(snapshot_id):
         logger.exception("读取历史记录详情失败")
         return error_response(f"读取历史记录详情失败: {e}", status_code=500)
 
-
 @prd_audit_bp.route("/api/review/state", methods=["GET"])
 def api_review_state():
     try:
@@ -5965,7 +5728,6 @@ def api_review_state():
     except Exception as e:
         logger.exception("读取评审状态失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/review/update", methods=["POST"])
 def api_review_update():
@@ -6043,7 +5805,6 @@ def api_review_update():
         logger.exception("更新评审状态失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/learning/build_rule_draft", methods=["POST"])
 def api_learning_build_rule_draft():
     try:
@@ -6060,7 +5821,6 @@ def api_learning_build_rule_draft():
         logger.exception("生成规则草案失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/learning/rule_candidates", methods=["GET"])
 def api_learning_rule_candidates():
     try:
@@ -6068,7 +5828,6 @@ def api_learning_rule_candidates():
     except Exception as e:
         logger.exception("读取规则候选失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/learning/apply_candidates", methods=["POST"])
 def api_learning_apply_candidates():
@@ -6088,7 +5847,6 @@ def api_learning_apply_candidates():
         logger.exception("应用候选规则失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/learning/publish_applied", methods=["POST"])
 def api_learning_publish_applied():
     try:
@@ -6105,7 +5863,6 @@ def api_learning_publish_applied():
     except Exception as e:
         logger.exception("发布正式规则失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/learning/outline_owner_correction", methods=["POST"])
 def api_learning_outline_owner_correction():
@@ -6127,7 +5884,6 @@ def api_learning_outline_owner_correction():
     except Exception as e:
         logger.exception("保存责任角色校正失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/generate_test_code", methods=["POST"])
 def api_generate_test_code():
@@ -6180,7 +5936,6 @@ def api_generate_test_code():
         logger.exception("测试代码生成接口异常")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/export_feature_xmind", methods=["POST"])
 def api_export_feature_xmind():
     """根据功能节点导出 .xmind 文件（本地生成，无需大模型）"""
@@ -6200,7 +5955,6 @@ def api_export_feature_xmind():
         logger.exception("导出 XMind 失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/knowledge_cards", methods=["GET", "POST"])
 def api_knowledge_cards():
     """获取或保存功能知识卡片"""
@@ -6219,7 +5973,6 @@ def api_knowledge_cards():
     except Exception as e:
         logger.exception("获取功能知识卡片失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/knowledge_cards/import", methods=["POST"])
 def api_knowledge_cards_import():
@@ -6268,7 +6021,6 @@ def api_knowledge_cards_import():
         logger.exception("导入能力库失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/knowledge_cards/export", methods=["GET"])
 def api_knowledge_cards_export():
     try:
@@ -6314,7 +6066,6 @@ def api_knowledge_cards_export():
         logger.exception("导出能力库失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/learning/backups", methods=["GET"])
 def api_learning_backups():
     try:
@@ -6327,7 +6078,6 @@ def api_learning_backups():
     except Exception as e:
         logger.exception("获取规则备份失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/learning/rollback_backup", methods=["POST"])
 def api_learning_rollback_backup():
@@ -6349,7 +6099,6 @@ def api_learning_rollback_backup():
         logger.exception("回滚规则库失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/rule_plugins", methods=["GET", "POST"])
 def api_rule_plugins():
     try:
@@ -6366,7 +6115,6 @@ def api_rule_plugins():
         logger.exception("规则插件管理失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/rule_plugins/stats", methods=["GET"])
 def api_rule_plugins_stats():
     try:
@@ -6376,7 +6124,6 @@ def api_rule_plugins_stats():
     except Exception as e:
         logger.exception("规则插件统计失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/prompt_center", methods=["GET", "POST"])
 def api_prompt_center():
@@ -6391,7 +6138,6 @@ def api_prompt_center():
         logger.exception("Prompt Center 管理失败")
         return error_response(str(e), status_code=500)
 
-
 @prd_audit_bp.route("/api/prompt_center/stats", methods=["GET"])
 def api_prompt_center_stats():
     try:
@@ -6401,7 +6147,6 @@ def api_prompt_center_stats():
     except Exception as e:
         logger.exception("Prompt Center 统计失败")
         return error_response(str(e), status_code=500)
-
 
 @prd_audit_bp.route("/api/gate/evaluate", methods=["POST"])
 def api_gate_evaluate():

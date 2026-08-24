@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}大模型设置{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 920px;">
+  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h4 class="mb-0"><i class="fas fa-cogs me-2"></i>大模型设置</h4>
+    <span class="badge bg-secondary">全局唯一配置 · config/llm_config.json</span>
+  </div>
+
+  <div class="alert alert-info small mb-3">
+    <i class="fas fa-shield-alt me-1"></i>
+    <strong>安全提示：</strong> API Key 建议通过环境变量（<code>DEEPSEEK_API_KEY</code> / <code>OPENAI_API_KEY</code> / <code>GEMINI_API_KEY</code> / <code>VOLCENGINE_API_KEY</code>）注入，无需在此明文填写；
+    若已设置环境变量，本页保存时不会覆盖落盘的 Key。配置一次，全平台（Flask + Mastra 诊断服务）通用。
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">Provider 与默认配置</div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label">默认 Provider（default_profile）</label>
+        <select id="defaultProfile" class="form-select"></select>
+        <div class="form-text">切换 Provider 后保存即设为全平台默认模型来源。</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Base URL</label>
+        <input id="baseUrl" class="form-control" placeholder="https://api.deepseek.com/v1">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Model</label>
+        <input id="model" class="form-control" placeholder="deepseek-chat">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">API Key</label>
+        <input id="apiKey" type="password" class="form-control" placeholder="留空则不修改（显示 sk-****xxxx 表示已配置）">
+        <div class="form-text">填写新 Key 将覆盖保存；显示 <code>sk-****xxxx</code> 表示已配置，留空即保留原值。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">备用模型（Fallback，可选）</div>
+    <div class="card-body">
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="fallbackEnabled">
+        <label class="form-check-label" for="fallbackEnabled">启用 Fallback</label>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Fallback Base URL</label>
+        <input id="fallbackBaseUrl" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Fallback Model</label>
+        <input id="fallbackModel" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Fallback API Key</label>
+        <input id="fallbackApiKey" type="password" class="form-control" placeholder="留空则不修改">
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 align-items-center">
+    <button id="btnSaveLlm" class="btn btn-primary"><i class="fas fa-save me-1"></i>保存配置</button>
+    <span id="llmStatus" class="small"></span>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 原生实现，不依赖 jQuery（吸取 recorder 页教训：关键交互不绑 jQuery，依赖缺失也不失效）
+(function () {
+  function setStatus(msg, ok) {
+    var s = document.getElementById('llmStatus');
+    if (!s) return;
+    s.textContent = msg;
+    s.style.color = ok === false ? '#dc3545' : (ok === true ? '#198754' : '#666');
+  }
+
+  function fillForm(cfg) {
+    if (!cfg) return;
+    var dp = document.getElementById('defaultProfile');
+    dp.innerHTML = '';
+    (cfg.profiles_meta || []).forEach(function (p) {
+      var o = document.createElement('option');
+      o.value = p.key;
+      o.textContent = p.key + ' (' + (p.llm_provider || p.key) + ' / ' + (p.model || '') + ')';
+      if (p.key === cfg.default_profile) o.selected = true;
+      dp.appendChild(o);
+    });
+    if (!dp.options.length) {
+      var o = document.createElement('option');
+      o.value = cfg.default_profile || 'deepseek';
+      o.textContent = o.value;
+      dp.appendChild(o);
+    }
+    document.getElementById('baseUrl').value = cfg.base_url || '';
+    document.getElementById('model').value = cfg.model || '';
+    document.getElementById('apiKey').value = cfg.api_key || '';
+    document.getElementById('fallbackEnabled').checked = !!cfg.fallback_enabled;
+    document.getElementById('fallbackBaseUrl').value = cfg.fallback_base_url || '';
+    document.getElementById('fallbackModel').value = cfg.fallback_model || '';
+    document.getElementById('fallbackApiKey').value = cfg.fallback_api_key || '';
+  }
+
+  function loadConfig() {
+    fetch('/api/llm_config')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.success) fillForm(j.data);
+        else setStatus('加载配置失败', false);
+      })
+      .catch(function (e) { setStatus('加载配置异常：' + e.message, false); });
+  }
+
+  function saveConfig() {
+    var btn = document.getElementById('btnSaveLlm');
+    btn.disabled = true;
+    setStatus('保存中...');
+    var dp = document.getElementById('defaultProfile');
+    var payload = {
+      llm_provider: dp.value,
+      base_url: document.getElementById('baseUrl').value.trim(),
+      model: document.getElementById('model').value.trim(),
+      api_key: document.getElementById('apiKey').value.trim(),
+      fallback_enabled: document.getElementById('fallbackEnabled').checked,
+      fallback_base_url: document.getElementById('fallbackBaseUrl').value.trim(),
+      fallback_model: document.getElementById('fallbackModel').value.trim(),
+      fallback_api_key: document.getElementById('fallbackApiKey').value.trim()
+    };
+    fetch('/api/llm_config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.success) { setStatus(j.message || '已保存', true); loadConfig(); }
+        else setStatus('保存失败：' + (j.message || '未知错误'), false);
+      })
+      .catch(function (e) { setStatus('保存异常：' + e.message, false); })
+      .finally(function () { btn.disabled = false; });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadConfig();
+    var b = document.getElementById('btnSaveLlm');
+    if (b) b.addEventListener('click', saveConfig);
+  });
+})();
+</script>
+{% endblock %}

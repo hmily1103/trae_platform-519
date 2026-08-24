@@ -1,5 +1,8 @@
 from flask import Blueprint, render_template, request, Response, stream_with_context
-import pymysql
+try:
+    import pymysql
+except Exception:  # pragma: no cover
+    pymysql = None
 import requests
 import subprocess
 import threading

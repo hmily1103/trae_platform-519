@@ -1,0 +1,5 @@
+{
+  "enabled": false,
+  "repo_path": "",
+  "test_glob": "**/test_*.py"
+}

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <!-- UpgradeCode must stay fixed across all versions of this product. -->
+  <Product
+      Id="*"
+      Name="Trae Code"
+      Language="2052"
+      Version="1.0.0.0"
+      Manufacturer="Trae"
+      UpgradeCode="C3D4E5F6-A7B8-4012-9CDE-F123456789AB">
+    <Package
+        InstallerVersion="500"
+        Compressed="yes"
+        InstallScope="perMachine"
+        Platform="x64"
+        Description="Trae Code full tree installer" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Trae Code is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="INSTALLFOLDER" Value="[ProgramFiles64Folder]TraeCode" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="TraeCode" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Trae Code" />
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcuts" Guid="B1C2D3E4-F5A6-4789-B012-3456789ABCDE">
+        <Shortcut
+            Id="ShortcutInstallDeps"
+            Name="1 Install Python deps"
+            Description="Create venv and pip install requirements"
+            Target="[SystemFolder]cmd.exe"
+            Arguments="/c &quot;[INSTALLFOLDER]trae_platform\installer\msi\post_install.bat&quot;"
+            WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut
+            Id="ShortcutStartPlatform"
+            Name="2 Start Trae Platform"
+            Description="Run Flask app (http://localhost:5000)"
+            Target="[SystemFolder]cmd.exe"
+            Arguments="/c &quot;[INSTALLFOLDER]trae_platform\installer\msi\start_platform.bat&quot;"
+            WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="CleanupApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue
+            Root="HKMU"
+            Key="Software\Trae\TraeCode"
+            Name="Shortcuts"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="ProductFeature" Title="Trae Code" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="ApplicationShortcuts" />
+    </Feature>
+
+    <UIRef Id="WixUI_InstallDir" />
+  </Product>
+</Wix>

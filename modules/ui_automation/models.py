@@ -168,6 +168,10 @@ class RecordingSession:
     description: str = ""
     project_id: str = ""  # 所属项目ID
     name: str = ""        # 用例名称
+    platform: str = "android"  # android / web
+    target: str = ""      # 设备ID / 浏览器 / 环境标识
+    entry_url: str = ""   # Web 场景入口地址
+    meta: Dict[str, Any] = field(default_factory=dict)  # 质量门禁等扩展字段
     
     def to_dict(self) -> Dict:
         """转换为字典"""
@@ -179,7 +183,11 @@ class RecordingSession:
             'actions': [action.to_dict() for action in self.actions],
             'description': self.description,
             'project_id': self.project_id,
-            'name': self.name
+            'name': self.name,
+            'platform': self.platform or "android",
+            'target': self.target,
+            'entry_url': self.entry_url,
+            'meta': self.meta or {},
         }
     
     @classmethod
@@ -204,7 +212,11 @@ class RecordingSession:
             actions=actions,
             description=data.get('description', ''),
             project_id=data.get('project_id', ''),
-            name=data.get('name', '')
+            name=data.get('name', ''),
+            platform=data.get('platform') or 'android',
+            target=data.get('target', ''),
+            entry_url=data.get('entry_url', ''),
+            meta=data.get('meta') or {},
         )
 
 

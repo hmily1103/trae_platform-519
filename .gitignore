@@ -13,6 +13,9 @@ build/
 venv/
 .venv/
 env/
+node_modules/
+.next/
+dist/
 
 # 测试
 .pytest_cache/
@@ -36,6 +39,20 @@ modules/prd_audit.zip
 # 敏感配置（含 API Key）
 .env
 *.local
+config/llm_config.json
+**/llm_config.json
+
+# 本地临时/调试产物
+crash_logs/
+output/
+_tmp_*.js
+_step5_test.py
+startup_sp_new.err
+startup_sp_new.out
+modules/player_stress/_*.json
+modules/player_stress/_fix_v4.py
+modules/player_stress/*.mojibake_bak
+*.zip
 
 # IDE
 .idea/

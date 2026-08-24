@@ -542,8 +542,16 @@ class AdbManager:
         shell_names = {"sh", "/system/bin/sh", "bash", "/system/bin/bash"}
         if len(parts) >= 2 and parts[0] in shell_names:
             if parts[1] == "-c" and len(parts) >= 3:
-                return " ".join(parts[2:])
-            return " ".join(parts[1:])
+                value = " ".join(parts[2:])
+            else:
+                value = " ".join(parts[1:])
+        lowered = value.lower()
+        if "dex2oat" in lowered:
+            if "--compilation-reason=install" in lowered:
+                return "dex2oat (install)"
+            return "dex2oat"
+        if len(value) > 80:
+            return value[:77] + "..."
         return value
 
     @classmethod

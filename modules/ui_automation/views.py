@@ -34,14 +34,25 @@ def _is_device_not_connected_error(output: str) -> bool:
 @ui_automation_bp.route('/')
 @ui_automation_bp.route('/dashboard')
 def index():
-    """仪表盘"""
+    """工作台"""
     return render_template('ui_automation_dashboard.html')
 
 
 @ui_automation_bp.route('/recorder')
 def recorder_page():
-    """录制工坊"""
-    return render_template('ui_automation_recorder.html')
+    """录制"""
+    # 服务端预渲染设备列表，避免纯靠前端 JS 拉取导致下拉为空（网络/脚本异常时仍可见）
+    initial_all_devices = []
+    try:
+        from utils.adb_helper import AdbHelper
+        initial_all_devices = AdbHelper.get_devices_with_status() or []
+    except Exception as e:
+        logger.warning(f'预加载设备列表失败（不影响页面其余功能）: {e}')
+        initial_all_devices = []
+    return render_template(
+        'ui_automation_recorder.html',
+        initial_all_devices=initial_all_devices
+    )
 
 
 @ui_automation_bp.route('/cases')
@@ -56,6 +67,27 @@ def reports_page():
     return render_template('ui_automation_reports.html')
 
 
+@ui_automation_bp.route('/ai')
+def ai_page():
+    """AI 探索生成用例（自然语言 / 分步用例）"""
+    initial_all_devices = []
+    try:
+        from utils.adb_helper import AdbHelper
+        initial_all_devices = AdbHelper.get_devices_with_status() or []
+    except Exception as e:
+        logger.warning(f'预加载设备列表失败: {e}')
+    return render_template(
+        'ui_automation_ai.html',
+        initial_all_devices=initial_all_devices,
+    )
+
+
+@ui_automation_bp.route('/report/<job_id>')
+def report_detail_page(job_id):
+    """执行详情页"""
+    return render_template('ui_automation_report_detail.html', job_id=job_id)
+
+
 @ui_automation_bp.route('/api/trace', methods=['POST'])
 def api_save_trace():
     """保存执行Trace"""
@@ -63,13 +95,13 @@ def api_save_trace():
         data = request.get_json() or {}
         # 简单校验
         if not data.get('run_id') or not data.get('device_id'):
-            return error_response(message='Missing required fields')
+            return error_response(message='缺少必要参数 (run_id/device_id)')
             
         success = UI_AUTOMATION_SERVICE.save_execution_trace(data)
         if success:
             return success_response()
         else:
-            return error_response(message='Failed to save trace')
+            return error_response(message='保存 Trace 失败')
     except Exception as e:
         logger.error(f"保存Trace异常: {e}")
         return error_response(message=str(e))
@@ -83,7 +115,7 @@ def api_analyze_stability():
         run_ids = data.get('run_ids', [])
         
         if not run_ids:
-            return error_response(message='run_ids required')
+            return error_response(message='缺少 run_ids 参数')
             
         report = UI_AUTOMATION_SERVICE.analyze_execution_stability(run_ids)
         return success_response(data=report)
@@ -95,13 +127,15 @@ def api_analyze_stability():
 
 @ui_automation_bp.route('/api/devices', methods=['GET'])
 def api_get_devices():
-    """获取设备列表"""
+    """获取设备列表（含所有连接状态的设备，便于前端标注需授权/离线）"""
     try:
         from modules.log_monitor.core.adb_controller import AdbController
+        from utils.adb_helper import AdbHelper
         controller = AdbController()
         devices = controller.get_connected_devices()
-        logger.info(f'获取到 {len(devices)} 个设备: {devices}')
-        return success_response(data={'devices': devices})
+        all_devices = AdbHelper.get_devices_with_status()
+        logger.info(f'获取到 {len(devices)} 个可用设备，共 {len(all_devices)} 个连接设备')
+        return success_response(data={'devices': devices, 'all_devices': all_devices})
     except Exception as e:
         logger.error(f'获取设备列表失败: {e}', exc_info=True)
         return error_response(
@@ -279,19 +313,33 @@ def api_device_screenshot_latest():
     """
     获取最新设备截图 (独立刷新接口)
     用于前端轮询预览，与控制操作解耦
+    返回 image + device_width/height，供点击坐标映射。
+    force=1（默认）强制重截，避免返回点击前的旧画面。
     """
-    device_id = request.args.get('device_id')
+    device_id = (request.args.get('device_id') or '').replace('：', ':').strip()
     if not device_id:
-        return error_response(message='device_id required', status_code=400)
+        return error_response(message='缺少 device_id 参数', status_code=400)
+
+    force_raw = (request.args.get('force') or '1').strip().lower()
+    force = force_raw not in ('0', 'false', 'no')
     
     try:
-        # 尝试获取最新截图 (优先从视频流缓存，无流则主动截取)
-        image_base64 = UI_AUTOMATION_SERVICE.get_latest_screenshot(device_id)
+        if force:
+            UI_AUTOMATION_SERVICE.invalidate_preview_cache(device_id)
+        payload = UI_AUTOMATION_SERVICE.get_latest_screenshot_payload(device_id, force=force)
         
-        if image_base64:
-            return success_response(data={'image': image_base64})
-        else:
-            return error_response(message='获取截图失败', status_code=500)
+        if payload and payload.get('image'):
+            return success_response(data=payload)
+
+        # 附带控制器错误信息，方便前端展示
+        detail = ''
+        try:
+            controller = UI_AUTOMATION_SERVICE.get_device_controller(device_id)
+            detail = (controller.last_output or '').strip()
+        except Exception:
+            detail = ''
+        msg = '获取截图失败' + (f'：{detail}' if detail else '')
+        return error_response(message=msg, status_code=500)
     except Exception as e:
         logger.error(f"获取最新截图失败: {e}", exc_info=True)
         return error_response(message='获取最新截图失败', error=str(e), status_code=500)
@@ -381,13 +429,46 @@ def api_run_suite(suite_id):
         if not device_id:
             return error_response(message='设备ID不能为空')
             
-        job_id = UI_AUTOMATION_SERVICE.run_suite(suite_id, device_id)
+        precision_context = {
+            'precision_analysis_id': (data.get('precision_analysis_id') or request.args.get('precision_analysis_id') or '').strip(),
+            'precision_test_point_id': (data.get('precision_test_point_id') or request.args.get('precision_test_point_id') or '').strip(),
+            'precision_execution_id': (data.get('precision_execution_id') or request.args.get('precision_execution_id') or '').strip(),
+        }
+        job_id = UI_AUTOMATION_SERVICE.run_suite(suite_id, device_id, precision_context=precision_context)
         if job_id:
             return success_response(data={'job_id': job_id})
         return error_response(message='启动失败')
     except Exception as e:
         logger.error(f'运行测试套件失败: {e}', exc_info=True)
         return error_response(message='运行测试套件失败', error=str(e))
+
+
+@ui_automation_bp.route('/api/case/quick-run', methods=['POST'])
+def api_quick_run_case():
+    """快速执行单个用例"""
+    try:
+        data = request.json or {}
+        case_id = data.get('case_id')
+        device_ids = data.get('device_ids')
+
+        if not case_id:
+            return error_response(message='请选择用例')
+        if not device_ids:
+            return error_response(message='请选择执行设备')
+
+        precision_context = {
+            'precision_analysis_id': (data.get('precision_analysis_id') or request.args.get('precision_analysis_id') or '').strip(),
+            'precision_test_point_id': (data.get('precision_test_point_id') or request.args.get('precision_test_point_id') or '').strip(),
+            'precision_execution_id': (data.get('precision_execution_id') or request.args.get('precision_execution_id') or '').strip(),
+        }
+        job_id = UI_AUTOMATION_SERVICE.quick_run_case(case_id, device_ids, precision_context=precision_context)
+        if not job_id:
+            return error_response(message='用例不存在或执行失败')
+        return success_response(data={'job_id': job_id})
+    except Exception as e:
+        logger.error(f'快速执行用例失败: {e}', exc_info=True)
+        return error_response(message='执行失败', error=str(e))
+
 
 @ui_automation_bp.route('/api/suite/jobs/running', methods=['GET'])
 def api_get_running_suite_jobs():
@@ -472,6 +553,10 @@ def api_control_click():
             controller = UI_AUTOMATION_SERVICE.get_device_controller(device_id)
         
         if controller.click(x, y):
+            try:
+                UI_AUTOMATION_SERVICE.invalidate_preview_cache(device_id)
+            except Exception:
+                pass
             return success_response(message='点击成功')
         else:
             if _is_device_not_connected_error(controller.last_output):
@@ -515,6 +600,10 @@ def api_control_swipe():
             controller = UI_AUTOMATION_SERVICE.get_device_controller(device_id)
         
         if controller.swipe(x1, y1, x2, y2, duration):
+            try:
+                UI_AUTOMATION_SERVICE.invalidate_preview_cache(device_id)
+            except Exception:
+                pass
             return success_response(message='滑动成功')
         else:
             if _is_device_not_connected_error(controller.last_output):
@@ -593,6 +682,10 @@ def api_control_key():
             controller = UI_AUTOMATION_SERVICE.get_device_controller(device_id)
         
         if controller.press_key(key_code):
+            try:
+                UI_AUTOMATION_SERVICE.invalidate_preview_cache(device_id)
+            except Exception:
+                pass
             return success_response(message='按键成功')
         else:
             if _is_device_not_connected_error(controller.last_output):
@@ -756,6 +849,7 @@ def api_get_recording(recording_id):
             )
 
         recording_dict = session.to_dict()
+        recording_dict['insights'] = UI_AUTOMATION_SERVICE.get_case_insights(recording_id) or {}
         artifact_step_count = UI_AUTOMATION_SERVICE.storage.get_artifact_step_count(recording_id)
         if len(recording_dict.get('actions') or []) == 0 and artifact_step_count > 0:
             recording_dict['artifact_step_count'] = artifact_step_count
@@ -766,6 +860,27 @@ def api_get_recording(recording_id):
         logger.error(f'获取录制详情失败: {e}', exc_info=True)
         return error_response(
             message='获取录制详情失败',
+            error=str(e),
+            status_code=500
+        )
+
+
+@ui_automation_bp.route('/api/recording/<recording_id>/insights', methods=['GET'])
+def api_get_recording_insights(recording_id):
+    """获取用例治理洞察：质量体检 + 最近失败归因"""
+    try:
+        insights = UI_AUTOMATION_SERVICE.get_case_insights(recording_id)
+        if insights is None:
+            return error_response(
+                message='录制不存在',
+                error='recording not found',
+                status_code=404
+            )
+        return success_response(data={'insights': insights})
+    except Exception as e:
+        logger.error(f'获取用例洞察失败: {e}', exc_info=True)
+        return error_response(
+            message='获取用例洞察失败',
             error=str(e),
             status_code=500
         )
@@ -1107,10 +1222,11 @@ def api_update_recording_action():
         action_type = data.get('action_type')
         value = data.get('value')
         description = data.get('description')
+        wait_after = data.get('wait_after')
         
         with UI_AUTOMATION_SERVICE_LOCK:
             if UI_AUTOMATION_SERVICE.update_recording_action(
-                recording_id, int(index), action_type, value, description
+                recording_id, int(index), action_type, value, description, wait_after
             ):
                 return success_response(message='更新成功')
             else:
@@ -1148,7 +1264,7 @@ def api_create_project():
         if project:
             return success_response(data={'project': project.to_dict()}, message='项目创建成功')
         else:
-            return error_response(message='项目创建失败', error='create failed')
+            return error_response(message='项目创建失败', error='创建失败')
     except Exception as e:
         logger.error(f'创建项目失败: {e}', exc_info=True)
         return error_response(message='创建项目失败', error=str(e))
@@ -1171,7 +1287,7 @@ def api_delete_project(project_id):
     try:
         if UI_AUTOMATION_SERVICE.delete_project(project_id):
             return success_response(message='项目删除成功')
-        return error_response(message='项目删除失败', error='delete failed')
+        return error_response(message='项目删除失败', error='删除失败')
     except Exception as e:
         logger.error(f'删除项目失败: {e}', exc_info=True)
         return error_response(message='删除项目失败', error=str(e))
@@ -1253,6 +1369,19 @@ def api_generate_script():
         
         recording_id = data.get('recording_id')
         device_id = data.get('device_id')
+        session = UI_AUTOMATION_SERVICE.storage.load_recording(recording_id)
+        if not session:
+            return error_response(
+                message='录制不存在',
+                error='recording not found',
+                status_code=404
+            )
+        if (session.platform or 'android') != 'android':
+            return error_response(
+                message='当前仅支持为 Android 用例生成脚本，Web 用例执行器请后续接入 Playwright',
+                error='unsupported platform',
+                status_code=400
+            )
         
         script_content = UI_AUTOMATION_SERVICE.generate_script(recording_id, device_id)
         
@@ -1371,6 +1500,23 @@ def api_get_execution_status(execution_id):
         )
 
 
+@ui_automation_bp.route('/api/report/<job_id>/detail', methods=['GET'])
+def api_report_detail(job_id):
+    """获取执行报告详情（含完整 trace）"""
+    try:
+        detail = UI_AUTOMATION_SERVICE.get_report_detail(job_id)
+        if detail is None:
+            return error_response(
+                message='报告不存在',
+                error='report not found',
+                status_code=404
+            )
+        return success_response(data={'detail': detail})
+    except Exception as e:
+        logger.error(f'获取报告详情失败: {e}', exc_info=True)
+        return error_response(message='获取失败', error=str(e))
+
+
 @ui_automation_bp.route('/api/reports', methods=['GET'])
 def api_list_reports():
     """获取所有执行报告"""
@@ -1382,20 +1528,213 @@ def api_list_reports():
         return error_response(message='获取失败', error=str(e))
 
 
+@ui_automation_bp.route('/api/cases/execution-status', methods=['POST'])
+def api_cases_execution_status():
+    """批量查询用例最近执行状态"""
+    try:
+        data = request.json or {}
+        case_ids = data.get('case_ids', [])
+        if not case_ids:
+            return success_response(data={'status_map': {}})
+        status_map = UI_AUTOMATION_SERVICE.get_cases_execution_status(case_ids)
+        return success_response(data={'status_map': status_map})
+    except Exception as e:
+        logger.error(f'查询用例执行状态失败: {e}', exc_info=True)
+        return error_response(message='查询失败', error=str(e))
+
+
 @ui_automation_bp.route('/api/stats', methods=['GET'])
 def api_dashboard_stats():
-    """获取仪表盘统计数据"""
+    """获取工作台统计数据"""
     try:
         # 获取统计数据
         stats = UI_AUTOMATION_SERVICE.get_dashboard_stats()
         return success_response(data=stats)
     except Exception as e:
-        logger.error(f'获取仪表盘数据失败: {e}', exc_info=True)
+        logger.error(f'获取工作台数据失败: {e}', exc_info=True)
         return error_response(
-            message='获取仪表盘数据失败',
+            message='获取工作台数据失败',
             error=str(e),
             status_code=500
         )
+
+
+@ui_automation_bp.route('/api/ai/explore', methods=['POST'])
+def api_ai_explore():
+    """
+    AI 闭环探索生成用例。
+    默认 async=true：立即返回 job_id，用 GET /api/ai/explore/<job_id> 拉进度。
+    async=false：同步等待（可能很长）。
+    """
+    try:
+        data = request.get_json() or {}
+        device_id = (data.get('device_id') or '').strip()
+        case_text = (data.get('case_text') or data.get('prompt') or '').strip()
+        if not device_id:
+            return error_response(message='缺少 device_id', error='device_id required', status_code=400)
+        if not case_text:
+            return error_response(message='缺少 case_text', error='case_text required', status_code=400)
+
+        closed_loop = bool(data.get('closed_loop', True))
+        auto_diagnose = bool(data.get('auto_diagnose', True))
+        async_mode = bool(data.get('async', True))
+        try:
+            timeout_sec = float(data.get('timeout_sec') or 600)
+        except (TypeError, ValueError):
+            timeout_sec = 600.0
+        timeout_sec = max(60.0, min(timeout_sec, 3600.0))
+        kwargs = dict(
+            device_id=device_id,
+            case_text=case_text,
+            name=(data.get('name') or '').strip(),
+            package_name=(data.get('package_name') or '').strip(),
+            project_id=(data.get('project_id') or '').strip(),
+            description=(data.get('description') or '').strip(),
+            execute_while_exploring=bool(data.get('execute_while_exploring', True)),
+            closed_loop=closed_loop,
+            auto_diagnose=auto_diagnose,
+        )
+
+        if async_mode:
+            job_id = UI_AUTOMATION_SERVICE.start_ai_explore_job(
+                **kwargs, timeout_sec=timeout_sec
+            )
+            return success_response(
+                data={
+                    'job_id': job_id,
+                    'async': True,
+                    'closed_loop': closed_loop,
+                    'timeout_sec': timeout_sec,
+                },
+                message='探索任务已启动，请轮询进度',
+            )
+
+        result = UI_AUTOMATION_SERVICE.ai_explore_case(
+            **kwargs, timeout_sec=timeout_sec
+        )
+        return success_response(data=result, message=result.get('message') or 'AI 探索完成')
+    except ValueError as e:
+        return error_response(message=str(e), error=str(e), status_code=400)
+    except Exception as e:
+        logger.error(f'AI 探索失败: {e}', exc_info=True)
+        return error_response(message='AI 探索失败', error=str(e), status_code=500)
+
+
+@ui_automation_bp.route('/api/ai/explore-jobs', methods=['GET'])
+def api_ai_explore_jobs():
+    """列出近期探索任务（含落盘恢复）。"""
+    try:
+        limit = request.args.get('limit', '20')
+        try:
+            limit_i = max(1, min(50, int(limit)))
+        except (TypeError, ValueError):
+            limit_i = 20
+        jobs = UI_AUTOMATION_SERVICE.list_ai_explore_jobs(limit=limit_i)
+        return success_response(data={'jobs': jobs})
+    except Exception as e:
+        logger.error(f'列出探索任务失败: {e}', exc_info=True)
+        return error_response(message='列出探索任务失败', error=str(e), status_code=500)
+
+
+@ui_automation_bp.route('/api/ai/explore/<job_id>', methods=['GET'])
+def api_ai_explore_job(job_id: str):
+    """查询闭环探索任务进度与结果。"""
+    try:
+        since = request.args.get('since', '0')
+        try:
+            since_i = max(0, int(since))
+        except (TypeError, ValueError):
+            since_i = 0
+        job = UI_AUTOMATION_SERVICE.get_ai_explore_job(job_id, since=since_i)
+        if not job:
+            return error_response(message='任务不存在', error='job not found', status_code=404)
+        return success_response(data=job)
+    except Exception as e:
+        logger.error(f'查询探索任务失败: {e}', exc_info=True)
+        return error_response(message='查询探索任务失败', error=str(e), status_code=500)
+
+
+@ui_automation_bp.route('/api/ai/explore/<job_id>/cancel', methods=['POST'])
+def api_ai_explore_cancel(job_id: str):
+    """取消正在运行的 AI 探索任务。"""
+    try:
+        ok = UI_AUTOMATION_SERVICE.cancel_ai_explore_job(job_id)
+        if not ok:
+            return error_response(
+                message='无法取消（任务不存在或已结束）',
+                error='cancel failed',
+                status_code=400,
+            )
+        return success_response(data={'job_id': job_id, 'cancel_requested': True}, message='已请求取消')
+    except Exception as e:
+        logger.error(f'取消探索任务失败: {e}', exc_info=True)
+        return error_response(message='取消失败', error=str(e), status_code=500)
+
+
+@ui_automation_bp.route('/api/ai/diagnose', methods=['POST'])
+def api_ai_diagnose():
+    """失败归因：返回根因与建议补丁，needs_human_approval=true，不自动改用例。"""
+    try:
+        data = request.get_json() or {}
+        case_id = (data.get('case_id') or '').strip()
+        if not case_id:
+            return error_response(message='缺少 case_id', error='case_id required', status_code=400)
+
+        failed_step = data.get('failed_step')
+        if failed_step is not None:
+            try:
+                failed_step = int(failed_step)
+            except (TypeError, ValueError):
+                failed_step = None
+
+        result = UI_AUTOMATION_SERVICE.ai_diagnose_failure(
+            case_id,
+            device_id=(data.get('device_id') or '').strip(),
+            failed_step=failed_step,
+            error=(data.get('error') or '').strip(),
+            step_details=data.get('step_details') or [],
+            dump_live_ui=bool(data.get('dump_live_ui', True)),
+        )
+        return success_response(data=result, message='归因完成（需人工确认后才可应用补丁）')
+    except ValueError as e:
+        return error_response(message=str(e), error=str(e), status_code=400)
+    except Exception as e:
+        logger.error(f'AI 归因失败: {e}', exc_info=True)
+        return error_response(message='AI 归因失败', error=str(e), status_code=500)
+
+
+@ui_automation_bp.route('/api/ai/apply-patch', methods=['POST'])
+def api_ai_apply_patch():
+    """人工确认后应用建议补丁到用例。必须 approved=true。"""
+    try:
+        data = request.get_json() or {}
+        case_id = (data.get('case_id') or '').strip()
+        suggested_patch = data.get('suggested_patch')
+        approved = bool(data.get('approved', False))
+        if not case_id:
+            return error_response(message='缺少 case_id', error='case_id required', status_code=400)
+        if not isinstance(suggested_patch, dict):
+            return error_response(message='缺少 suggested_patch', error='suggested_patch required', status_code=400)
+        if not approved:
+            return error_response(
+                message='未人工确认，拒绝修改用例',
+                error='needs_human_approval',
+                status_code=403,
+            )
+
+        result = UI_AUTOMATION_SERVICE.ai_apply_patch(
+            case_id,
+            suggested_patch,
+            approved=True,
+        )
+        return success_response(data=result, message=result.get('message') or '补丁已应用')
+    except PermissionError as e:
+        return error_response(message=str(e), error='needs_human_approval', status_code=403)
+    except ValueError as e:
+        return error_response(message=str(e), error=str(e), status_code=400)
+    except Exception as e:
+        logger.error(f'应用补丁失败: {e}', exc_info=True)
+        return error_response(message='应用补丁失败', error=str(e), status_code=500)
 
 
 @ui_automation_bp.route('/stream_script_output')
@@ -1456,3 +1795,41 @@ def stream_script_output():
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
     
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+
+@ui_automation_bp.route('/api/recording/<recording_id>/update', methods=['POST'])
+def api_update_recording_info(recording_id):
+    """更新录制元信息（名称、描述、包名、项目、平台等）"""
+    try:
+        data = request.get_json() or {}
+        session = UI_AUTOMATION_SERVICE.storage.load_recording(recording_id)
+        if not session:
+            return error_response(
+                message='录制不存在',
+                error='recording not found',
+                status_code=404
+            )
+        if 'name' in data:
+            session.name = data['name']
+        if 'description' in data:
+            session.description = data['description']
+        if 'package_name' in data:
+            session.package_name = data['package_name']
+        if 'project_id' in data:
+            session.project_id = data['project_id']
+        if 'platform' in data:
+            session.platform = (data['platform'] or 'android').strip() or 'android'
+        if 'target' in data:
+            session.target = (data['target'] or '').strip()
+        if 'entry_url' in data:
+            session.entry_url = (data['entry_url'] or '').strip()
+        if (session.platform or 'android') == 'android':
+            session.target = session.target or session.device_id or session.package_name
+            session.entry_url = ''
+        if UI_AUTOMATION_SERVICE.storage.save_recording(session):
+            return success_response(message='用例已保存')
+        else:
+            return error_response(message='保存失败', error='保存失败', status_code=500)
+    except Exception as e:
+        logger.error(f'更新录制失败: {e}', exc_info=True)
+        return error_response(message='更新录制失败', error=str(e), status_code=500)

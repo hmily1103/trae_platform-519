@@ -67,7 +67,23 @@ class AdbHelper:
                         devices.append(device_id.strip())
         
         return devices
-    
+
+    @staticmethod
+    def get_devices_with_status() -> List[dict]:
+        """
+        获取设备及其连接状态（不限于 device 状态）。
+        返回 [{'id': '192.168.1.1:8787', 'status': 'device'|'unauthorized'|'offline'|...}, ...]
+        用于前端展示「已连接但需授权/离线」的设备，避免凭空消失导致无法选择。
+        """
+        returncode, stdout, stderr = AdbHelper.run_command(['adb', 'devices'])
+        result = []
+        if returncode == 0 and stdout:
+            for line in stdout.splitlines()[1:]:
+                if '\t' in line:
+                    device_id, status = line.split('\t', 1)
+                    result.append({'id': device_id.strip(), 'status': status.strip()})
+        return result
+
     @staticmethod
     def connect_device(ip: str, port: int) -> bool:
         """

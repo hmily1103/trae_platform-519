@@ -611,7 +611,7 @@
                 <div class="mb-3">
                     <label class="form-label">API Key</label>
                     <input type="password" class="form-control form-control-sm" id="llmApiKey" placeholder="在这里填写或更新 Key">
-                    <div class="form-text small" id="llmApiKeyHint">保存后会写入 <code>modules/test_case/llm_config.json</code>（全平台共用）。</div>
+                    <div class="form-text small" id="llmApiKeyHint">保存后会写入 <code>config/llm_config.json</code>（全平台共用）。</div>
                 </div>
                 <div class="mb-2 form-check">
                     <input class="form-check-input" type="checkbox" id="llmFallbackEnabled">
@@ -626,7 +626,7 @@
                     <input type="text" class="form-control form-control-sm" id="llmFallbackModel" placeholder="可选">
                 </div>
                 <div class="text-muted small mb-3">
-                    此处修改的是<strong>全平台共用</strong>的大模型配置（<code>modules/test_case/llm_config.json</code>）。
+                    此处修改的是<strong>全平台共用</strong>的大模型配置（<code>config/llm_config.json</code>）。
                 </div>
                 <hr>
                 <h6 class="mb-3"><i class="fas fa-paper-plane me-2 text-primary"></i>外部集成配置</h6>
@@ -6521,15 +6521,15 @@
             var hint = document.getElementById('llmApiKeyHint');
             if (provider === 'volcengine') {
                 llmApiKeyInput.placeholder = 'api-key-...';
-                if (hint) hint.textContent = '火山引擎 Key 通常以 api-key- 开头；保存后写入 modules/test_case/llm_config.json（全平台共用）。';
+                if (hint) hint.textContent = '火山引擎 Key 通常以 api-key- 开头；保存后写入 config/llm_config.json（全平台共用）。';
                 if (isOpenInit || !base || base.indexOf('api.deepseek.com') >= 0) llmBaseUrlInput.value = 'https://ark.cn-beijing.volces.com/api/v3';
                 if (isOpenInit || !model || model === 'deepseek-chat') llmModelInput.value = 'doubao-pro-32k';
             } else if (provider === 'gemini') {
                 llmApiKeyInput.placeholder = 'AIza...（Gemini Key）';
-                if (hint) hint.textContent = 'Gemini 使用 Google API Key；保存后写入 modules/test_case/llm_config.json（全平台共用）。';
+                if (hint) hint.textContent = 'Gemini 使用 Google API Key；保存后写入 config/llm_config.json（全平台共用）。';
             } else {
                 llmApiKeyInput.placeholder = 'sk-...';
-                if (hint) hint.textContent = 'DeepSeek Key 通常以 sk- 开头；保存后写入 modules/test_case/llm_config.json（全平台共用）。';
+                if (hint) hint.textContent = 'DeepSeek Key 通常以 sk- 开头；保存后写入 config/llm_config.json（全平台共用）。';
                 if (isOpenInit || !base || base.indexOf('volces.com') >= 0 || base.indexOf('ark.cn') >= 0) llmBaseUrlInput.value = 'https://api.deepseek.com/v1';
                 if (isOpenInit || !model || model.indexOf('doubao') === 0) llmModelInput.value = 'deepseek-chat';
             }
@@ -6538,7 +6538,7 @@
 
     function loadLLMConfig() {
         llmConfigStatus.textContent = '';
-        fetch(baseUrl + '/api/llm_config', { method: 'GET' })
+        fetch('/api/llm_config', { method: 'GET' })
             .then(function(r) { return r.json(); })
             .then(function(res) {
                 var cfg = (res && res.data) || {};
@@ -6592,7 +6592,7 @@
             case_system_push_token: caseSystemPushTokenInput ? caseSystemPushTokenInput.value.trim() : '',
             case_system_project: caseSystemProjectInput ? caseSystemProjectInput.value.trim() : ''
         };
-        fetch(baseUrl + '/api/llm_config', {
+        fetch('/api/llm_config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)

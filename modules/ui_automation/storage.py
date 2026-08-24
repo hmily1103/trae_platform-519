@@ -30,6 +30,7 @@ class RecordingStorage:
         self.suites_dir = os.path.join(storage_dir, "suites")
         self.reports_dir = os.path.join(storage_dir, "reports")
         self.traces_dir = os.path.join(storage_dir, "traces")
+        self.explore_jobs_dir = os.path.join(storage_dir, "ai_explore_jobs")
         
         # 创建目录
         os.makedirs(self.recordings_dir, exist_ok=True)
@@ -40,8 +41,22 @@ class RecordingStorage:
         os.makedirs(self.suites_dir, exist_ok=True)
         os.makedirs(self.reports_dir, exist_ok=True)
         os.makedirs(self.traces_dir, exist_ok=True)
+        os.makedirs(self.explore_jobs_dir, exist_ok=True)
         
         self.lock = threading.Lock()
+
+    def _normalize_session_defaults(self, session: Optional[RecordingSession]) -> Optional[RecordingSession]:
+        """兼容旧用例字段，统一补齐 Android 默认值。"""
+        if not session:
+            return session
+        session.platform = (session.platform or 'android').strip() or 'android'
+        if session.platform == 'android':
+            session.target = (session.target or session.device_id or session.package_name or '').strip()
+            session.entry_url = ''
+        else:
+            session.target = (session.target or '').strip()
+            session.entry_url = (session.entry_url or '').strip()
+        return session
     
     def save_execution_trace(self, trace: ExecutionTrace) -> bool:
         """
@@ -106,8 +121,9 @@ class RecordingStorage:
                     except Exception:
                         existing_session = None
 
-                session_to_save = session
+                session_to_save = self._normalize_session_defaults(session)
                 if existing_session:
+                    existing_session = self._normalize_session_defaults(existing_session)
                     existing_actions_by_key = {}
                     for action in existing_session.actions:
                         existing_actions_by_key[(action.step_num, action.timestamp)] = action
@@ -126,7 +142,13 @@ class RecordingStorage:
                         package_name=session.package_name or existing_session.package_name,
                         created_at=min(session.created_at, existing_session.created_at),
                         actions=merged_actions,
-                        description=session.description or existing_session.description
+                        description=session.description or existing_session.description,
+                        project_id=session.project_id or existing_session.project_id,
+                        name=session.name or existing_session.name,
+                        platform=session.platform or existing_session.platform or "android",
+                        target=session.target or existing_session.target,
+                        entry_url=session.entry_url or existing_session.entry_url,
+                        meta=(existing_session.meta or {}) | (session.meta or {}),
                     )
 
                 with open(file_path, 'w', encoding='utf-8') as f:
@@ -151,7 +173,7 @@ class RecordingStorage:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
-            return RecordingSession.from_dict(data)
+            return self._normalize_session_defaults(RecordingSession.from_dict(data))
         except Exception as e:
             logger.warning(f"加载录制失败: {e}")
             return None
@@ -180,6 +202,9 @@ class RecordingStorage:
                         'id': session.id,
                         'device_id': session.device_id,
                         'package_name': session.package_name,
+                        'platform': session.platform or 'android',
+                        'target': session.target or session.device_id,
+                        'entry_url': session.entry_url or '',
                         'created_at': session.created_at.isoformat() if isinstance(session.created_at, datetime) else session.created_at,
                         'action_count': len(session.actions),
                         'artifact_step_count': self.get_artifact_step_count(session.id),
@@ -408,6 +433,18 @@ class RecordingStorage:
             logger.warning(f"保存执行报告失败: {e}")
             return False
 
+    def load_report(self, job_id: str) -> Optional[Dict]:
+        """加载单个执行报告"""
+        try:
+            file_path = os.path.join(self.reports_dir, f"{job_id}.json")
+            if not os.path.exists(file_path):
+                return None
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"加载执行报告失败: {e}")
+            return None
+
     def list_reports(self) -> List[Dict]:
         """列出所有执行报告"""
         reports = []
@@ -428,3 +465,61 @@ class RecordingStorage:
         # 按开始时间倒序
         reports.sort(key=lambda x: x.get('start_time', 0), reverse=True)
         return reports
+
+    # --- AI 探索任务落盘 ---
+
+    def save_explore_job(self, job: Dict) -> bool:
+        """持久化探索任务快照（去掉过大 preview 图）。"""
+        try:
+            job_id = (job or {}).get("job_id") or ""
+            if not job_id:
+                return False
+            payload = dict(job)
+            # 事件里去掉 base64 预览，避免磁盘膨胀
+            events = []
+            for ev in payload.get("events") or []:
+                if not isinstance(ev, dict):
+                    continue
+                e = {k: v for k, v in ev.items() if k != "preview_image"}
+                events.append(e)
+            payload["events"] = events[-200:]
+            if payload.get("last_event") and isinstance(payload["last_event"], dict):
+                payload["last_event"] = {
+                    k: v for k, v in payload["last_event"].items() if k != "preview_image"
+                }
+            path = os.path.join(self.explore_jobs_dir, f"{job_id}.json")
+            with self.lock:
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as e:
+            logger.warning(f"保存探索任务失败: {e}")
+            return False
+
+    def load_explore_job(self, job_id: str) -> Optional[Dict]:
+        try:
+            path = os.path.join(self.explore_jobs_dir, f"{job_id}.json")
+            if not os.path.exists(path):
+                return None
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"加载探索任务失败: {e}")
+            return None
+
+    def list_explore_jobs(self, limit: int = 30) -> List[Dict]:
+        jobs = []
+        try:
+            for name in os.listdir(self.explore_jobs_dir):
+                if not name.endswith(".json"):
+                    continue
+                path = os.path.join(self.explore_jobs_dir, name)
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        jobs.append(json.load(f))
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.warning(f"列出探索任务失败: {e}")
+        jobs.sort(key=lambda x: x.get("updated_at") or x.get("created_at") or 0, reverse=True)
+        return jobs[: max(1, int(limit))]
